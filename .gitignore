@@ -1,0 +1,6 @@
+.env
+.DS_STORE/*
+__MACOSX/
+ui/node_modules/*
+.venv
+.idea
