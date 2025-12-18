@@ -1,0 +1,28 @@
+name: acquisition
+description: Agent specialized in handling acquisition-related queries and data retrieval
+category: acquisition
+tools:
+  - name: search_acquisitions
+    description: Search for company acquisitions by various criteria
+    parameters:
+      - name: company_name
+        type: string
+        description: Name of the acquiring or acquired company
+      - name: date_range
+        type: object
+        description: Date range for filtering acquisitions
+  - name: get_acquisition_details
+    description: Get detailed information about a specific acquisition
+    parameters:
+      - name: acquisition_id
+        type: string
+        description: Unique identifier for the acquisition
+metadata:
+  use_cases:
+    - Finding companies that were acquired
+    - Getting acquisition details and terms
+    - Analyzing acquisition trends
+  data_sources:
+    - acquisitions table
+    - organizations table
+

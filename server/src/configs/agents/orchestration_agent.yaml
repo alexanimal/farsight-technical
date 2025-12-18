@@ -1,0 +1,25 @@
+name: orchestration
+description: Orchestration agent that routes queries to appropriate specialized agents
+category: orchestration
+tools:
+  - name: route_query
+    description: Analyze a user query and determine which agent(s) should handle it
+    parameters:
+      - name: query
+        type: string
+        description: The user's query to analyze and route
+      - name: context
+        type: object
+        description: Additional context for routing decisions
+  - name: get_available_agents
+    description: Get a list of all available agents and their capabilities
+    parameters: []
+metadata:
+  use_cases:
+    - Query routing and agent selection
+    - Multi-agent coordination
+    - Tool discovery and categorization
+  manages_agents:
+    - acquisition
+    # Add more agent names as they are created
+
