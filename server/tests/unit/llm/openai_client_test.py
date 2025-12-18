@@ -31,23 +31,23 @@ def mock_chat_completion():
     response.object = "chat.completion"
     response.created = 1234567890
     response.model = "gpt-4"
-    
+
     message = MagicMock(spec=ChatCompletionMessage)
     message.role = "assistant"
     message.content = "Hello! How can I help you?"
     message.tool_calls = None
-    
+
     choice = MagicMock()
     choice.index = 0
     choice.message = message
     choice.finish_reason = "stop"
-    
+
     response.choices = [choice]
     response.usage = MagicMock()
     response.usage.prompt_tokens = 10
     response.usage.completion_tokens = 5
     response.usage.total_tokens = 15
-    
+
     return response
 
 
@@ -59,19 +59,19 @@ def mock_chat_completion_chunk():
     chunk.object = "chat.completion.chunk"
     chunk.created = 1234567890
     chunk.model = "gpt-4"
-    
+
     delta = MagicMock()
     delta.role = None
     delta.content = "Hello"
     delta.tool_calls = None
-    
+
     choice = MagicMock()
     choice.index = 0
     choice.delta = delta
     choice.finish_reason = None
-    
+
     chunk.choices = [choice]
-    
+
     return chunk
 
 
@@ -155,9 +155,7 @@ class TestOpenAIClientInitialize:
                 mock_openai_class.assert_called_once_with(api_key="custom-key")
 
     @pytest.mark.asyncio
-    async def test_initialize_with_base_url(
-        self, mock_openai_client, monkeypatch
-    ):
+    async def test_initialize_with_base_url(self, mock_openai_client, monkeypatch):
         """Test initialization with custom base URL."""
         with patch("src.llm.openai_client.settings") as mock_settings:
             mock_settings.openai_api_key = "test-key"
@@ -291,9 +289,7 @@ class TestOpenAIClientContextManager:
                 assert client._client is None
 
     @pytest.mark.asyncio
-    async def test_context_manager_returns_self(
-        self, mock_openai_client, monkeypatch
-    ):
+    async def test_context_manager_returns_self(self, mock_openai_client, monkeypatch):
         """Test that context manager returns the client instance."""
         with patch("src.llm.openai_client.settings") as mock_settings:
             mock_settings.openai_api_key = "test-key"
@@ -327,9 +323,7 @@ class TestOpenAIClientProperty:
     """Test OpenAIClient.client property."""
 
     @pytest.mark.asyncio
-    async def test_client_property_success(
-        self, mock_openai_client, monkeypatch
-    ):
+    async def test_client_property_success(self, mock_openai_client, monkeypatch):
         """Test accessing client property when initialized."""
         with patch("src.llm.openai_client.settings") as mock_settings:
             mock_settings.openai_api_key = "test-key"
@@ -373,7 +367,9 @@ class TestOpenAIClientChatCompletion:
                 await client.initialize()
 
                 messages = [{"role": "user", "content": "Hello!"}]
-                response = await client.chat_completion(messages=messages, model="gpt-4")
+                response = await client.chat_completion(
+                    messages=messages, model="gpt-4"
+                )
 
                 assert response == mock_chat_completion
                 mock_openai_client.chat.completions.create.assert_called_once()
@@ -441,11 +437,11 @@ class TestOpenAIClientChatCompletion:
 
             with patch("src.llm.openai_client.AsyncOpenAI") as mock_openai_class:
                 mock_openai_class.return_value = mock_openai_client
-                
+
                 # Create an async iterator for streaming
                 async def stream_generator():
                     yield mock_chat_completion_chunk
-                
+
                 mock_openai_client.chat.completions.create.return_value = (
                     stream_generator()
                 )
@@ -618,9 +614,7 @@ class TestOpenAIClientChatCompletion:
             assert "not initialized" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_chat_completion_api_error(
-        self, mock_openai_client, monkeypatch
-    ):
+    async def test_chat_completion_api_error(self, mock_openai_client, monkeypatch):
         """Test chat completion when API call fails."""
         with patch("src.llm.openai_client.settings") as mock_settings:
             mock_settings.openai_api_key = "test-key"
@@ -659,7 +653,10 @@ class TestOpenAIClientChatCompletion:
                 messages = [{"role": "user", "content": "Hello!"}]
                 tools = [{"type": "web_search"}]
                 await client.chat_completion(
-                    messages=messages, model="gpt-4", tools=tools, enable_web_search=True
+                    messages=messages,
+                    model="gpt-4",
+                    tools=tools,
+                    enable_web_search=True,
                 )
 
                 call_args = mock_openai_client.chat.completions.create.call_args[1]
@@ -720,8 +717,9 @@ class TestOpenAIClientSingleton:
                 mock_openai_class.return_value = mock_openai_client
 
                 # Reset singleton
-                from src.llm.openai_client import _default_client
                 import src.llm.openai_client as openai_client_module
+                from src.llm.openai_client import _default_client
+
                 openai_client_module._default_client = None
 
                 client = await get_client()
@@ -741,6 +739,7 @@ class TestOpenAIClientSingleton:
 
                 # Reset singleton
                 import src.llm.openai_client as openai_client_module
+
                 openai_client_module._default_client = None
 
                 client1 = await get_client()
@@ -751,9 +750,7 @@ class TestOpenAIClientSingleton:
                 assert mock_openai_class.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_close_default_client_success(
-        self, mock_openai_client, monkeypatch
-    ):
+    async def test_close_default_client_success(self, mock_openai_client, monkeypatch):
         """Test close_default_client closes the singleton."""
         with patch("src.llm.openai_client.settings") as mock_settings:
             mock_settings.openai_api_key = "test-key"
@@ -763,6 +760,7 @@ class TestOpenAIClientSingleton:
 
                 # Reset singleton
                 import src.llm.openai_client as openai_client_module
+
                 openai_client_module._default_client = None
 
                 client = await get_client()
@@ -773,6 +771,7 @@ class TestOpenAIClientSingleton:
 
                 # Verify singleton is reset
                 import src.llm.openai_client as openai_client_module
+
                 assert openai_client_module._default_client is None
 
     @pytest.mark.asyncio
@@ -780,6 +779,7 @@ class TestOpenAIClientSingleton:
         """Test close_default_client when no client exists."""
         # Reset singleton
         import src.llm.openai_client as openai_client_module
+
         openai_client_module._default_client = None
 
         # Should not raise an error
@@ -796,6 +796,7 @@ class TestOpenAIClientSingleton:
 
                 # Reset singleton
                 import src.llm.openai_client as openai_client_module
+
                 openai_client_module._default_client = None
 
                 client1 = await get_client()
@@ -804,4 +805,3 @@ class TestOpenAIClientSingleton:
                 client2 = await get_client()
                 # Should be a new instance
                 assert client1 is not client2
-

@@ -9,8 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import asyncpg  # type: ignore[import-untyped]
 import pytest
 
-from src.db.postgres_client import (PostgresClient, close_default_client,
-                                    get_client)
+from src.db.postgres_client import PostgresClient, close_default_client, get_client
 
 
 @pytest.fixture

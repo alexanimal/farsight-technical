@@ -19,6 +19,7 @@ from src.tools.generate_llm_response import generate_llm_response
 def reset_singleton():
     """Reset the OpenAI client singleton before each test."""
     import src.llm.openai_client as openai_client_module
+
     # Reset singleton before test
     openai_client_module._default_client = None
     yield
@@ -39,8 +40,6 @@ def prevent_real_openai_initialization():
         yield
 
 
-
-
 @pytest.fixture
 def mock_openai_client():
     """Create a mock OpenAIClient instance."""
@@ -59,23 +58,23 @@ def mock_chat_completion():
     response.object = "chat.completion"
     response.created = 1234567890
     response.model = "gpt-4"
-    
+
     message = MagicMock(spec=ChatCompletionMessage)
     message.role = "assistant"
     message.content = "Hello! How can I help you?"
     message.tool_calls = None
-    
+
     choice = MagicMock()
     choice.index = 0
     choice.message = message
     choice.finish_reason = "stop"
-    
+
     response.choices = [choice]
     response.usage = MagicMock()
     response.usage.prompt_tokens = 10
     response.usage.completion_tokens = 5
     response.usage.total_tokens = 15
-    
+
     return response
 
 
@@ -87,19 +86,19 @@ def mock_chat_completion_chunk():
     chunk.object = "chat.completion.chunk"
     chunk.created = 1234567890
     chunk.model = "gpt-4"
-    
+
     delta = MagicMock()
     delta.role = None
     delta.content = "Hello"
     delta.tool_calls = None
-    
+
     choice = MagicMock()
     choice.index = 0
     choice.delta = delta
     choice.finish_reason = None
-    
+
     chunk.choices = [choice]
-    
+
     return chunk
 
 
@@ -116,7 +115,9 @@ class TestGenerateLLMResponseBasic:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             response = await generate_llm_response(
@@ -155,7 +156,9 @@ class TestGenerateLLMResponseBasic:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             await generate_llm_response(
@@ -180,7 +183,9 @@ class TestGenerateLLMResponseBasic:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             await generate_llm_response(
@@ -205,7 +210,9 @@ class TestGenerateLLMResponseBasic:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             await generate_llm_response(
@@ -229,7 +236,9 @@ class TestGenerateLLMResponseBasic:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             await generate_llm_response(
@@ -249,7 +258,9 @@ class TestGenerateLLMResponseBasic:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             await generate_llm_response(
@@ -268,6 +279,7 @@ class TestGenerateLLMResponseStreaming:
         self, mock_openai_client, mock_chat_completion_chunk
     ):
         """Test streaming LLM response generation."""
+
         # Create an async iterator for streaming
         async def stream_generator():
             yield mock_chat_completion_chunk
@@ -277,7 +289,9 @@ class TestGenerateLLMResponseStreaming:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             response = await generate_llm_response(
@@ -294,6 +308,7 @@ class TestGenerateLLMResponseStreaming:
         self, mock_openai_client, mock_chat_completion_chunk
     ):
         """Test iterating over streaming response."""
+
         # Create an async iterator for streaming
         async def stream_generator():
             yield mock_chat_completion_chunk
@@ -304,7 +319,9 @@ class TestGenerateLLMResponseStreaming:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             response = await generate_llm_response(
@@ -331,11 +348,16 @@ class TestGenerateLLMResponseWebSearch:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             await generate_llm_response(
-                prompt="What's the weather?", model="gpt-4", enable_web_search=True, client=None
+                prompt="What's the weather?",
+                model="gpt-4",
+                enable_web_search=True,
+                client=None,
             )
 
             call_args = mock_openai_client.chat_completion.call_args[1]
@@ -355,7 +377,9 @@ class TestGenerateLLMResponseReasoningEffort:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             await generate_llm_response(
@@ -376,7 +400,9 @@ class TestGenerateLLMResponseReasoningEffort:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             with pytest.raises(ValueError) as exc_info:
@@ -402,7 +428,9 @@ class TestGenerateLLMResponseImages:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             await generate_llm_response(
@@ -429,7 +457,9 @@ class TestGenerateLLMResponseImages:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             await generate_llm_response(
@@ -456,7 +486,9 @@ class TestGenerateLLMResponseImages:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             image_dict = {
@@ -475,14 +507,14 @@ class TestGenerateLLMResponseImages:
             assert user_message["content"][1] == image_dict
 
     @pytest.mark.asyncio
-    async def test_generate_llm_response_invalid_image_format(
-        self, mock_openai_client
-    ):
+    async def test_generate_llm_response_invalid_image_format(self, mock_openai_client):
         """Test generate_llm_response with invalid image format."""
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             with pytest.raises(ValueError) as exc_info:
@@ -508,7 +540,9 @@ class TestGenerateLLMResponseFiles:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             await generate_llm_response(
@@ -534,7 +568,9 @@ class TestGenerateLLMResponseFiles:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             await generate_llm_response(
@@ -558,7 +594,9 @@ class TestGenerateLLMResponseFiles:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             file_dict = {"file_id": "file-abc123", "tools": [{"type": "file_search"}]}
@@ -574,14 +612,14 @@ class TestGenerateLLMResponseFiles:
             assert user_message["attachments"][0] == file_dict
 
     @pytest.mark.asyncio
-    async def test_generate_llm_response_invalid_file_format(
-        self, mock_openai_client
-    ):
+    async def test_generate_llm_response_invalid_file_format(self, mock_openai_client):
         """Test generate_llm_response with invalid file format."""
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             with pytest.raises(ValueError) as exc_info:
@@ -607,7 +645,9 @@ class TestGenerateLLMResponseAdvanced:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             tools = [
@@ -636,7 +676,9 @@ class TestGenerateLLMResponseAdvanced:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             await generate_llm_response(
@@ -656,7 +698,9 @@ class TestGenerateLLMResponseAdvanced:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             response_format = {"type": "json_object"}
@@ -680,7 +724,9 @@ class TestGenerateLLMResponseAdvanced:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             await generate_llm_response(
@@ -705,7 +751,9 @@ class TestGenerateLLMResponseAdvanced:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             response = await generate_llm_response(
@@ -726,7 +774,9 @@ class TestGenerateLLMResponseAdvanced:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             response = await generate_llm_response(
@@ -745,7 +795,9 @@ class TestGenerateLLMResponseAdvanced:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             await generate_llm_response(
@@ -774,13 +826,13 @@ class TestGenerateLLMResponseErrorHandling:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             with pytest.raises(Exception) as exc_info:
-                await generate_llm_response(
-                    prompt="Hello!", model="gpt-4", client=None
-                )
+                await generate_llm_response(prompt="Hello!", model="gpt-4", client=None)
             # Should raise an exception (the exact message doesn't matter for this test)
             assert exc_info.value is not None
 
@@ -794,13 +846,13 @@ class TestGenerateLLMResponseErrorHandling:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             # Should handle empty prompt gracefully
-            await generate_llm_response(
-                prompt="", model="gpt-4", client=None
-            )
+            await generate_llm_response(prompt="", model="gpt-4", client=None)
 
             call_args = mock_openai_client.chat_completion.call_args[1]
             user_message = call_args["messages"][-1]
@@ -816,7 +868,9 @@ class TestGenerateLLMResponseErrorHandling:
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
         generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
-        with patch.object(generate_llm_response_module, "get_client", new_callable=AsyncMock) as mock_get_client:
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
             await generate_llm_response(
@@ -832,4 +886,3 @@ class TestGenerateLLMResponseErrorHandling:
             assert isinstance(user_message["content"], list)
             assert len(user_message["content"]) == 1  # Just image, no text
             assert user_message["content"][0]["type"] == "image_url"
-
