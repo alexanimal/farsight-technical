@@ -9,6 +9,7 @@ dependencies = [
     "asyncpg>=0.31.0",
     "black>=25.12.0",
     "isort>=7.0.0",
+    "langfuse>=3.11.0",
     "mypy>=1.19.1",
     "pinecone[asyncio,grpc]>=8.0.0",
     "pydantic>=2.12.5",
