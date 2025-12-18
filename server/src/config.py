@@ -60,20 +60,13 @@ class Settings(BaseSettings):
         default=5432,
         description="PostgreSQL port number",
     )
-    
-    langfuse_secret_key: str = Field(
-        default="",
-        description="Langfuse Secret Key"
-    )
-    
-    langfuse_public_key: str = Field(
-        default="",
-        description="Langfuse Public Key"
-    )
-    
+
+    langfuse_secret_key: str = Field(default="", description="Langfuse Secret Key")
+
+    langfuse_public_key: str = Field(default="", description="Langfuse Public Key")
+
     langfuse_base_url: str = Field(
-        default="https://us.cloud.langfuse.com",
-        description="Langfuse Base URL"
+        default="https://us.cloud.langfuse.com", description="Langfuse Base URL"
     )
 
     @field_validator("postgres_port")

@@ -9,4 +9,3 @@ __all__ = [
     "get_openai_client",
     "close_openai_client",
 ]
-

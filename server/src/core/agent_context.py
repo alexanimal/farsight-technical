@@ -122,4 +122,3 @@ class AgentContext(BaseModel):
         if isinstance(data.get("timestamp"), datetime):
             data["timestamp"] = data["timestamp"].isoformat()
         return data
-

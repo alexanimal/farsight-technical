@@ -232,4 +232,3 @@ class AgentResponse(BaseModel):
 
 # Update forward references for nested responses
 AgentResponse.model_rebuild()
-

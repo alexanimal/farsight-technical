@@ -210,9 +210,7 @@ class OpenAIClient:
                 "type": "web_search",
             }
             # Check if web_search tool already exists
-            if not any(
-                tool.get("type") == "web_search" for tool in final_tools
-            ):
+            if not any(tool.get("type") == "web_search" for tool in final_tools):
                 final_tools.append(web_search_tool)
 
         # Build request parameters
@@ -254,9 +252,7 @@ class OpenAIClient:
                     f"Chat completion with model '{model}', "
                     f"web_search={enable_web_search}, reasoning_effort={reasoning_effort}"
                 )
-                response = await self._client.chat.completions.create(
-                    **request_params
-                )
+                response = await self._client.chat.completions.create(**request_params)
                 return response
         except Exception as e:
             logger.error(f"Chat completion failed: {e}")
@@ -345,4 +341,3 @@ async def close_default_client() -> None:
     if _default_client is not None:
         await _default_client.close()
         _default_client = None
-

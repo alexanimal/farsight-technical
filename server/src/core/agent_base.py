@@ -16,8 +16,12 @@ class AgentConfig(BaseModel):
     """Configuration model for an agent loaded from YAML."""
 
     name: str = Field(..., description="Unique identifier for the agent")
-    description: str = Field(..., description="Human-readable description of what the agent does")
-    category: str = Field(..., description="Category/type of agent (e.g., 'acquisition', 'orchestration')")
+    description: str = Field(
+        ..., description="Human-readable description of what the agent does"
+    )
+    category: str = Field(
+        ..., description="Category/type of agent (e.g., 'acquisition', 'orchestration')"
+    )
     tools: List[Dict[str, Any]] = Field(
         default_factory=list,
         description="List of tools/capabilities this agent provides",
@@ -77,9 +81,13 @@ class AgentBase:
 
             return AgentConfig(**config_data)
         except yaml.YAMLError as e:
-            raise ValueError(f"Invalid YAML in config file {self.config_path}: {e}") from e
+            raise ValueError(
+                f"Invalid YAML in config file {self.config_path}: {e}"
+            ) from e
         except Exception as e:
-            raise ValueError(f"Error loading config from {self.config_path}: {e}") from e
+            raise ValueError(
+                f"Error loading config from {self.config_path}: {e}"
+            ) from e
 
     @property
     def name(self) -> str:
@@ -116,4 +124,6 @@ class AgentBase:
 
     def __repr__(self) -> str:
         """String representation of the agent."""
-        return f"{self.__class__.__name__}(name='{self.name}', category='{self.category}')"
+        return (
+            f"{self.__class__.__name__}(name='{self.name}', category='{self.category}')"
+        )

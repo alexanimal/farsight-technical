@@ -53,9 +53,7 @@ class PineconeOrganization(BaseModel):
         None,
         description="Funding stage: series_a, series_b, seed, etc.",
     )
-    valuation_usd: Optional[float] = Field(
-        None, description="Last valuation amount"
-    )
+    valuation_usd: Optional[float] = Field(None, description="Last valuation amount")
     investors: Optional[list[UUID]] = Field(
         None, description="List of org_uuids of all investors of this company"
     )
@@ -227,9 +225,7 @@ class PineconeOrganizationModel:
                 "PineconeClient not initialized. Call initialize() first."
             )
         if self._openai_client is None:
-            raise RuntimeError(
-                "OpenAIClient not initialized. Call initialize() first."
-            )
+            raise RuntimeError("OpenAIClient not initialized. Call initialize() first.")
 
         # Generate embedding for the text query
         try:
@@ -272,10 +268,7 @@ class PineconeOrganizationModel:
                 founding_filter["$lte"] = founding_date_to.isoformat()
             metadata_filter["founding_date"] = founding_filter
 
-        if (
-            last_fundraise_date_from is not None
-            or last_fundraise_date_to is not None
-        ):
+        if last_fundraise_date_from is not None or last_fundraise_date_to is not None:
             fundraise_filter: dict[str, Any] = {}
             if last_fundraise_date_from is not None:
                 fundraise_filter["$gte"] = last_fundraise_date_from.isoformat()
@@ -351,9 +344,7 @@ class PineconeOrganizationModel:
 
                 # Convert date strings to datetime objects
                 for date_field in ["founding_date", "last_fundraise_date"]:
-                    if date_field in metadata and isinstance(
-                        metadata[date_field], str
-                    ):
+                    if date_field in metadata and isinstance(metadata[date_field], str):
                         try:
                             metadata[date_field] = datetime.fromisoformat(
                                 metadata[date_field]
@@ -373,4 +364,3 @@ class PineconeOrganizationModel:
         except Exception as e:
             logger.error(f"Failed to query Pinecone: {e}")
             raise
-

@@ -36,4 +36,3 @@ __all__ = [
     "get_trace_context",
     "log_event",
 ]
-

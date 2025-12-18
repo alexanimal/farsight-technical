@@ -94,8 +94,12 @@ class Executor:
         # Get or create trace context
         tracer = get_tracer()
         trace_context = tracer.get_trace_context()
-        trace_id = trace_context.get("trace_id") if trace_context else tracer.create_trace_id()
-        parent_observation_id = trace_context.get("observation_id") if trace_context else None
+        trace_id = (
+            trace_context.get("trace_id") if trace_context else tracer.create_trace_id()
+        )
+        parent_observation_id = (
+            trace_context.get("observation_id") if trace_context else None
+        )
 
         try:
             # Wrap execution with tracing if enabled
@@ -110,14 +114,20 @@ class Executor:
                     metadata={
                         "agent_name": agent.name,
                         "agent_category": agent.category,
-                        "query": context.query[:100] if len(context.query) > 100 else context.query,
+                        "query": (
+                            context.query[:100]
+                            if len(context.query) > 100
+                            else context.query
+                        ),
                         "timeout": timeout,
                     },
                 ) as span:
                     # Execute with timeout if specified
                     if timeout is not None:
                         response = await asyncio.wait_for(
-                            self._execute_with_cancellation(agent, context, cancellation_token),
+                            self._execute_with_cancellation(
+                                agent, context, cancellation_token
+                            ),
                             timeout=timeout,
                         )
                     else:
@@ -138,7 +148,9 @@ class Executor:
                 # Execute without tracing
                 if timeout is not None:
                     response = await asyncio.wait_for(
-                        self._execute_with_cancellation(agent, context, cancellation_token),
+                        self._execute_with_cancellation(
+                            agent, context, cancellation_token
+                        ),
                         timeout=timeout,
                     )
                 else:
@@ -260,8 +272,12 @@ class Executor:
         # Get or create trace context
         tracer = get_tracer()
         trace_context = tracer.get_trace_context()
-        trace_id = trace_context.get("trace_id") if trace_context else tracer.create_trace_id()
-        parent_observation_id = trace_context.get("observation_id") if trace_context else None
+        trace_id = (
+            trace_context.get("trace_id") if trace_context else tracer.create_trace_id()
+        )
+        parent_observation_id = (
+            trace_context.get("observation_id") if trace_context else None
+        )
 
         try:
             if self.enable_tracing:
@@ -418,7 +434,6 @@ class Executor:
         return await tool_func(**parameters)
 
 
-
 # Default executor instance
 _default_executor: Optional[Executor] = None
 
@@ -443,4 +458,3 @@ def set_executor(executor: Executor) -> None:
     """
     global _default_executor
     _default_executor = executor
-

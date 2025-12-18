@@ -188,7 +188,9 @@ async def generate_llm_response(
         for file in files:
             if isinstance(file, str):
                 # Assume it's a file ID
-                attachments.append({"file_id": file, "tools": [{"type": "file_search"}]})
+                attachments.append(
+                    {"file_id": file, "tools": [{"type": "file_search"}]}
+                )
             elif isinstance(file, dict):
                 # Assume it's already formatted
                 attachments.append(file)
@@ -212,7 +214,7 @@ async def generate_llm_response(
     # Extract return_text from kwargs before passing to client
     # (return_text is handled in this function, not by the OpenAI API)
     return_text = kwargs.pop("return_text", False)
-    
+
     # Call the client's chat_completion method
     try:
         response = await client.chat_completion(
@@ -243,4 +245,3 @@ async def generate_llm_response(
     except Exception as e:
         logger.error(f"Failed to generate LLM response: {e}")
         raise
-

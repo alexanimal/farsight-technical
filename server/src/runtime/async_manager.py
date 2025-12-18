@@ -164,8 +164,9 @@ class AsyncManager:
         def make_operation(item: T) -> Callable[[], Awaitable[Any]]:
             async def op() -> Any:
                 return await operation(item)
+
             return op
-        
+
         operations = [make_operation(item) for item in items]
 
         # If batch_size is specified, process in batches
@@ -234,7 +235,9 @@ class AsyncManager:
                     )
                 else:
                     # No more retries
-                    logger.error(f"Operation failed after {max_retries + 1} attempts: {e}")
+                    logger.error(
+                        f"Operation failed after {max_retries + 1} attempts: {e}"
+                    )
                     raise
 
         # This should never be reached, but satisfy type checker
@@ -242,9 +245,7 @@ class AsyncManager:
             raise last_exception
         raise RuntimeError("Unexpected error in execute_with_retry")
 
-    async def _execute_with_semaphore(
-        self, operation: Callable[[], Awaitable[T]]
-    ) -> T:
+    async def _execute_with_semaphore(self, operation: Callable[[], Awaitable[T]]) -> T:
         """Execute an operation with semaphore-based concurrency control.
 
         Args:
@@ -322,4 +323,3 @@ def set_async_manager(manager: AsyncManager) -> None:
     """
     global _default_async_manager
     _default_async_manager = manager
-

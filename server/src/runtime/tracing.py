@@ -25,8 +25,8 @@ from src.config import settings
 logger = logging.getLogger(__name__)
 
 # Context variable for trace context propagation
-_trace_context: contextvars.ContextVar[Optional[Dict[str, Any]]] = contextvars.ContextVar(
-    "trace_context", default=None
+_trace_context: contextvars.ContextVar[Optional[Dict[str, Any]]] = (
+    contextvars.ContextVar("trace_context", default=None)
 )
 
 
@@ -138,7 +138,9 @@ class Tracer:
             context = {
                 "trace_id": trace_id,
                 "span_name": name,
-                "observation_id": observation.id if hasattr(observation, "id") else None,
+                "observation_id": (
+                    observation.id if hasattr(observation, "id") else None
+                ),
             }
             if parent_observation_id:
                 context["parent_observation_id"] = parent_observation_id
@@ -192,7 +194,9 @@ class Tracer:
             context = {
                 "trace_id": trace_id,
                 "span_name": name,
-                "observation_id": observation.id if hasattr(observation, "id") else None,
+                "observation_id": (
+                    observation.id if hasattr(observation, "id") else None
+                ),
             }
             if parent_observation_id:
                 context["parent_observation_id"] = parent_observation_id
@@ -403,4 +407,3 @@ def log_event(
         metadata: Optional metadata for the event.
     """
     get_tracer().log_event(name=name, trace_id=trace_id, metadata=metadata)
-
