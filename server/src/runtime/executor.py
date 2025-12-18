@@ -383,7 +383,15 @@ class Executor:
             pass
 
         # Execute the agent's execute method
-        return await agent.execute(context)
+        # Type check: agents must implement async execute method
+        if not hasattr(agent, "execute"):
+            raise ValueError(
+                f"Agent {agent.name} does not implement required execute method"
+            )
+        execute_method = getattr(agent, "execute")
+        if not callable(execute_method):
+            raise ValueError(f"Agent {agent.name} execute is not callable")
+        return await execute_method(context)  # type: ignore[misc]
 
     async def _execute_tool_with_cancellation(
         self,

@@ -160,8 +160,13 @@ class AsyncManager:
 
         batch_size = batch_size or self.max_concurrency
 
-        # Create operations list
-        operations = [lambda item=item: operation(item) for item in items]
+        # Create operations list - use a closure to capture each item properly
+        def make_operation(item: T) -> Callable[[], Awaitable[Any]]:
+            async def op() -> Any:
+                return await operation(item)
+            return op
+        
+        operations = [make_operation(item) for item in items]
 
         # If batch_size is specified, process in batches
         if batch_size is not None and batch_size > 0:
@@ -275,7 +280,7 @@ class AsyncManager:
             return []
 
         # Use asyncio.gather with return_exceptions to handle errors gracefully
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        results: List[Any] = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Check for exceptions
         for i, result in enumerate(results):
@@ -289,7 +294,8 @@ class AsyncManager:
                     await asyncio.gather(*tasks[i + 1 :], return_exceptions=True)
                 raise result
 
-        return results
+        # At this point, all results are T (not exceptions)
+        return results  # type: ignore[return-value]
 
 
 # Default async manager instance
