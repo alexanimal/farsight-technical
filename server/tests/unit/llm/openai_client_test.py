@@ -8,9 +8,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from openai import AsyncOpenAI
-from openai.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
+from openai.types.chat import (ChatCompletion, ChatCompletionChunk,
+                               ChatCompletionMessage)
 
-from src.llm.openai_client import OpenAIClient, close_default_client, get_client
+from src.llm.openai_client import (OpenAIClient, close_default_client,
+                                   get_client)
 
 
 @pytest.fixture

@@ -9,7 +9,8 @@ import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from openai.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
+from openai.types.chat import (ChatCompletion, ChatCompletionChunk,
+                               ChatCompletionMessage)
 
 from src.llm.openai_client import OpenAIClient
 from src.tools.generate_llm_response import generate_llm_response

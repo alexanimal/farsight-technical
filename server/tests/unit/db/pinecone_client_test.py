@@ -8,7 +8,8 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
-from src.db.pinecone_client import PineconeClient, close_default_client, get_client
+from src.db.pinecone_client import (PineconeClient, close_default_client,
+                                    get_client)
 
 
 @pytest.fixture
