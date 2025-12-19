@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  temporal:
+    image: temporalio/auto-setup:latest
+    container_name: temporal
+    ports:
+      - "7233:7233"  # Temporal frontend
+      - "7234:7234"  # Temporal Web UI
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=temporal-postgresql
+      # Remove DYNAMIC_CONFIG_FILE_PATH - let auto-setup use defaults
+    depends_on:
+      - temporal-postgresql
+    networks:
+      - temporal-network
+
+  temporal-postgresql:
+    image: postgres:14
+    container_name: temporal-postgresql
+    environment:
+      - POSTGRES_PASSWORD=temporal
+      - POSTGRES_USER=temporal
+      - POSTGRES_DB=temporal
+    ports:
+      - "5433:5432"  # Use 5433 to avoid conflict with your main postgres
+    volumes:
+      - temporal-postgresql-data:/var/lib/postgresql/data
+    networks:
+      - temporal-network
+
+volumes:
+  temporal-postgresql-data:
+
+networks:
+  temporal-network:
+    driver: bridge
+
