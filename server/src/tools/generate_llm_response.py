@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 async def generate_llm_response(
     prompt: str,
-    model: str = "gpt-4",
+    model: str = "gpt-4.1-mini",
     instructions: Optional[str] = None,
     system_prompt: Optional[str] = None,
     temperature: Optional[float] = None,
