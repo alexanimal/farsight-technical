@@ -74,3 +74,50 @@ Schemas are provided in Excel files – you will need to write your own connecto
    ```bash
    pip install -r requirements.txt
    ```
+
+3. **Start Temporal Server** (Required for workflow orchestration)
+
+   Temporal is a separate service that needs to be running. The easiest way is using Docker Compose:
+
+   ```bash
+   # Start Temporal server and its dependencies
+   docker-compose up -d
+
+   # Verify Temporal is running
+   docker-compose ps
+
+   # View Temporal logs
+   docker-compose logs -f temporal
+   ```
+
+   This will start:
+   - Temporal server on `localhost:7233`
+   - Temporal Web UI on `http://localhost:7234`
+   - PostgreSQL database for Temporal (on port 5433)
+
+   **Note:** The API will start even if Temporal isn't running, but workflow operations will fail until Temporal is available.
+
+4. **Start the API Server**
+
+   ```bash
+   # From the server directory
+   uvicorn src.api.api:app --reload
+   ```
+
+   The API will be available at `http://localhost:8000`
+
+5. **Start the Temporal Worker** (Required for executing workflows)
+
+   In a separate terminal, start the worker that executes workflows:
+
+   ```bash
+   # From the server directory
+   python -m src.temporal.worker
+   ```
+
+   Or if you have a script entry point:
+   ```bash
+   python src/temporal/worker.py
+   ```
+
+   The worker polls Temporal for workflow and activity tasks and executes them.
