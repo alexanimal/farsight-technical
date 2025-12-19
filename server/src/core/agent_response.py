@@ -76,7 +76,7 @@ class AgentResponse(BaseModel):
         description="Optional error message if status is ERROR",
     )
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.utcnow(),
         description="Timestamp when the response was created",
     )
 

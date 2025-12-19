@@ -53,7 +53,7 @@ class AgentContext(BaseModel):
         description="Optional list of previous messages in the conversation",
     )
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.utcnow(),
         description="Timestamp when the context was created",
     )
 
