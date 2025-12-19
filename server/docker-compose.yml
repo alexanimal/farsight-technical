@@ -2,7 +2,10 @@ version: '3.8'
 
 services:
   temporal:
-    image: temporalio/auto-setup:latest
+    # Use a specific version that supports worker heartbeating (1.25.0+)
+    # The 'latest' tag may pull an older version that doesn't support this feature,
+    # causing the warning: "Worker heartbeating configured for runtime, but server version does not support it."
+    image: temporalio/auto-setup:1.25.0
     container_name: temporal
     ports:
       - "7233:7233"  # Temporal frontend
