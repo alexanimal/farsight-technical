@@ -23,9 +23,9 @@ from src.tools.generate_llm_function_response import \
 
 logger = logging.getLogger(__name__)
 
-# Try to import agent registry functions (may not be available in all contexts)
+# Import agent registry (no Temporal dependency)
 try:
-    from src.temporal.activities.agents import get_agent, list_available_agents
+    from src.agents.registry import get_agent, list_available_agents, get_agent_metadata
 
     _AGENT_REGISTRY_AVAILABLE = True
 except ImportError:
@@ -80,22 +80,26 @@ def _get_available_agents() -> Dict[str, Dict[str, Any]]:
         agent_names = [name for name in agent_names if name != "orchestration"]
 
         for agent_name in agent_names:
-            agent_info = get_agent(agent_name)
-            if agent_info is None:
+            # Try to get metadata directly (more efficient)
+            agent_metadata = get_agent_metadata(agent_name)
+            if agent_metadata is None:
                 logger.warning(f"Agent '{agent_name}' listed but not found in registry")
                 continue
 
-            agent_class, config_path = agent_info
-
-            # Load config file to get description and metadata
+            # Use metadata if available
             try:
-                with open(config_path, "r", encoding="utf-8") as f:
-                    config_data = yaml.safe_load(f)
+                description = agent_metadata.get("description", f"Agent for handling {agent_name} queries")
+                metadata = agent_metadata.get("metadata", {})
 
-                description = config_data.get(
-                    "description", f"Agent for handling {agent_name} queries"
-                )
-                metadata = config_data.get("metadata", {})
+                # If metadata not fully loaded, try to load config file directly
+                if not description or description == f"Agent for handling {agent_name} queries":
+                    agent_info = get_agent(agent_name)
+                    if agent_info:
+                        agent_class, config_path = agent_info
+                        with open(config_path, "r", encoding="utf-8") as f:
+                            config_data = yaml.safe_load(f)
+                            description = config_data.get("description", description)
+                            metadata = config_data.get("metadata", metadata)
 
                 # Extract keywords from metadata or generate from description
                 keywords = []
