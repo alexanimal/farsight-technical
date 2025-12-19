@@ -2,27 +2,39 @@ name: acquisition
 description: Agent specialized in handling acquisition-related queries and data retrieval
 category: acquisition
 tools:
-  - name: search_acquisitions
-    description: Search for company acquisitions by various criteria
+  - name: get_acquisitions
+    description: Search for company acquisitions by various criteria (UUIDs, dates, prices, etc.)
     parameters:
-      - name: company_name
+      - name: acquirer_uuid
         type: string
-        description: Name of the acquiring or acquired company
+        description: UUID of the acquiring company
+      - name: acquiree_uuid
+        type: string
+        description: UUID of the acquired company
       - name: date_range
         type: object
         description: Date range for filtering acquisitions
-  - name: get_acquisition_details
-    description: Get detailed information about a specific acquisition
+      - name: price_range
+        type: object
+        description: Price range for filtering acquisitions
+  - name: semantic_search_organizations
+    description: Search for organizations by name to resolve company names to UUIDs
     parameters:
-      - name: acquisition_id
+      - name: text
         type: string
-        description: Unique identifier for the acquisition
+        description: Company name or description to search for
+      - name: top_k
+        type: integer
+        description: Number of results to return
 metadata:
   use_cases:
     - Finding companies that were acquired
     - Getting acquisition details and terms
     - Analyzing acquisition trends
+    - Searching acquisitions by company name (resolves names to UUIDs automatically)
+    - Finding acquisitions by specific acquirer or acquiree companies
   data_sources:
     - acquisitions table
     - organizations table
+    - pinecone_organizations (for semantic name resolution)
 
