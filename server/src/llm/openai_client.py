@@ -126,7 +126,7 @@ class OpenAIClient:
     async def chat_completion(
         self,
         messages: list[dict[str, Any]],
-        model: str = "gpt-4",
+        model: str = "gpt-4.1-mini",
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         stream: bool = False,
