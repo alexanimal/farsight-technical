@@ -30,6 +30,36 @@ _trace_context: contextvars.ContextVar[Optional[Dict[str, Any]]] = (
 )
 
 
+def _convert_to_langfuse_trace_id(trace_id: str) -> str:
+    """Convert a trace ID to Langfuse format (32 lowercase hex chars, no dashes).
+    
+    Langfuse expects trace IDs to be exactly 32 lowercase hexadecimal characters
+    without dashes. UUIDs have dashes, so we remove them.
+    
+    Args:
+        trace_id: Trace ID in any format (UUID, hex string, etc.)
+        
+    Returns:
+        Trace ID in Langfuse format (32 lowercase hex chars, no dashes)
+    """
+    # Remove dashes and convert to lowercase
+    cleaned = trace_id.replace("-", "").lower()
+    
+    # If it's already 32 chars, return it
+    if len(cleaned) == 32:
+        return cleaned
+    
+    # If it's a UUID (36 chars with dashes removed = 32), return it
+    # Otherwise, pad or truncate to 32 chars (though this shouldn't happen with UUIDs)
+    if len(cleaned) > 32:
+        return cleaned[:32]
+    elif len(cleaned) < 32:
+        # Pad with zeros if needed (shouldn't happen with UUIDs)
+        return cleaned.ljust(32, "0")
+    
+    return cleaned
+
+
 class Tracer:
     """Tracer for agent operations using Langfuse.
 
@@ -59,7 +89,7 @@ class Tracer:
             self.client: Optional[Langfuse] = Langfuse(
                 public_key=public_key or settings.langfuse_public_key or "",
                 secret_key=secret_key or settings.langfuse_secret_key or "",
-                host=base_url or settings.langfuse_base_url,
+                base_url=base_url or settings.langfuse_base_url,
             )
         else:
             self.client = None
@@ -125,37 +155,65 @@ class Tracer:
             return
 
         trace_id = trace_id or self.create_trace_id()
-        # Langfuse API - using type ignore as API may vary by version
-        observation = self.client.span(  # type: ignore[attr-defined]
-            name=name,
-            trace_id=trace_id,
-            parent_observation_id=parent_observation_id,
-            metadata=metadata or {},
-        )
-
-        try:
-            # Set trace context
-            context = {
-                "trace_id": trace_id,
-                "span_name": name,
-                "observation_id": (
-                    observation.id if hasattr(observation, "id") else None
-                ),
-            }
-            if parent_observation_id:
-                context["parent_observation_id"] = parent_observation_id
-
-            self.set_trace_context(context)
-
-            yield observation
-
-        finally:
-            # End the span
+        # Langfuse v3 API - use start_as_current_observation() which replaces deprecated start_as_current_span()
+        # First, ensure trace context is set if we have a trace_id
+        if trace_id:
+            # Set trace context for Langfuse to use
+            current_context = self.get_trace_context() or {}
+            current_context["trace_id"] = trace_id
+            self.set_trace_context(current_context)
+        
+        # Prepare trace_context for Langfuse if we have a trace_id
+        trace_context = None
+        if trace_id:
             try:
-                if hasattr(observation, "end"):
-                    observation.end()  # type: ignore[attr-defined]
+                from langfuse.types import TraceContext
+                # Convert UUID to Langfuse format (32 hex chars, no dashes)
+                langfuse_trace_id = _convert_to_langfuse_trace_id(trace_id)
+                trace_context = TraceContext(trace_id=langfuse_trace_id)
+            except (ImportError, AttributeError):
+                # Fallback: Langfuse will use its internal context management
+                pass
             except Exception as e:
-                logger.warning(f"Error ending span {name}: {e}")
+                # Log but don't fail if trace context creation fails
+                logger.debug(f"Could not create TraceContext: {e}, using internal context management")
+                trace_context = None
+        
+        try:
+            # Use start_as_current_observation() which replaces deprecated start_as_current_span()
+            # Parent relationships are handled automatically through Langfuse's current span context
+            # This returns a context manager that automatically handles the observation lifecycle
+            with self.client.start_as_current_observation(
+                name=name,
+                as_type="span",
+                metadata=metadata or {},
+                trace_context=trace_context,
+            ) as observation:
+                # Set trace context for our internal tracking
+                context = {
+                    "trace_id": trace_id,
+                    "span_name": name,
+                    "observation_id": (
+                        observation.id if hasattr(observation, "id") else None
+                    ),
+                }
+                if parent_observation_id:
+                    context["parent_observation_id"] = parent_observation_id
+
+                self.set_trace_context(context)
+
+                yield observation
+        except (AttributeError, TypeError) as e:
+            # Fallback if method doesn't exist or has wrong signature
+            logger.warning(
+                f"Langfuse start_as_current_observation() not available: {e}, tracing disabled for span: {name}"
+            )
+            yield None
+            return
+        except Exception as e:
+            logger.warning(f"Error in span {name}: {e}")
+            yield None
+            return
 
     @asynccontextmanager
     async def async_span(
@@ -181,37 +239,65 @@ class Tracer:
             return
 
         trace_id = trace_id or self.create_trace_id()
-        # Langfuse API - using type ignore as API may vary by version
-        observation = self.client.span(  # type: ignore[attr-defined]
-            name=name,
-            trace_id=trace_id,
-            parent_observation_id=parent_observation_id,
-            metadata=metadata or {},
-        )
-
-        try:
-            # Set trace context
-            context = {
-                "trace_id": trace_id,
-                "span_name": name,
-                "observation_id": (
-                    observation.id if hasattr(observation, "id") else None
-                ),
-            }
-            if parent_observation_id:
-                context["parent_observation_id"] = parent_observation_id
-
-            self.set_trace_context(context)
-
-            yield observation
-
-        finally:
-            # End the span
+        # Langfuse v3 API - use start_as_current_observation() which replaces deprecated start_as_current_span()
+        # First, ensure trace context is set if we have a trace_id
+        if trace_id:
+            # Set trace context for Langfuse to use
+            current_context = self.get_trace_context() or {}
+            current_context["trace_id"] = trace_id
+            self.set_trace_context(current_context)
+        
+        # Prepare trace_context for Langfuse if we have a trace_id
+        trace_context = None
+        if trace_id:
             try:
-                if hasattr(observation, "end"):
-                    observation.end()  # type: ignore[attr-defined]
+                from langfuse.types import TraceContext
+                # Convert UUID to Langfuse format (32 hex chars, no dashes)
+                langfuse_trace_id = _convert_to_langfuse_trace_id(trace_id)
+                trace_context = TraceContext(trace_id=langfuse_trace_id)
+            except (ImportError, AttributeError):
+                # Fallback: Langfuse will use its internal context management
+                pass
             except Exception as e:
-                logger.warning(f"Error ending async span {name}: {e}")
+                # Log but don't fail if trace context creation fails
+                logger.debug(f"Could not create TraceContext: {e}, using internal context management")
+                trace_context = None
+        
+        try:
+            # Use start_as_current_observation() which replaces deprecated start_as_current_span()
+            # Parent relationships are handled automatically through Langfuse's current span context
+            # This returns a context manager that automatically handles the observation lifecycle
+            async with self.client.start_as_current_observation(
+                name=name,
+                as_type="span",
+                metadata=metadata or {},
+                trace_context=trace_context,
+            ) as observation:
+                # Set trace context for our internal tracking
+                context = {
+                    "trace_id": trace_id,
+                    "span_name": name,
+                    "observation_id": (
+                        observation.id if hasattr(observation, "id") else None
+                    ),
+                }
+                if parent_observation_id:
+                    context["parent_observation_id"] = parent_observation_id
+
+                self.set_trace_context(context)
+
+                yield observation
+        except (AttributeError, TypeError) as e:
+            # Fallback if method doesn't exist or has wrong signature
+            logger.warning(
+                f"Langfuse start_as_current_observation() not available: {e}, tracing disabled for span: {name}"
+            )
+            yield None
+            return
+        except Exception as e:
+            logger.warning(f"Error in async span {name}: {e}")
+            yield None
+            return
 
     def log_event(
         self,
@@ -241,13 +327,23 @@ class Tracer:
         if self.client is None:
             return
 
+        # Set trace context so Langfuse can use it
+        if trace_id:
+            current_context = self.get_trace_context() or {}
+            current_context["trace_id"] = trace_id
+            self.set_trace_context(current_context)
+
         try:
-            # Langfuse API - using type ignore as API may vary by version
-            self.client.event(  # type: ignore[attr-defined]
+            # Langfuse v3 API - use create_event() method
+            # trace_id is managed through Langfuse context, not passed as parameter
+            self.client.create_event(
                 name=name,
-                trace_id=trace_id,
                 parent_observation_id=parent_observation_id,
                 metadata=metadata or {},
+            )
+        except (AttributeError, TypeError) as e:
+            logger.warning(
+                f"Langfuse create_event() not available: {e}, event not logged: {name}"
             )
         except Exception as e:
             logger.warning(f"Error logging event {name}: {e}")
@@ -284,16 +380,30 @@ class Tracer:
         if self.client is None:
             return
 
+        # Set trace context so Langfuse can use it
+        if trace_id:
+            current_context = self.get_trace_context() or {}
+            current_context["trace_id"] = trace_id
+            self.set_trace_context(current_context)
+
         try:
-            # Langfuse API - using type ignore as API may vary by version
-            # Note: may need to use start_generation() instead
-            self.client.generation(  # type: ignore[attr-defined]
+            # Langfuse v3 API - use start_generation() method
+            # trace_id is managed through Langfuse context, not passed as parameter
+            # Note: start_generation() returns a generation object that needs to be ended
+            generation = self.client.start_generation(
                 name=name,
-                input=input_data,
-                output=output_data,
-                trace_id=trace_id,
                 parent_observation_id=parent_observation_id,
                 metadata=metadata or {},
+            )
+            # Set input and output on the generation object
+            if hasattr(generation, "update"):
+                generation.update(input=input_data, output=output_data)
+            # End the generation
+            if hasattr(generation, "end"):
+                generation.end()
+        except (AttributeError, TypeError) as e:
+            logger.warning(
+                f"Langfuse start_generation() not available: {e}, generation not logged: {name}"
             )
         except Exception as e:
             logger.warning(f"Error logging generation {name}: {e}")
