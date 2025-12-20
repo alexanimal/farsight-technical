@@ -197,6 +197,68 @@ class TestFundingRoundModelGet:
         assert str(sample_org_uuid) in params
 
     @pytest.mark.asyncio
+    async def test_get_by_org_uuids_empty_list(self, mock_postgres_client):
+        """Test getting funding rounds with empty org_uuids list returns empty list."""
+        model = FundingRoundModel(client=mock_postgres_client)
+        await model.initialize()
+
+        results = await model.get(org_uuids=[])
+
+        assert results == []
+        # Should return early without querying database
+        mock_postgres_client.query.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_get_by_org_uuids_single(
+        self, mock_postgres_client, sample_org_uuid, sample_funding_round_record
+    ):
+        """Test getting funding rounds by single org_uuid in org_uuids list uses equality."""
+        mock_postgres_client.query.return_value = [sample_funding_round_record]
+        model = FundingRoundModel(client=mock_postgres_client)
+        await model.initialize()
+
+        results = await model.get(org_uuids=[sample_org_uuid])
+
+        assert len(results) == 1
+        call_args = mock_postgres_client.query.call_args
+        query = call_args[0][0]
+        params = call_args[0][1:]
+        # Single UUID should use equality for better index usage
+        assert "org_uuid = $1" in query
+        assert str(sample_org_uuid) in params
+        # Should NOT use ANY clause for single UUID
+        assert "ANY" not in query
+
+    @pytest.mark.asyncio
+    async def test_get_by_org_uuids_multiple(
+        self,
+        mock_postgres_client,
+        sample_org_uuid,
+        sample_funding_round_record,
+    ):
+        """Test getting funding rounds by multiple org_uuids uses ANY clause."""
+        org_uuid_2 = uuid4()
+        org_uuid_3 = uuid4()
+        mock_postgres_client.query.return_value = [sample_funding_round_record]
+        model = FundingRoundModel(client=mock_postgres_client)
+        await model.initialize()
+
+        results = await model.get(org_uuids=[sample_org_uuid, org_uuid_2, org_uuid_3])
+
+        assert len(results) == 1
+        call_args = mock_postgres_client.query.call_args
+        query = call_args[0][0]
+        params = call_args[0][1:]
+        # Multiple UUIDs should use ANY clause with array
+        assert "org_uuid = ANY($1::uuid[])" in query
+        # Params should contain list of string UUIDs
+        assert len(params) == 1
+        assert isinstance(params[0], list)
+        assert str(sample_org_uuid) in params[0]
+        assert str(org_uuid_2) in params[0]
+        assert str(org_uuid_3) in params[0]
+
+    @pytest.mark.asyncio
     async def test_get_by_investment_date(
         self, mock_postgres_client, sample_funding_round_record
     ):
