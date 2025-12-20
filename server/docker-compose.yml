@@ -9,7 +9,6 @@ services:
     container_name: temporal
     ports:
       - "7233:7233"  # Temporal frontend
-      - "7234:7234"  # Temporal Web UI
     environment:
       - DB=postgres12
       - DB_PORT=5432
@@ -21,6 +20,19 @@ services:
       - temporal-postgresql
     networks:
       - temporal-network
+
+  temporal-ui:
+    container_name: temporal-ui
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=http://localhost:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    image: temporalio/ui:latest
+    networks:
+      - temporal-network
+    ports:
+      - "7324:8080"
 
   temporal-postgresql:
     image: postgres:14

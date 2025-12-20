@@ -7,6 +7,7 @@ This agent is responsible for:
 - Determining execution strategy (sequential vs parallel)
 """
 
+import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -16,7 +17,7 @@ import yaml
 from src.contracts.agent_io import AgentOutput, create_agent_output
 from src.core.agent_base import AgentBase
 from src.core.agent_context import AgentContext
-from src.core.agent_response import AgentResponse, ResponseStatus
+from src.core.agent_response import AgentInsight, AgentResponse, ResponseStatus
 from src.prompts.prompt_manager import PromptOptions, get_prompt_manager
 from src.tools.generate_llm_function_response import \
     generate_llm_function_response
@@ -241,63 +242,132 @@ Rules:
         )
 
     async def execute(self, context: AgentContext) -> AgentOutput:
-        """Execute the orchestration agent to create an execution plan.
+        """Execute the orchestration agent in planning or consolidation mode.
 
-        This method:
-        1. Analyzes the user query using LLM
-        2. Determines which agents should handle the query
-        3. Creates an execution plan with agent names and execution strategy
-        4. Returns a structured response that the orchestrator workflow can use
+        This method supports two modes:
+        1. **Planning mode** (default): Creates an execution plan
+        2. **Consolidation mode**: Consolidates agent insights into final answer
 
         Args:
             context: The agent context containing the user query and metadata.
+                - For planning: metadata may contain "available_agents"
+                - For consolidation: metadata must contain "agent_responses" (List[AgentOutput])
 
         Returns:
             AgentOutput containing:
-            - content: Dict with "agents" (list of agent names) and "execution_mode"
-            - status: SUCCESS if plan created successfully
-            - metadata: Additional information about the planning process
+            - Planning mode: Dict with "agents" (list of agent names) and "execution_mode"
+            - Consolidation mode: AgentInsight with consolidated final answer
+            - status: SUCCESS if operation completed successfully
+            - metadata: Additional information about the process
         """
         try:
-            logger.info(f"Orchestration agent analyzing query: {context.query[:100]}")
+            # Check mode from metadata
+            mode = context.get_metadata("mode")
+            
+            if mode == "consolidation":
+                # Consolidation mode: combine agent insights
+                logger.info("Orchestration agent in consolidation mode")
+                agent_responses = context.get_metadata("agent_responses", [])
+                
+                if not agent_responses:
+                    logger.warning("No agent responses provided for consolidation")
+                    return create_agent_output(
+                        content="",
+                        agent_name=self.name,
+                        agent_category=self.category,
+                        status=ResponseStatus.ERROR,
+                        error="No agent responses provided for consolidation",
+                    )
+                
+                # Consolidate insights
+                consolidated_insight = await self._consolidate_responses(
+                    context, agent_responses
+                )
+                
+                logger.info("Orchestration agent completed consolidation")
+                
+                return create_agent_output(
+                    content=consolidated_insight,
+                    agent_name=self.name,
+                    agent_category=self.category,
+                    status=ResponseStatus.SUCCESS,
+                    metadata={
+                        "query": context.query,
+                        "mode": "consolidation",
+                        "num_agents_consolidated": len(agent_responses),
+                    },
+                )
+            else:
+                # Planning mode (default): create execution plan
+                logger.info(f"Orchestration agent analyzing query: {context.query[:100]}")
 
-            # Get available agents from metadata, or discover dynamically, or use fallback
-            available_agents = (
-                context.get_metadata("available_agents") or _get_available_agents()
-            )
+                # Get available agents from metadata, or discover dynamically, or use fallback
+                available_agents = (
+                    context.get_metadata("available_agents") or _get_available_agents()
+                )
 
-            # Analyze query and create plan using LLM
-            plan = await self._create_execution_plan(context, available_agents)
+                # Analyze query and create plan using LLM
+                plan = await self._create_execution_plan(context, available_agents)
 
-            # Build response content
-            response_content = {
-                "agents": plan["agents"],
-                "execution_mode": plan.get("execution_mode", "sequential"),
-                "reasoning": plan.get("reasoning", ""),
-                "confidence": plan.get("confidence", 0.0),
-            }
+                # Build plan summary for AgentInsight
+                agents_list = plan["agents"]
+                execution_mode = plan.get("execution_mode", "sequential")
+                reasoning = plan.get("reasoning", "")
+                confidence = plan.get("confidence", 0.0)
+                
+                # Create summary describing the plan
+                if agents_list:
+                    agents_str = ", ".join(agents_list)
+                    summary = f"Created execution plan with {len(agents_list)} agent(s): {agents_str}. Execution mode: {execution_mode}."
+                else:
+                    summary = "Created execution plan with no agents selected."
+                
+                # Create AgentInsight for the plan
+                from src.core.agent_response import AgentInsight
+                plan_insight = AgentInsight(
+                    summary=summary,
+                    key_findings=[
+                        f"Selected {len(agents_list)} agent(s): {agents_str}" if agents_list else "No agents selected",
+                        f"Execution mode: {execution_mode}",
+                    ] if agents_list else ["No agents selected for execution"],
+                    evidence={
+                        "agents": agents_list,
+                        "execution_mode": execution_mode,
+                        "reasoning": reasoning,
+                        "confidence": confidence,
+                    },
+                    confidence=confidence,
+                )
 
-            logger.info(
-                f"Orchestration agent created plan: {len(plan['agents'])} agents, "
-                f"mode: {plan.get('execution_mode', 'sequential')}"
-            )
+                logger.info(
+                    f"Orchestration agent created plan: {len(plan['agents'])} agents, "
+                    f"mode: {plan.get('execution_mode', 'sequential')}"
+                )
 
-            # Return AgentOutput using contract helper
-            return create_agent_output(
-                content=response_content,
-                agent_name=self.name,
-                agent_category=self.category,
-                status=ResponseStatus.SUCCESS,
-                metadata={
-                    "query": context.query,
-                    "plan_created": True,
-                    "num_agents": len(plan["agents"]),
-                    "execution_mode": plan.get("execution_mode", "sequential"),
-                },
-            )
+                # Return AgentOutput using contract helper
+                # Store the plan dict in metadata for workflow to extract
+                return create_agent_output(
+                    content=plan_insight,
+                    agent_name=self.name,
+                    agent_category=self.category,
+                    status=ResponseStatus.SUCCESS,
+                    metadata={
+                        "query": context.query,
+                        "plan_created": True,
+                        "num_agents": len(plan["agents"]),
+                        "execution_mode": plan.get("execution_mode", "sequential"),
+                        # Store plan dict in metadata for workflow extraction
+                        "execution_plan": {
+                            "agents": plan["agents"],
+                            "execution_mode": plan.get("execution_mode", "sequential"),
+                            "reasoning": plan.get("reasoning", ""),
+                            "confidence": plan.get("confidence", 0.0),
+                        },
+                    },
+                )
 
         except Exception as e:
-            error_msg = f"Orchestration agent failed to create plan: {str(e)}"
+            error_msg = f"Orchestration agent failed: {str(e)}"
             logger.error(error_msg, exc_info=True)
             return create_agent_output(
                 content="",
@@ -574,3 +644,167 @@ Call the create_execution_plan function with your analysis."""
             "reasoning": f"Fallback plan based on keyword matching in query",
             "confidence": 0.6,
         }
+
+    async def _consolidate_responses(
+        self,
+        context: AgentContext,
+        agent_responses: List[AgentOutput],
+    ) -> AgentInsight:
+        """Consolidate multiple agent insights into a single final answer.
+
+        Args:
+            context: The agent context containing the original user query.
+            agent_responses: List of AgentOutput objects (or dicts) from specialized agents.
+
+        Returns:
+            AgentInsight object with consolidated final answer.
+        """
+        # Extract insights from agent responses
+        # Handle both AgentOutput objects and serialized dicts
+        agent_insights = []
+        for resp in agent_responses:
+            # Convert dict to AgentOutput if needed
+            if isinstance(resp, dict):
+                try:
+                    resp = AgentOutput(**resp)
+                except Exception as e:
+                    logger.warning(f"Failed to parse agent response dict: {e}")
+                    continue
+            
+            # Extract AgentInsight from content
+            content = resp.content
+            if isinstance(content, AgentInsight):
+                agent_insights.append({
+                    "agent_name": resp.agent_name,
+                    "agent_category": resp.agent_category,
+                    "insight": content.model_dump()
+                })
+            elif isinstance(content, dict):
+                # Try to parse as AgentInsight if it's a dict with the right structure
+                try:
+                    insight = AgentInsight(**content)
+                    agent_insights.append({
+                        "agent_name": resp.agent_name,
+                        "agent_category": resp.agent_category,
+                        "insight": insight.model_dump()
+                    })
+                except Exception:
+                    # Not an AgentInsight dict - might be planning mode output, skip it
+                    logger.debug(f"Skipping non-insight content from {resp.agent_name}")
+                    continue
+            elif isinstance(content, str):
+                # Skip string content (errors or old format)
+                logger.debug(f"Skipping string content from {resp.agent_name}")
+                continue
+
+        if not agent_insights:
+            logger.warning("No agent insights found to consolidate")
+            return AgentInsight(
+                summary=f"No insights were available to consolidate from {len(agent_responses)} agent response(s).",
+                confidence=0.0,
+            )
+
+        # Define function schema matching AgentInsight structure
+        consolidate_insight_tool = {
+            "type": "function",
+            "function": {
+                "name": "consolidate_insights",
+                "description": "Consolidate multiple agent insights into a single final answer",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "summary": {
+                            "type": "string",
+                            "description": "Consolidated human-readable summary answering the user's query",
+                        },
+                        "key_findings": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Key findings from all agents",
+                        },
+                        "evidence": {
+                            "type": "object",
+                            "description": "Consolidated evidence from all agents",
+                        },
+                        "confidence": {
+                            "type": "number",
+                            "minimum": 0.0,
+                            "maximum": 1.0,
+                            "description": "Overall confidence in the consolidated insight",
+                        },
+                    },
+                    "required": ["summary"],
+                },
+            },
+        }
+
+        # Build system prompt using prompt_manager
+        prompt_manager = get_prompt_manager()
+        base_prompt = """You are a consolidation agent. Your task is to combine insights from multiple specialized agents into a single, coherent final answer.
+
+Your task:
+- Compose a coherent final answer that directly addresses the user's query
+- Synthesize information from all agent insights
+- Handle conflicting information by acknowledging discrepancies
+- Acknowledge limitations and uncertainty where appropriate
+- Create a well-structured summary that flows naturally"""
+
+        system_prompt = prompt_manager.build_system_prompt(
+            base_prompt=base_prompt,
+            options=PromptOptions(
+                add_temporal_context=False,
+                add_markdown_instructions=False
+            ),
+        )
+
+        # Build user prompt with all agent insights
+        user_prompt_content = f"""User Query: {context.query}
+
+Agent Insights:
+{json.dumps(agent_insights, indent=2, default=str)}
+
+Consolidate these insights into a single final answer that directly addresses the user's query. Call the consolidate_insights function with your consolidated analysis."""
+
+        user_prompt = prompt_manager.build_user_prompt(
+            user_query=user_prompt_content,
+            options=PromptOptions(add_temporal_context=False),
+        )
+
+        try:
+            # Call LLM with function calling
+            result = await generate_llm_function_response(
+                prompt=user_prompt,
+                tools=[consolidate_insight_tool],
+                system_prompt=system_prompt,
+                model="gpt-4.1-mini",
+                temperature=0.3,
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": "consolidate_insights"},
+                },
+            )
+
+            # Extract and return AgentInsight
+            if isinstance(result, dict) and "function_name" in result:
+                args = result["arguments"]
+                return AgentInsight(
+                    summary=args["summary"],
+                    key_findings=args.get("key_findings"),
+                    evidence=args.get("evidence"),
+                    confidence=args.get("confidence"),
+                )
+            else:
+                # Fallback
+                return AgentInsight(
+                    summary=f"Consolidated insights from {len(agent_responses)} agents but failed to generate final summary.",
+                    confidence=0.0,
+                )
+        except Exception as e:
+            logger.warning(
+                f"Failed to consolidate insights from LLM: {e}", exc_info=True
+            )
+            # Fallback
+            return AgentInsight(
+                summary=f"Consolidated insights from {len(agent_responses)} agents but encountered an error during consolidation.",
+                confidence=0.0,
+            )

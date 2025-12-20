@@ -1,10 +1,10 @@
-"""Acquisition agent for handling acquisition-related queries.
+"""Funding rounds agent for handling funding round-related queries.
 
 This agent is specialized in:
-- Finding companies that were acquired
-- Getting acquisition details and terms
-- Analyzing acquisition trends
-- Searching acquisitions by various criteria (company names, dates, prices, etc.)
+- Finding funding rounds for companies
+- Getting funding round details (amounts, investors, stages, dates)
+- Analyzing funding trends
+- Searching funding rounds by various criteria (company names, dates, amounts, investors, stages, etc.)
 """
 
 import json
@@ -20,7 +20,7 @@ from src.core.agent_response import AgentResponse, ResponseStatus
 from src.prompts.prompt_manager import PromptOptions, get_prompt_manager
 from src.tools.generate_llm_function_response import \
     generate_llm_function_response
-from src.tools.get_acquisitions import get_acquisitions
+from src.tools.get_funding_rounds import get_funding_rounds
 from src.tools.get_organizations import get_organizations
 from src.tools.semantic_search_organizations import \
     semantic_search_organizations
@@ -28,53 +28,51 @@ from src.tools.semantic_search_organizations import \
 logger = logging.getLogger(__name__)
 
 
-class AcquisitionAgent(AgentBase):
-    """Agent specialized in handling acquisition-related queries and data retrieval.
+class FundingRoundsAgent(AgentBase):
+    """Agent specialized in handling funding round-related queries and data retrieval.
 
-    This agent uses LLM reasoning to understand user queries about acquisitions
-    and calls the get_acquisitions tool to retrieve relevant data from the database.
+    This agent uses LLM reasoning to understand user queries about funding rounds
+    and calls the get_funding_rounds tool to retrieve relevant data from the database.
     """
 
     def __init__(self, config_path: Optional[Path] = None):
-        """Initialize the acquisition agent.
+        """Initialize the funding rounds agent.
 
         Args:
             config_path: Path to the agent's YAML config file.
                 If None, will attempt to find it automatically.
         """
         if config_path is None:
-            # Default to acquisition_agent.yaml in configs/agents
+            # Default to funding_rounds_agent.yaml in configs/agents
             src_base = Path(__file__).parent.parent.parent.parent
-            config_path = src_base / "configs" / "agents" / "acquisition_agent.yaml"
+            config_path = src_base / "configs" / "agents" / "funding_rounds_agent.yaml"
 
         super().__init__(config_path=config_path)
 
         # Store base prompts as instance variables for reuse
         # Base prompt for company name and sector identification
-        self._identify_companies_prompt = """You are analyzing a query about company acquisitions. Your job is to identify:
-1. Specific company names mentioned and determine whether they are:
-   - The acquirer (the company doing the buying)
-   - The acquiree (the company being bought)
+        self._identify_companies_prompt = """You are analyzing a query about funding rounds. Your job is to identify:
+1. Specific company names mentioned in the query
 2. Sector/industry names mentioned in the query (for semantic search)
 
 IMPORTANT: The semantic_search_organizations tool is designed to query by SECTOR/INDUSTRY names, not specific company names. For specific company names, use get_organizations with name/name_ilike parameter.
 
 Examples:
-- "What did Google acquire?" → acquirer_name: "Google", acquiree_name: None, sector_name: None
-- "Show me companies acquired by Microsoft" → acquirer_name: "Microsoft", acquiree_name: None, sector_name: None
-- "Tell me about the acquisition of GitHub" → acquirer_name: None, acquiree_name: "GitHub", sector_name: None
-- "Microsoft's acquisition of GitHub" → acquirer_name: "Microsoft", acquiree_name: "GitHub", sector_name: None
-- "Acquisitions in the AI sector" → acquirer_name: None, acquiree_name: None, sector_name: "AI sector"
+- "What funding rounds did Google raise?" → company_name: "Google", sector_name: None
+- "Show me funding rounds for Microsoft" → company_name: "Microsoft", sector_name: None
+- "Tell me about funding rounds for AI startups" → company_name: None, sector_name: "AI startups"
+- "Funding rounds for GitHub" → company_name: "GitHub", sector_name: None
+- "Funding rounds for healthcare companies" → company_name: None, sector_name: "healthcare companies"
 
 Only identify names that are clearly company names or sector/industry names. Leave fields as null if not mentioned."""
 
         # Base prompt for parameter extraction
-        self._extract_params_prompt = """You are an acquisition search assistant. Your job is to analyze user queries about company acquisitions and extract relevant search parameters.
+        self._extract_params_prompt = """You are a funding rounds search assistant. Your job is to analyze user queries about funding rounds and extract relevant search parameters.
 
 Rules:
 - Only extract parameters that are explicitly mentioned or clearly implied in the query
 - For date ranges, convert relative terms (e.g., "last year", "2023") to ISO format dates
-- For prices, convert mentions like "over $1M" to acquisition_price_usd_min
+- For amounts, convert mentions like "over $1M" to fundraise_amount_usd_min
 - Company names have already been resolved to UUIDs - use the provided UUIDs if available
 - Set a reasonable limit (default 10) if the user doesn't specify
 - Leave parameters as None/null if not mentioned in the query
@@ -94,13 +92,13 @@ Rules:
         )
 
     async def execute(self, context: AgentContext) -> AgentOutput:
-        """Execute the acquisition agent to handle acquisition-related queries.
+        """Execute the funding rounds agent to handle funding round-related queries.
 
         This method:
         1. Analyzes the user query to identify company names mentioned
         2. Resolves company names to UUIDs using semantic_search_organizations
-        3. Extracts other search parameters (dates, prices, etc.)
-        4. Calls the get_acquisitions tool with resolved UUIDs and parameters
+        3. Extracts other search parameters (dates, amounts, investors, stages, etc.)
+        4. Calls the get_funding_rounds tool with resolved UUIDs and parameters
         5. Formats the results into a natural language response
         6. Returns a structured response with tool calls tracked
 
@@ -109,13 +107,13 @@ Rules:
 
         Returns:
             AgentOutput containing:
-            - content: Natural language response with acquisition information
+            - content: Natural language response with funding round information
             - status: SUCCESS if query processed successfully
             - metadata: Information about the search and results
             - tool_calls: List of tool calls made during execution
         """
         try:
-            logger.info(f"Acquisition agent processing query: {context.query[:100]}")
+            logger.info(f"Funding rounds agent processing query: {context.query[:100]}")
 
             # Step 1: Identify and resolve company names to UUIDs
             resolved_uuids = await self._resolve_company_names(context)
@@ -125,29 +123,29 @@ Rules:
                 context, resolved_uuids
             )
 
-            # Step 3: Call get_acquisitions tool with extracted parameters
-            acquisitions_output = await get_acquisitions(**search_params)
+            # Step 3: Call get_funding_rounds tool with extracted parameters
+            funding_rounds_output = await get_funding_rounds(**search_params)
 
             # Check if tool execution was successful
-            if not acquisitions_output.success:
+            if not funding_rounds_output.success:
                 error_msg = (
-                    acquisitions_output.error or "Failed to retrieve acquisitions"
+                    funding_rounds_output.error or "Failed to retrieve funding rounds"
                 )
-                logger.error(f"get_acquisitions tool failed: {error_msg}")
+                logger.error(f"get_funding_rounds tool failed: {error_msg}")
                 return create_agent_output(
                     content="",
                     agent_name=self.name,
                     agent_category=self.category,
                     status=ResponseStatus.ERROR,
-                    error=f"Failed to retrieve acquisitions: {error_msg}",
+                    error=f"Failed to retrieve funding rounds: {error_msg}",
                 )
 
             # Extract result from ToolOutput
-            acquisitions = acquisitions_output.result or []
+            funding_rounds = funding_rounds_output.result or []
 
             # Step 4: Format results into natural language response
             response_content = await self._format_response(
-                context, acquisitions, search_params
+                context, funding_rounds, search_params
             )
 
             # Build tool calls list
@@ -175,23 +173,23 @@ Rules:
 
             tool_calls.append(
                 {
-                    "name": "get_acquisitions",
+                    "name": "get_funding_rounds",
                     "parameters": search_params,
                     "result": {
-                        "num_results": len(acquisitions),
+                        "num_results": len(funding_rounds),
                         "sample_ids": (
-                            [a.get("acquisition_uuid") for a in acquisitions[:3]]
-                            if acquisitions
+                            [fr.get("funding_round_uuid") for fr in funding_rounds[:3]]
+                            if funding_rounds
                             else []
                         ),
-                        "execution_time_ms": acquisitions_output.execution_time_ms,
-                        "success": acquisitions_output.success,
+                        "execution_time_ms": funding_rounds_output.execution_time_ms,
+                        "success": funding_rounds_output.success,
                     },
                 }
             )
 
             logger.info(
-                f"Acquisition agent completed: found {len(acquisitions)} acquisition(s)"
+                f"Funding rounds agent completed: found {len(funding_rounds)} funding round(s)"
             )
 
             # Return AgentOutput using contract helper
@@ -203,14 +201,14 @@ Rules:
                 tool_calls=tool_calls,
                 metadata={
                     "query": context.query,
-                    "num_results": len(acquisitions),
+                    "num_results": len(funding_rounds),
                     "search_parameters": search_params,
                     "resolved_companies": resolved_uuids,
                 },
             )
 
         except Exception as e:
-            error_msg = f"Acquisition agent failed to process query: {str(e)}"
+            error_msg = f"Funding rounds agent failed to process query: {str(e)}"
             logger.error(error_msg, exc_info=True)
             return create_agent_output(
                 content="",
@@ -231,8 +229,7 @@ Rules:
 
         Returns:
             Dictionary containing:
-            - acquirer_uuid: UUID of the acquiring company (if found)
-            - acquiree_uuid: UUID of the acquired company (if found)
+            - org_uuid: UUID of the organization (if found)
             - semantic_search_calls: List of semantic search tool calls made
         """
         # Use LLM to identify company names and sectors in the query
@@ -240,21 +237,17 @@ Rules:
             "type": "function",
             "function": {
                 "name": "identify_company_names",
-                "description": "Identify company names mentioned in the query and determine their role (acquirer or acquiree), and identify sector/industry names.",
+                "description": "Identify company names and sector/industry names mentioned in the query.",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "acquirer_name": {
+                        "company_name": {
                             "type": "string",
-                            "description": "Name of the company that made/will make the acquisition (the buyer)",
-                        },
-                        "acquiree_name": {
-                            "type": "string",
-                            "description": "Name of the company that was/will be acquired (the target)",
+                            "description": "Name of a specific company/organization mentioned in the query (e.g., 'Google', 'Microsoft')",
                         },
                         "sector_name": {
                             "type": "string",
-                            "description": "Sector or industry name mentioned in the query (e.g., 'AI companies', 'healthcare startups', 'fintech')",
+                            "description": "Sector or industry name mentioned in the query (e.g., 'AI startups', 'healthcare companies', 'fintech')",
                         },
                     },
                     "required": [],
@@ -274,7 +267,7 @@ Rules:
         # Build user prompt using prompt manager
         user_prompt_content = f"""User Query: {context.query}
 
-Identify any company names mentioned in this query and determine if they are the acquirer or acquiree."""
+Identify any company names mentioned in this query."""
 
         user_prompt = prompt_manager.build_user_prompt(
             user_query=user_prompt_content,
@@ -282,8 +275,7 @@ Identify any company names mentioned in this query and determine if they are the
         )
 
         resolved_uuids: Dict[str, Any] = {
-            "acquirer_uuid": None,
-            "acquiree_uuid": None,
+            "org_uuid": None,
             "semantic_search_calls": [],
             "get_organizations_calls": [],
         }
@@ -304,15 +296,14 @@ Identify any company names mentioned in this query and determine if they are the
             if isinstance(result, dict) and "function_name" in result:
                 if result["function_name"] == "identify_company_names":
                     args = result["arguments"]
-                    acquirer_name = args.get("acquirer_name")
-                    acquiree_name = args.get("acquiree_name")
+                    company_name = args.get("company_name")
                     sector_name = args.get("sector_name")
 
-                    # Search for acquirer if name provided (use get_organizations for specific company names)
-                    if acquirer_name:
+                    # If specific company name provided, use get_organizations
+                    if company_name:
                         try:
                             orgs_output = await get_organizations(
-                                name_ilike=acquirer_name,
+                                name_ilike=company_name,
                                 limit=3,  # Get top 3 matches
                             )
                             if orgs_output.success and orgs_output.result:
@@ -320,19 +311,19 @@ Identify any company names mentioned in this query and determine if they are the
                                 if orgs:
                                     # Use the top match - convert UUID to string
                                     org_uuid = orgs[0].get("org_uuid")
-                                    resolved_uuids["acquirer_uuid"] = (
+                                    resolved_uuids["org_uuid"] = (
                                         str(org_uuid) if org_uuid else None
                                     )
                                     resolved_uuids["get_organizations_calls"].append(
                                         {
                                             "parameters": {
-                                                "name_ilike": acquirer_name,
+                                                "name_ilike": company_name,
                                                 "limit": 3,
                                             },
                                             "result": {
                                                 "num_results": len(orgs),
                                                 "matched_uuid": resolved_uuids[
-                                                    "acquirer_uuid"
+                                                    "org_uuid"
                                                 ],
                                                 "matched_name": orgs[0].get("name"),
                                                 "execution_time_ms": orgs_output.execution_time_ms,
@@ -340,58 +331,15 @@ Identify any company names mentioned in this query and determine if they are the
                                         }
                                     )
                                     logger.info(
-                                        f"Resolved acquirer '{acquirer_name}' to UUID: {resolved_uuids['acquirer_uuid']}"
+                                        f"Resolved organization '{company_name}' to UUID: {resolved_uuids['org_uuid']}"
                                     )
                             else:
                                 logger.warning(
-                                    f"get_organizations failed for acquirer '{acquirer_name}': {orgs_output.error}"
+                                    f"get_organizations failed for organization '{company_name}': {orgs_output.error}"
                                 )
                         except Exception as e:
                             logger.warning(
-                                f"Failed to resolve acquirer name '{acquirer_name}': {e}"
-                            )
-
-                    # Search for acquiree if name provided (use get_organizations for specific company names)
-                    if acquiree_name:
-                        try:
-                            orgs_output = await get_organizations(
-                                name_ilike=acquiree_name,
-                                limit=3,  # Get top 3 matches
-                            )
-                            if orgs_output.success and orgs_output.result:
-                                orgs = orgs_output.result
-                                if orgs:
-                                    # Use the top match - convert UUID to string
-                                    org_uuid = orgs[0].get("org_uuid")
-                                    resolved_uuids["acquiree_uuid"] = (
-                                        str(org_uuid) if org_uuid else None
-                                    )
-                                    resolved_uuids["get_organizations_calls"].append(
-                                        {
-                                            "parameters": {
-                                                "name_ilike": acquiree_name,
-                                                "limit": 3,
-                                            },
-                                            "result": {
-                                                "num_results": len(orgs),
-                                                "matched_uuid": resolved_uuids[
-                                                    "acquiree_uuid"
-                                                ],
-                                                "matched_name": orgs[0].get("name"),
-                                                "execution_time_ms": orgs_output.execution_time_ms,
-                                            },
-                                        }
-                                    )
-                                    logger.info(
-                                        f"Resolved acquiree '{acquiree_name}' to UUID: {resolved_uuids['acquiree_uuid']}"
-                                    )
-                            else:
-                                logger.warning(
-                                    f"get_organizations failed for acquiree '{acquiree_name}': {orgs_output.error}"
-                                )
-                        except Exception as e:
-                            logger.warning(
-                                f"Failed to resolve acquiree name '{acquiree_name}': {e}"
+                                f"Failed to resolve organization name '{company_name}': {e}"
                             )
 
                     # If sector name provided, use semantic search (but don't resolve to UUID - this is for sector queries)
@@ -442,70 +390,79 @@ Identify any company names mentioned in this query and determine if they are the
 
         Args:
             context: The agent context containing the user query.
+            resolved_uuids: Dictionary with resolved organization UUIDs.
 
         Returns:
-            Dictionary of parameters to pass to get_acquisitions tool.
+            Dictionary of parameters to pass to get_funding_rounds tool.
         """
-        # Define the function/tool schema for get_acquisitions
-        get_acquisitions_tool = {
+        # Define the function/tool schema for get_funding_rounds
+        get_funding_rounds_tool = {
             "type": "function",
             "function": {
-                "name": "get_acquisitions",
-                "description": "Search for company acquisitions by various criteria. Extract parameters from the user query to search the acquisitions database.",
+                "name": "get_funding_rounds",
+                "description": "Search for funding rounds by various criteria. Extract parameters from the user query to search the funding rounds database.",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "acquisition_uuid": {
+                        "funding_round_uuid": {
                             "type": "string",
-                            "description": "Exact UUID of a specific acquisition (if mentioned)",
+                            "description": "Exact UUID of a specific funding round (if mentioned)",
                         },
-                        "acquiree_uuid": {
+                        "org_uuid": {
                             "type": "string",
-                            "description": "UUID of the company that was acquired",
+                            "description": "UUID of the organization that raised the funding",
                         },
-                        "acquirer_uuid": {
+                        "investment_date": {
                             "type": "string",
-                            "description": "UUID of the company that made the acquisition",
+                            "description": "Exact investment date in ISO format (YYYY-MM-DDTHH:MM:SS)",
                         },
-                        "acquisition_type": {
+                        "investment_date_from": {
                             "type": "string",
-                            "description": "Type of acquisition (e.g., 'acquisition', 'merger')",
+                            "description": "Filter funding rounds on or after this date (ISO format)",
                         },
-                        "acquisition_announce_date": {
+                        "investment_date_to": {
                             "type": "string",
-                            "description": "Exact announce date in ISO format (YYYY-MM-DDTHH:MM:SS)",
+                            "description": "Filter funding rounds on or before this date (ISO format)",
                         },
-                        "acquisition_announce_date_from": {
+                        "general_funding_stage": {
                             "type": "string",
-                            "description": "Filter acquisitions announced on or after this date (ISO format)",
+                            "description": "General funding stage (e.g., 'seed', 'series_a', 'series_b', 'late_stage_venture', 'ipo')",
                         },
-                        "acquisition_announce_date_to": {
+                        "stage": {
                             "type": "string",
-                            "description": "Filter acquisitions announced on or before this date (ISO format)",
+                            "description": "Specific funding stage",
                         },
-                        "acquisition_price_usd": {
+                        "investors_contains": {
+                            "type": "string",
+                            "description": "Check if investors array contains this value (investor name or UUID)",
+                        },
+                        "lead_investors_contains": {
+                            "type": "string",
+                            "description": "Check if lead_investors array contains this value (investor name or UUID)",
+                        },
+                        "fundraise_amount_usd": {
                             "type": "integer",
-                            "description": "Exact acquisition price in USD",
+                            "description": "Exact fundraise amount in USD",
                         },
-                        "acquisition_price_usd_min": {
+                        "fundraise_amount_usd_min": {
                             "type": "integer",
-                            "description": "Minimum acquisition price in USD",
+                            "description": "Minimum fundraise amount in USD",
                         },
-                        "acquisition_price_usd_max": {
+                        "fundraise_amount_usd_max": {
                             "type": "integer",
-                            "description": "Maximum acquisition price in USD",
+                            "description": "Maximum fundraise amount in USD",
                         },
-                        "terms": {
-                            "type": "string",
-                            "description": "Exact match for acquisition terms",
+                        "valuation_usd": {
+                            "type": "integer",
+                            "description": "Exact valuation in USD",
                         },
-                        "terms_ilike": {
-                            "type": "string",
-                            "description": "Case-insensitive partial match for terms (use for searching)",
+                        "valuation_usd_min": {
+                            "type": "integer",
+                            "description": "Minimum valuation in USD",
                         },
-                        "acquirer_type": {
-                            "type": "string",
-                            "description": "Type of acquirer (e.g., 'company', 'private_equity')",
+                        "valuation_usd_max": {
+                            "type": "integer",
+                            "description": "Maximum valuation in USD",
                         },
                         "limit": {
                             "type": "integer",
@@ -532,13 +489,9 @@ Identify any company names mentioned in this query and determine if they are the
 
         # Build prompt with resolved UUIDs if available
         uuid_info = []
-        if resolved_uuids.get("acquirer_uuid"):
+        if resolved_uuids.get("org_uuid"):
             uuid_info.append(
-                f"Acquirer UUID (already resolved): {resolved_uuids['acquirer_uuid']}"
-            )
-        if resolved_uuids.get("acquiree_uuid"):
-            uuid_info.append(
-                f"Acquiree UUID (already resolved): {resolved_uuids['acquiree_uuid']}"
+                f"Organization UUID (already resolved): {resolved_uuids['org_uuid']}"
             )
 
         uuid_context = (
@@ -550,12 +503,12 @@ Identify any company names mentioned in this query and determine if they are the
         # Build user prompt using prompt manager
         user_prompt_content = f"""User Query: {context.query}
 
-Resolved Company UUIDs:
+Resolved Organization UUIDs:
 {uuid_context}
 
-Analyze this query and extract the relevant search parameters for finding acquisitions. Use the resolved UUIDs above if they are available. Only include parameters that are clearly mentioned or implied in the query.
+Analyze this query and extract the relevant search parameters for finding funding rounds. Use the resolved UUIDs above if they are available. Only include parameters that are clearly mentioned or implied in the query.
 
-Call the get_acquisitions function with the extracted parameters."""
+Call the get_funding_rounds function with the extracted parameters."""
 
         user_prompt = prompt_manager.build_user_prompt(
             user_query=user_prompt_content,
@@ -565,32 +518,26 @@ Call the get_acquisitions function with the extracted parameters."""
         try:
             result = await generate_llm_function_response(
                 prompt=user_prompt,
-                tools=[get_acquisitions_tool],
+                tools=[get_funding_rounds_tool],
                 system_prompt=system_prompt,
                 model="gpt-4.1-mini",
                 temperature=0.3,  # Lower temperature for more consistent parameter extraction
                 tool_choice={
                     "type": "function",
-                    "function": {"name": "get_acquisitions"},
+                    "function": {"name": "get_funding_rounds"},
                 },
             )
 
             # Check if we got a function call result
             if isinstance(result, dict) and "function_name" in result:
-                if result["function_name"] == "get_acquisitions":
+                if result["function_name"] == "get_funding_rounds":
                     params = result["arguments"]
                     # Filter out None values and set default limit
                     filtered_params = {k: v for k, v in params.items() if v is not None}
 
                     # Override with resolved UUIDs if available (they take precedence)
-                    if resolved_uuids.get("acquirer_uuid"):
-                        filtered_params["acquirer_uuid"] = resolved_uuids[
-                            "acquirer_uuid"
-                        ]
-                    if resolved_uuids.get("acquiree_uuid"):
-                        filtered_params["acquiree_uuid"] = resolved_uuids[
-                            "acquiree_uuid"
-                        ]
+                    if resolved_uuids.get("org_uuid"):
+                        filtered_params["org_uuid"] = resolved_uuids["org_uuid"]
 
                     if "limit" not in filtered_params:
                         filtered_params["limit"] = 10
@@ -615,14 +562,14 @@ Call the get_acquisitions function with the extracted parameters."""
     async def _format_response(
         self,
         context: AgentContext,
-        acquisitions: list[Dict[str, Any]],
+        funding_rounds: list[Dict[str, Any]],
         search_params: Dict[str, Any],
     ) -> AgentInsight:
-        """Generate domain insight from acquisition data using LLM.
+        """Generate domain insight from funding round data using LLM.
 
         Args:
             context: The agent context.
-            acquisitions: List of acquisition records from the database.
+            funding_rounds: List of funding round records from the database.
             search_params: Parameters used for the search.
 
         Returns:
@@ -633,7 +580,7 @@ Call the get_acquisitions function with the extracted parameters."""
             "type": "function",
             "function": {
                 "name": "generate_insight",
-                "description": "Generate domain insight from acquisition data",
+                "description": "Generate domain insight from funding round data",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -664,17 +611,17 @@ Call the get_acquisitions function with the extracted parameters."""
 
         # Build system prompt using prompt_manager
         prompt_manager = get_prompt_manager()
-        base_prompt = """You are an acquisition analysis expert. Analyze the acquisition data and generate insights that directly answer the user's query.
+        base_prompt = """You are a funding rounds analysis expert. Analyze the funding round data and generate insights that directly answer the user's query.
 
 Your task:
-- Identify acquired companies (if data available)
-- Group by era/time periods
-- Highlight notable deals (price, strategic importance)
-- Identify patterns (frequency, deal sizes, types)
+- Identify funding trends over time
+- Highlight notable rounds (size, investors, stage)
+- Identify patterns (funding velocity, stage progression)
+- Compare funding across companies/sectors if multiple results
 - State uncertainty where data is missing
 - Directly answer the user's query in the summary
 
-If no acquisitions are found, explain why (e.g., search criteria too narrow, no data available for the specified parameters)."""
+If no funding rounds are found, explain why (e.g., search criteria too narrow, no data available for the specified parameters)."""
 
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=base_prompt,
@@ -686,8 +633,8 @@ If no acquisitions are found, explain why (e.g., search criteria too narrow, no 
         # Build user prompt with data
         user_prompt_content = f"""User Query: {context.query}
 
-Acquisition Data (JSON):
-{json.dumps(acquisitions, indent=2, default=str)}
+Funding Rounds Data (JSON):
+{json.dumps(funding_rounds, indent=2, default=str)}
 
 Search Parameters: {json.dumps(search_params, indent=2, default=str)}
 
@@ -723,14 +670,14 @@ Analyze this data and generate insights that directly answer the user's query. C
                 )
             else:
                 # Fallback if LLM doesn't call function
-                if acquisitions:
+                if funding_rounds:
                     return AgentInsight(
-                        summary=f"Found {len(acquisitions)} acquisition(s) but failed to generate insight.",
+                        summary=f"Found {len(funding_rounds)} funding round(s) but failed to generate insight.",
                         confidence=0.0,
                     )
                 else:
                     return AgentInsight(
-                        summary=f"I couldn't find any acquisitions matching your criteria. You asked about: {context.query}. Try adjusting your search parameters or broadening your criteria.",
+                        summary=f"I couldn't find any funding rounds matching your criteria. You asked about: {context.query}. Try adjusting your search parameters or broadening your criteria.",
                         confidence=0.0,
                     )
         except Exception as e:
@@ -738,13 +685,14 @@ Analyze this data and generate insights that directly answer the user's query. C
                 f"Failed to generate insight from LLM: {e}", exc_info=True
             )
             # Fallback insight
-            if acquisitions:
+            if funding_rounds:
                 return AgentInsight(
-                    summary=f"Found {len(acquisitions)} acquisition(s) but encountered an error generating insights.",
+                    summary=f"Found {len(funding_rounds)} funding round(s) but encountered an error generating insights.",
                     confidence=0.0,
                 )
             else:
                 return AgentInsight(
-                    summary=f"I couldn't find any acquisitions matching your criteria. You asked about: {context.query}. Try adjusting your search parameters or broadening your criteria.",
+                    summary=f"I couldn't find any funding rounds matching your criteria. You asked about: {context.query}. Try adjusting your search parameters or broadening your criteria.",
                     confidence=0.0,
                 )
+
