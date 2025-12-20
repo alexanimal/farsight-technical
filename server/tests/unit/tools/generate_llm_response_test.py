@@ -887,3 +887,25 @@ class TestGenerateLLMResponseErrorHandling:
             assert isinstance(user_message["content"], list)
             assert len(user_message["content"]) == 1  # Just image, no text
             assert user_message["content"][0]["type"] == "image_url"
+
+    @pytest.mark.asyncio
+    async def test_generate_llm_response_return_text_non_chat_completion(
+        self, mock_openai_client
+    ):
+        """Test generate_llm_response return_text with non-ChatCompletion response."""
+        # Mock a non-ChatCompletion response (e.g., streaming response returned incorrectly)
+        mock_openai_client.chat_completion.return_value = "unexpected_response_type"
+
+        # Patch get_client in the module where it's used
+        generate_llm_response_module = sys.modules["src.tools.generate_llm_response"]
+        with patch.object(
+            generate_llm_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
+            mock_get_client.return_value = mock_openai_client
+
+            response = await generate_llm_response(
+                prompt="Hello!", model="gpt-4", return_text=True, client=None
+            )
+
+            # Should return empty string when response is not ChatCompletion
+            assert response == ""

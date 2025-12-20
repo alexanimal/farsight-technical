@@ -319,14 +319,13 @@ async def generate_llm_function_response(
                     )
 
                 executor = tool_executors[function_name]
+                if not callable(executor):
+                    raise ValueError(
+                        f"Tool executor for '{function_name}' is not callable"
+                    )
                 try:
                     # Execute the tool with parsed arguments
-                    if callable(executor):
-                        result = await executor(**function_args)
-                    else:
-                        raise ValueError(
-                            f"Tool executor for '{function_name}' is not callable"
-                        )
+                    result = await executor(**function_args)
                     parsed_call["result"] = result
                 except Exception as e:
                     logger.error(

@@ -12,6 +12,12 @@ from .get_organizations import get_tool_metadata as get_organizations_metadata
 from .semantic_search_organizations import \
     get_tool_metadata as get_semantic_search_organizations_metadata
 from .semantic_search_organizations import semantic_search_organizations
+from .aggregate_funding_trends import aggregate_funding_trends
+from .aggregate_funding_trends import \
+    get_tool_metadata as get_aggregate_funding_trends_metadata
+from .calculate_funding_velocity import calculate_funding_velocity
+from .calculate_funding_velocity import \
+    get_tool_metadata as get_calculate_funding_velocity_metadata
 
 __all__ = [
     "generate_llm_function_response",
@@ -24,4 +30,8 @@ __all__ = [
     "get_organizations_metadata",
     "semantic_search_organizations",
     "get_semantic_search_organizations_metadata",
+    "aggregate_funding_trends",
+    "get_aggregate_funding_trends_metadata",
+    "calculate_funding_velocity",
+    "get_calculate_funding_velocity_metadata",
 ]

@@ -899,3 +899,393 @@ class TestGenerateLLMFunctionResponseErrorHandling:
             assert isinstance(result, dict)
             assert result["function_name"] == "get_weather"
 
+
+class TestGenerateLLMFunctionResponseImages:
+    """Test generate_llm_function_response image functionality."""
+
+    @pytest.mark.asyncio
+    async def test_generate_llm_function_response_with_image_url(
+        self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
+    ):
+        """Test generate_llm_function_response with image URL."""
+        mock_openai_client.chat_completion.return_value = (
+            mock_chat_completion_with_tool_call
+        )
+
+        generate_llm_function_response_module = sys.modules[
+            "src.tools.generate_llm_function_response"
+        ]
+        with patch.object(
+            generate_llm_function_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
+            mock_get_client.return_value = mock_openai_client
+
+            await generate_llm_function_response(
+                prompt="What's in this image?",
+                tools=sample_tools,
+                model="gpt-4-vision-preview",
+                images=["https://example.com/image.jpg"],
+                client=None,
+            )
+
+            call_args = mock_openai_client.chat_completion.call_args[1]
+            user_message = call_args["messages"][-1]
+            assert isinstance(user_message["content"], list)
+            assert len(user_message["content"]) == 2  # text + image
+            assert user_message["content"][0]["type"] == "text"
+            assert user_message["content"][1]["type"] == "image_url"
+
+    @pytest.mark.asyncio
+    async def test_generate_llm_function_response_with_image_dict(
+        self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
+    ):
+        """Test generate_llm_function_response with image dict."""
+        mock_openai_client.chat_completion.return_value = (
+            mock_chat_completion_with_tool_call
+        )
+
+        generate_llm_function_response_module = sys.modules[
+            "src.tools.generate_llm_function_response"
+        ]
+        with patch.object(
+            generate_llm_function_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
+            mock_get_client.return_value = mock_openai_client
+
+            image_dict = {
+                "type": "image_url",
+                "image_url": {"url": "https://example.com/image.jpg"},
+            }
+            await generate_llm_function_response(
+                prompt="What's in this image?",
+                tools=sample_tools,
+                model="gpt-4-vision-preview",
+                images=[image_dict],
+                client=None,
+            )
+
+            call_args = mock_openai_client.chat_completion.call_args[1]
+            user_message = call_args["messages"][-1]
+            assert user_message["content"][1] == image_dict
+
+    @pytest.mark.asyncio
+    async def test_generate_llm_function_response_invalid_image_format(
+        self, mock_openai_client, sample_tools
+    ):
+        """Test generate_llm_function_response with invalid image format."""
+        generate_llm_function_response_module = sys.modules[
+            "src.tools.generate_llm_function_response"
+        ]
+        with patch.object(
+            generate_llm_function_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
+            mock_get_client.return_value = mock_openai_client
+
+            with pytest.raises(ValueError) as exc_info:
+                await generate_llm_function_response(
+                    prompt="Hello!",
+                    tools=sample_tools,
+                    model="gpt-4-vision-preview",
+                    images=[123],  # Invalid format
+                    client=None,
+                )
+            assert "Invalid image format" in str(exc_info.value)
+
+
+class TestGenerateLLMFunctionResponseFiles:
+    """Test generate_llm_function_response file functionality."""
+
+    @pytest.mark.asyncio
+    async def test_generate_llm_function_response_with_file_id(
+        self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
+    ):
+        """Test generate_llm_function_response with file ID."""
+        mock_openai_client.chat_completion.return_value = (
+            mock_chat_completion_with_tool_call
+        )
+
+        generate_llm_function_response_module = sys.modules[
+            "src.tools.generate_llm_function_response"
+        ]
+        with patch.object(
+            generate_llm_function_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
+            mock_get_client.return_value = mock_openai_client
+
+            await generate_llm_function_response(
+                prompt="Summarize this document",
+                tools=sample_tools,
+                model="gpt-4",
+                files=["file-abc123"],
+                client=None,
+            )
+
+            call_args = mock_openai_client.chat_completion.call_args[1]
+            user_message = call_args["messages"][-1]
+            assert "attachments" in user_message
+            assert len(user_message["attachments"]) == 1
+            assert user_message["attachments"][0]["file_id"] == "file-abc123"
+
+    @pytest.mark.asyncio
+    async def test_generate_llm_function_response_with_file_dict(
+        self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
+    ):
+        """Test generate_llm_function_response with file dict."""
+        mock_openai_client.chat_completion.return_value = (
+            mock_chat_completion_with_tool_call
+        )
+
+        generate_llm_function_response_module = sys.modules[
+            "src.tools.generate_llm_function_response"
+        ]
+        with patch.object(
+            generate_llm_function_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
+            mock_get_client.return_value = mock_openai_client
+
+            file_dict = {"file_id": "file-abc123", "tools": [{"type": "file_search"}]}
+            await generate_llm_function_response(
+                prompt="Summarize this document",
+                tools=sample_tools,
+                model="gpt-4",
+                files=[file_dict],
+                client=None,
+            )
+
+            call_args = mock_openai_client.chat_completion.call_args[1]
+            user_message = call_args["messages"][-1]
+            assert user_message["attachments"][0] == file_dict
+
+    @pytest.mark.asyncio
+    async def test_generate_llm_function_response_invalid_file_format(
+        self, mock_openai_client, sample_tools
+    ):
+        """Test generate_llm_function_response with invalid file format."""
+        generate_llm_function_response_module = sys.modules[
+            "src.tools.generate_llm_function_response"
+        ]
+        with patch.object(
+            generate_llm_function_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
+            mock_get_client.return_value = mock_openai_client
+
+            with pytest.raises(ValueError) as exc_info:
+                await generate_llm_function_response(
+                    prompt="Hello!",
+                    tools=sample_tools,
+                    model="gpt-4",
+                    files=[123],  # Invalid format
+                    client=None,
+                )
+            assert "Invalid file format" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_generate_llm_function_response_with_files_and_content_array(
+        self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
+    ):
+        """Test that files trigger content array format."""
+        mock_openai_client.chat_completion.return_value = (
+            mock_chat_completion_with_tool_call
+        )
+
+        generate_llm_function_response_module = sys.modules[
+            "src.tools.generate_llm_function_response"
+        ]
+        with patch.object(
+            generate_llm_function_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
+            mock_get_client.return_value = mock_openai_client
+
+            await generate_llm_function_response(
+                prompt="Analyze this",
+                tools=sample_tools,
+                model="gpt-4",
+                files=["file-abc123"],
+                client=None,
+            )
+
+            call_args = mock_openai_client.chat_completion.call_args[1]
+            user_message = call_args["messages"][-1]
+            # Should use content array when files are present
+            assert isinstance(user_message["content"], list)
+
+    @pytest.mark.asyncio
+    async def test_generate_llm_function_response_single_non_text_content(
+        self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
+    ):
+        """Test generate_llm_function_response with single non-text content item."""
+        mock_openai_client.chat_completion.return_value = (
+            mock_chat_completion_with_tool_call
+        )
+
+        generate_llm_function_response_module = sys.modules[
+            "src.tools.generate_llm_function_response"
+        ]
+        with patch.object(
+            generate_llm_function_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
+            mock_get_client.return_value = mock_openai_client
+
+            image_dict = {
+                "type": "image_url",
+                "image_url": {"url": "https://example.com/image.jpg"},
+            }
+            await generate_llm_function_response(
+                prompt="",
+                tools=sample_tools,
+                model="gpt-4-vision-preview",
+                images=[image_dict],
+                client=None,
+            )
+
+            call_args = mock_openai_client.chat_completion.call_args[1]
+            user_message = call_args["messages"][-1]
+            # Single non-text content should be wrapped in array
+            assert isinstance(user_message["content"], list)
+            assert len(user_message["content"]) == 1
+
+
+class TestGenerateLLMFunctionResponseEdgeCases:
+    """Test generate_llm_function_response edge cases and error paths."""
+
+    @pytest.mark.asyncio
+    async def test_generate_llm_function_response_unexpected_response_type(
+        self, mock_openai_client, sample_tools
+    ):
+        """Test generate_llm_function_response with unexpected response type."""
+        # Mock a non-ChatCompletion response (e.g., streaming response returned incorrectly)
+        async def stream_generator():
+            yield "unexpected_stream_chunk"
+
+        mock_openai_client.chat_completion.return_value = stream_generator()
+
+        generate_llm_function_response_module = sys.modules[
+            "src.tools.generate_llm_function_response"
+        ]
+        with patch.object(
+            generate_llm_function_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
+            mock_get_client.return_value = mock_openai_client
+
+            # Should handle gracefully and return the unexpected response
+            response = await generate_llm_function_response(
+                prompt="Hello!",
+                tools=sample_tools,
+                model="gpt-4",
+                client=None,
+            )
+
+            # Should return the unexpected response type
+            assert hasattr(response, "__aiter__")  # It's an async iterator
+
+    @pytest.mark.asyncio
+    async def test_generate_llm_function_response_unexpected_tool_call_type(
+        self, mock_openai_client, sample_tools
+    ):
+        """Test generate_llm_function_response with unexpected tool call type."""
+        # Create a mock response with an unexpected tool call type
+        mock_response = MagicMock(spec=ChatCompletion)
+        mock_response.id = "chatcmpl-123"
+        mock_response.object = "chat.completion"
+        mock_response.created = 1234567890
+        mock_response.model = "gpt-4"
+
+        message = MagicMock()
+        message.role = "assistant"
+        message.content = None
+        # Create a tool call that is not ChatCompletionMessageToolCall
+        unexpected_tool_call = MagicMock()
+        unexpected_tool_call.function = None
+        message.tool_calls = [unexpected_tool_call]  # Wrong type
+
+        choice = MagicMock()
+        choice.index = 0
+        choice.message = message
+        choice.finish_reason = "tool_calls"
+
+        mock_response.choices = [choice]
+
+        mock_openai_client.chat_completion.return_value = mock_response
+
+        generate_llm_function_response_module = sys.modules[
+            "src.tools.generate_llm_function_response"
+        ]
+        with patch.object(
+            generate_llm_function_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
+            mock_get_client.return_value = mock_openai_client
+
+            # Should handle gracefully and skip the unexpected tool call
+            result = await generate_llm_function_response(
+                prompt="Hello!",
+                tools=sample_tools,
+                model="gpt-4",
+                client=None,
+            )
+
+            # Should return empty list or response since no valid tool calls
+            # The function returns response if parsed_calls is empty
+            assert isinstance(result, ChatCompletion)
+
+    @pytest.mark.asyncio
+    async def test_generate_llm_function_response_executor_not_callable(
+        self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
+    ):
+        """Test generate_llm_function_response with non-callable executor."""
+        mock_openai_client.chat_completion.return_value = (
+            mock_chat_completion_with_tool_call
+        )
+
+        generate_llm_function_response_module = sys.modules[
+            "src.tools.generate_llm_function_response"
+        ]
+        with patch.object(
+            generate_llm_function_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
+            mock_get_client.return_value = mock_openai_client
+
+            # Create a non-callable executor
+            tool_executors = {"get_weather": "not_a_function"}
+
+            with pytest.raises(ValueError) as exc_info:
+                await generate_llm_function_response(
+                    prompt="What's the weather?",
+                    tools=sample_tools,
+                    model="gpt-4",
+                    execute_tools=True,
+                    tool_executors=tool_executors,
+                    client=None,
+                )
+            assert "not callable" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_generate_llm_function_response_with_images_and_files(
+        self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
+    ):
+        """Test generate_llm_function_response with both images and files."""
+        mock_openai_client.chat_completion.return_value = (
+            mock_chat_completion_with_tool_call
+        )
+
+        generate_llm_function_response_module = sys.modules[
+            "src.tools.generate_llm_function_response"
+        ]
+        with patch.object(
+            generate_llm_function_response_module, "get_client", new_callable=AsyncMock
+        ) as mock_get_client:
+            mock_get_client.return_value = mock_openai_client
+
+            await generate_llm_function_response(
+                prompt="Analyze this",
+                tools=sample_tools,
+                model="gpt-4-vision-preview",
+                images=["https://example.com/image.jpg"],
+                files=["file-abc123"],
+                client=None,
+            )
+
+            call_args = mock_openai_client.chat_completion.call_args[1]
+            user_message = call_args["messages"][-1]
+            # Should use content array when files are present
+            assert isinstance(user_message["content"], list)
+            assert "attachments" in user_message

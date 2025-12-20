@@ -27,13 +27,13 @@ def get_tool_metadata() -> ToolMetadata:
     """
     return ToolMetadata(
         name="semantic_search_organizations",
-        description="Semantically search organizations in Pinecone using text query and metadata filters",
+        description="Semantically search organizations in Pinecone by sector/industry name. This vector database clusters companies in the same/similar industries together and is designed to be queried by the name of a sector to return companies that closely match that sector.",
         version="1.0.0",
         parameters=[
             ToolParameterSchema(
                 name="text",
                 type="string",
-                description="Text query to embed and search for (required). This will be embedded using text-embedding-3-large and used for semantic similarity search",
+                description="Sector or industry name to search for (required). Examples: 'AI companies', 'healthcare startups', 'fintech', 'closed-source LLM providers'. This will be embedded using text-embedding-3-large and used for semantic similarity search to find companies in that sector/industry.",
                 required=True,
             ),
             ToolParameterSchema(
@@ -217,14 +217,19 @@ async def semantic_search_organizations(
     top_k: int = 10,
     index_name: Optional[str] = None,
 ) -> ToolOutput:
-    """Semantically search organizations in Pinecone using text query and metadata filters.
+    """Semantically search organizations in Pinecone by sector/industry name.
 
-    This tool embeds the provided text query and searches Pinecone for similar
-    organizations, optionally filtered by metadata criteria.
+    This tool is designed to query the Pinecone vector database by sector or industry
+    name. The database clusters companies in the same/similar industries together,
+    so queries should specify a sector/industry (e.g., "AI companies", "healthcare
+    startups", "fintech") rather than specific company names. The text will be
+    embedded using text-embedding-3-large and used for semantic similarity search
+    to find companies that closely match that sector/industry.
 
     Args:
-        text: Text query to embed and search for (required). This will be embedded
-            using text-embedding-3-large and used for semantic similarity search.
+        text: Sector or industry name to search for (required). Examples: "AI companies",
+            "healthcare startups", "fintech", "closed-source LLM providers". This will
+            be embedded using text-embedding-3-large and used for semantic similarity search.
         org_uuid: Exact match for organization UUID (as string).
         name: Exact match for organization name.
         categories_contains: Check if categories array contains this value.
@@ -262,13 +267,13 @@ async def semantic_search_organizations(
 
     Example:
         ```python
-        # Simple text query
+        # Query by sector name
         orgs = await semantic_search_organizations(
             text="AI companies",
             top_k=10
         )
 
-        # Query with metadata filters
+        # Query by sector with metadata filters
         orgs = await semantic_search_organizations(
             text="healthcare startups",
             org_status="operating",
@@ -277,12 +282,18 @@ async def semantic_search_organizations(
             top_k=5
         )
 
-        # Query with date range
+        # Query by industry with date range
         orgs = await semantic_search_organizations(
-            text="fintech companies",
+            text="fintech",
             founding_date_from="2020-01-01T00:00:00",
             founding_date_to="2023-12-31T23:59:59",
             top_k=20
+        )
+
+        # Query by specific sector description
+        orgs = await semantic_search_organizations(
+            text="closed-source LLM providers",
+            top_k=10
         )
         ```
     """
