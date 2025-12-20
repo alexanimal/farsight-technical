@@ -95,6 +95,7 @@ class FundingRoundModel:
         investment_date_from: Optional[datetime] = None,
         investment_date_to: Optional[datetime] = None,
         org_uuid: Optional[UUID] = None,
+        org_uuids: Optional[list[UUID]] = None,
         general_funding_stage: Optional[str] = None,
         stage: Optional[str] = None,
         investors_contains: Optional[str] = None,
@@ -118,7 +119,9 @@ class FundingRoundModel:
             investment_date: Exact match for investment date.
             investment_date_from: Filter funding rounds on or after this date.
             investment_date_to: Filter funding rounds on or before this date.
-            org_uuid: Exact match for organization UUID.
+            org_uuid: Exact match for organization UUID (single).
+            org_uuids: List of organization UUIDs to filter by (batch query).
+                If both org_uuid and org_uuids are provided, org_uuids takes precedence.
             general_funding_stage: Exact match for general funding stage.
             stage: Exact match for specific funding stage.
             investors_contains: Check if investors array contains this value.
@@ -158,6 +161,9 @@ class FundingRoundModel:
             # Get rounds with specific investor
             investor_rounds = await model.get(investors_contains="Sequoia Capital")
 
+            # Get rounds for multiple organizations (batch query)
+            org_rounds = await model.get(org_uuids=[UUID("..."), UUID("...")])
+
             # Get with pagination
             page = await model.get(limit=50, offset=0)
             ```
@@ -192,7 +198,23 @@ class FundingRoundModel:
             params.append(investment_date_to)
             param_index += 1
 
-        if org_uuid is not None:
+        # Handle org_uuid(s) - prioritize org_uuids if both provided
+        if org_uuids is not None:
+            if len(org_uuids) == 0:
+                # Empty list = no results
+                return []
+            elif len(org_uuids) == 1:
+                # Single UUID - use equality for better index usage
+                conditions.append(f"org_uuid = ${param_index}")
+                params.append(str(org_uuids[0]))
+                param_index += 1
+            else:
+                # Multiple UUIDs - use IN clause with ANY for array
+                conditions.append(f"org_uuid = ANY(${param_index}::uuid[])")
+                params.append([str(uuid) for uuid in org_uuids])
+                param_index += 1
+        elif org_uuid is not None:
+            # Existing single UUID support (backward compatible)
             conditions.append(f"org_uuid = ${param_index}")
             params.append(str(org_uuid))
             param_index += 1
