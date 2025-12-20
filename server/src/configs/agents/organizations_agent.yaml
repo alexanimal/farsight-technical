@@ -1,0 +1,81 @@
+name: organizations
+description: Agent specialized in handling organization-related queries and data retrieval
+category: organizations
+tools:
+  - name: get_organizations
+    description: Search for organizations by various criteria (UUIDs, names, locations, funding, dates, categories, etc.)
+    parameters:
+      - name: org_uuid
+        type: string
+        description: UUID of a specific organization
+      - name: name
+        type: string
+        description: Exact match for organization name
+      - name: name_ilike
+        type: string
+        description: Case-insensitive partial match for organization name
+      - name: org_domain
+        type: string
+        description: Exact match for organization domain
+      - name: city
+        type: string
+        description: Exact match for city
+      - name: state
+        type: string
+        description: Exact match for state
+      - name: country
+        type: string
+        description: Exact match for country
+      - name: categories_contains
+        type: string
+        description: Check if categories array contains this value
+      - name: total_funding_usd_min
+        type: integer
+        description: Filter with total_funding_usd >= this value
+      - name: total_funding_usd_max
+        type: integer
+        description: Filter with total_funding_usd <= this value
+      - name: founding_date_from
+        type: string
+        description: Filter organizations founded on or after this date (ISO format)
+      - name: founding_date_to
+        type: string
+        description: Filter organizations founded on or before this date (ISO format)
+      - name: stage
+        type: string
+        description: Exact match for stage
+      - name: general_funding_stage
+        type: string
+        description: Exact match for general funding stage
+      - name: org_status
+        type: string
+        description: Exact match for organization status
+  - name: semantic_search_organizations
+    description: Semantically search organizations using text query and metadata filters
+    parameters:
+      - name: text
+        type: string
+        description: Text query to embed and search for (required)
+      - name: top_k
+        type: integer
+        description: Number of results to return
+      - name: categories_contains
+        type: string
+        description: Check if categories array contains this value
+      - name: total_funding_usd_min
+        type: number
+        description: Filter with total_funding_usd >= this value
+      - name: total_funding_usd_max
+        type: number
+        description: Filter with total_funding_usd <= this value
+metadata:
+  use_cases:
+    - Finding organizations by name, domain, location, or other criteria
+    - Getting organization details (funding, stage, status, etc.)
+    - Analyzing organization trends
+    - Searching organizations by natural language queries (semantic search)
+    - Finding organizations by specific filters (structured search)
+  data_sources:
+    - organizations table
+    - pinecone_organizations (for semantic search)
+

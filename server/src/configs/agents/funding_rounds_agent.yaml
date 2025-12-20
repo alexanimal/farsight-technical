@@ -1,0 +1,49 @@
+name: funding_rounds
+description: Agent specialized in handling funding round-related queries and data retrieval
+category: funding_rounds
+tools:
+  - name: get_funding_rounds
+    description: Search for funding rounds by various criteria (UUIDs, dates, amounts, investors, stages, etc.)
+    parameters:
+      - name: org_uuid
+        type: string
+        description: UUID of the organization that raised the funding
+      - name: investment_date_from
+        type: string
+        description: Filter funding rounds on or after this date (ISO format)
+      - name: investment_date_to
+        type: string
+        description: Filter funding rounds on or before this date (ISO format)
+      - name: fundraise_amount_usd_min
+        type: integer
+        description: Minimum fundraise amount in USD
+      - name: fundraise_amount_usd_max
+        type: integer
+        description: Maximum fundraise amount in USD
+      - name: general_funding_stage
+        type: string
+        description: General funding stage (e.g., seed, series_a, series_b, late_stage_venture, ipo)
+      - name: investors_contains
+        type: string
+        description: Check if investors array contains this value
+  - name: semantic_search_organizations
+    description: Search for organizations by name to resolve company names to UUIDs
+    parameters:
+      - name: text
+        type: string
+        description: Company name or description to search for
+      - name: top_k
+        type: integer
+        description: Number of results to return
+metadata:
+  use_cases:
+    - Finding funding rounds for companies
+    - Getting funding round details (amounts, investors, stages, dates)
+    - Analyzing funding trends
+    - Searching funding rounds by company name (resolves names to UUIDs automatically)
+    - Finding funding rounds by specific investors or investment stages
+  data_sources:
+    - fundingrounds table
+    - organizations table
+    - pinecone_organizations (for semantic name resolution)
+
