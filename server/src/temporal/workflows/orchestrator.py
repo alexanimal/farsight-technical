@@ -54,7 +54,7 @@ class WorkflowState:
     """Internal workflow state."""
 
     status: WorkflowStatus = WorkflowStatus.PENDING
-    started_at: datetime = field(default_factory=datetime.utcnow)
+    started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     error: Optional[str] = None
     context: Dict[str, Any] = field(default_factory=dict)
@@ -108,9 +108,27 @@ class OrchestratorWorkflow:
             - workflow_id: Workflow ID
             - metadata: Additional metadata
         """
+        # Handle case where Temporal UI passes arguments as a list
+        # When started from UI, the entire argument array may be passed as first parameter
+        if isinstance(context, list) and len(context) >= 1:
+            # Unpack: [context_dict, agent_plan, execution_mode]
+            context, agent_plan, execution_mode = (
+                context[0] if len(context) > 0 else {},
+                context[1] if len(context) > 1 else None,
+                context[2] if len(context) > 2 else "sequential",
+            )
+
+        # Validate context is a dict
+        if not isinstance(context, dict):
+            raise ValueError(
+                f"Expected context to be a dict, got {type(context).__name__}. "
+                "Context must be a dictionary with at least a 'query' field."
+            )
+
         workflow_id = workflow.info().workflow_id
         self._state.context = context
         self._state.status = WorkflowStatus.RUNNING
+        self._state.started_at = workflow.now()
         self._state.metadata["workflow_id"] = workflow_id
         self._state.metadata["execution_mode"] = execution_mode
 
@@ -132,7 +150,7 @@ class OrchestratorWorkflow:
             # Determine final status
             if self._state.cancellation_requested:
                 self._state.status = WorkflowStatus.CANCELLED
-                self._state.completed_at = datetime.utcnow()
+                self._state.completed_at = workflow.now()
                 return {
                     "success": False,
                     "final_response": None,
@@ -157,18 +175,66 @@ class OrchestratorWorkflow:
             else:
                 self._state.status = WorkflowStatus.COMPLETED
 
-            self._state.completed_at = datetime.utcnow()
+            self._state.completed_at = workflow.now()
 
-            # Get final response (last successful agent response, or orchestration response)
+            # Consolidate agent responses into final answer
             final_response = None
             if self._state.agent_responses:
-                # Try to find orchestration agent response first
-                for response in reversed(self._state.agent_responses):
-                    if response.get("agent_category") == "orchestration":
-                        final_response = response
-                        break
-                if final_response is None:
-                    final_response = self._state.agent_responses[-1]
+                # Filter out orchestration agent responses from planning phase
+                # (we only want responses from specialized agents for consolidation)
+                specialized_agent_responses = [
+                    resp
+                    for resp in self._state.agent_responses
+                    if resp.get("agent_category") != "orchestration"
+                ]
+
+                # If we have specialized agent responses, consolidate them
+                if specialized_agent_responses:
+                    try:
+                        workflow.logger.info(
+                            f"Consolidating {len(specialized_agent_responses)} agent response(s)"
+                        )
+
+                        # Create consolidation context
+                        consolidation_context = {
+                            "query": context.get("query", ""),
+                            "metadata": {
+                                "mode": "consolidation",
+                                "agent_responses": specialized_agent_responses,
+                            },
+                        }
+
+                        # Call orchestration agent in consolidation mode
+                        consolidation_result = await self._execute_single_agent(
+                            "orchestration", consolidation_context
+                        )
+
+                        if consolidation_result.get("success"):
+                            consolidated_response = consolidation_result.get("response", {})
+                            final_response = consolidated_response
+                            workflow.logger.info(
+                                "Successfully consolidated agent responses"
+                            )
+                        else:
+                            workflow.logger.warning(
+                                f"Consolidation failed: {consolidation_result.get('error', 'Unknown error')}"
+                            )
+                            # Fallback to last agent response
+                            final_response = self._state.agent_responses[-1]
+                    except Exception as e:
+                        workflow.logger.error(
+                            f"Error during consolidation: {e}", exc_info=True
+                        )
+                        # Fallback to last agent response
+                        final_response = self._state.agent_responses[-1]
+                else:
+                    # No specialized agent responses, use orchestration response if available
+                    for response in reversed(self._state.agent_responses):
+                        if response.get("agent_category") == "orchestration":
+                            final_response = response
+                            break
+                    if final_response is None:
+                        final_response = self._state.agent_responses[-1]
 
             return {
                 "success": self._state.status == WorkflowStatus.COMPLETED,
@@ -183,7 +249,7 @@ class OrchestratorWorkflow:
             workflow.logger.error(error_msg, exc_info=True)
             self._state.status = WorkflowStatus.FAILED
             self._state.error = error_msg
-            self._state.completed_at = datetime.utcnow()
+            self._state.completed_at = workflow.now()
             raise
 
     async def _determine_agent_plan(self, context: Dict[str, Any]) -> List[str]:
@@ -205,23 +271,15 @@ class OrchestratorWorkflow:
             workflow.logger.warning("Orchestration agent failed, using empty plan")
             return []
 
-        # Extract agent plan from orchestration response
-        # This is a simplified version - in practice, the orchestration agent
-        # would analyze the query and return a list of agents to execute
+        # Extract agent plan from orchestration response metadata
         response = result.get("response", {})
-        content = response.get("content", {})
-
-        # Try to extract agent plan from response
-        # Format could be: {"agents": ["acquisition"], "reasoning": "..."}
-        if isinstance(content, dict) and "agents" in content:
-            agent_plan = content["agents"]
-        elif isinstance(content, str):
-            # Simple heuristic: if query mentions acquisition, use acquisition agent
-            query = context.get("query", "").lower()
-            agent_plan = []
-            if "acquisition" in query or "acquired" in query:
-                agent_plan.append("acquisition")
+        metadata = response.get("metadata", {})
+        execution_plan = metadata.get("execution_plan", {})
+        
+        if isinstance(execution_plan, dict) and "agents" in execution_plan:
+            agent_plan = execution_plan["agents"]
         else:
+            workflow.logger.warning("No execution plan found in orchestration response metadata")
             agent_plan = []
 
         workflow.logger.info(f"Determined agent plan: {agent_plan}")
@@ -244,7 +302,7 @@ class OrchestratorWorkflow:
             agent_name=agent_name,
             agent_category="unknown",  # Will be updated after execution
             status="running",
-            started_at=datetime.utcnow(),
+            started_at=workflow.now(),
         )
         self._state.agent_executions[agent_name] = exec_state
 
@@ -266,7 +324,7 @@ class OrchestratorWorkflow:
                 ),
             )
 
-            exec_state.completed_at = datetime.utcnow()
+            exec_state.completed_at = workflow.now()
 
             if result.get("success"):
                 exec_state.status = "completed"
@@ -310,7 +368,7 @@ class OrchestratorWorkflow:
             workflow.logger.error(error_msg, exc_info=True)
             exec_state.status = "failed"
             exec_state.error = error_msg
-            exec_state.completed_at = datetime.utcnow()
+            exec_state.completed_at = workflow.now()
 
             self._state.execution_history.append(
                 {
@@ -493,7 +551,7 @@ class OrchestratorWorkflow:
                     agent_name=exec_state.agent_name,
                     agent_category=exec_state.agent_category,
                     status=exec_state.status,
-                    started_at=exec_state.started_at or datetime.utcnow(),
+                    started_at=exec_state.started_at or workflow.now(),
                     completed_at=exec_state.completed_at,
                     error=exec_state.error,
                     metadata=exec_state.metadata,
@@ -564,7 +622,7 @@ class OrchestratorWorkflow:
                 agent_name=agent_name,
                 agent_category="unknown",
                 status="not_found",
-                started_at=datetime.utcnow(),
+                started_at=workflow.now(),
                 error=f"Agent {agent_name} not found in workflow",
             )
 
@@ -573,7 +631,7 @@ class OrchestratorWorkflow:
             agent_name=exec_state.agent_name,
             agent_category=exec_state.agent_category,
             status=exec_state.status,
-            started_at=exec_state.started_at or datetime.utcnow(),
+            started_at=exec_state.started_at or workflow.now(),
             completed_at=exec_state.completed_at,
             response=exec_state.response,
             error=exec_state.error,
