@@ -11,6 +11,15 @@ import time
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
+try:
+    from langfuse import observe
+except ImportError:
+    # Fallback decorator if langfuse is not available
+    def observe(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
 from src.contracts.tool_io import (
     ToolMetadata,
     ToolOutput,
@@ -616,6 +625,7 @@ def _generate_insights(
     return insights
 
 
+@observe(as_type="tool")
 async def identify_funding_patterns(
     trend_data: List[Dict[str, Any]],
     granularity: str,

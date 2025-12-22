@@ -12,6 +12,15 @@ from collections import defaultdict
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
+try:
+    from langfuse import observe
+except ImportError:
+    # Fallback decorator if langfuse is not available
+    def observe(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
 from src.contracts.tool_io import (
     ToolMetadata,
     ToolOutput,
@@ -158,6 +167,7 @@ def _match_category_to_sector(
     return False
 
 
+@observe(as_type="tool")
 async def analyze_sector_concentration(
     portfolio_companies: List[Dict[str, Any]],
     sectors: Optional[List[str]] = None,

@@ -130,6 +130,7 @@ def discover_agents() -> None:
         ("orchestration", "orchestration_agent.yaml"),
         ("funding_rounds", "funding_rounds_agent.yaml"),
         ("organizations", "organizations_agent.yaml"),
+        ("sector_trends", "sector_trends_agent.yaml"),
     ]
 
     for agent_name, config_filename in agent_mappings:

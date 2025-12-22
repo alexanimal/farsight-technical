@@ -11,6 +11,15 @@ from datetime import datetime
 from typing import Any, Optional
 from uuid import UUID
 
+try:
+    from langfuse import observe
+except ImportError:
+    # Fallback decorator if langfuse is not available
+    def observe(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
 from src.contracts.tool_io import (ToolMetadata, ToolOutput,
                                    ToolParameterSchema, create_tool_output)
 from src.models.pinecone_organizations import (PineconeOrganization,
@@ -192,6 +201,7 @@ def get_tool_metadata() -> ToolMetadata:
     )
 
 
+@observe(as_type="tool")
 async def semantic_search_organizations(
     text: str,
     org_uuid: Optional[str] = None,

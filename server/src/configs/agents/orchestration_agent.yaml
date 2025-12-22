@@ -21,5 +21,8 @@ metadata:
     - Tool discovery and categorization
   manages_agents:
     - acquisition
+    - organizations
+    - funding_rounds
+    - sector_trends
     # Add more agent names as they are created
 

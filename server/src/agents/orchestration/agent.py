@@ -14,6 +14,15 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
+try:
+    from langfuse import observe
+except ImportError:
+    # Fallback decorator if langfuse is not available
+    def observe(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
 from src.contracts.agent_io import AgentOutput, create_agent_output
 from src.core.agent_base import AgentBase
 from src.core.agent_context import AgentContext
@@ -43,17 +52,21 @@ _FALLBACK_AVAILABLE_AGENTS = {
         "description": "Handles queries about company acquisitions, mergers, and M&A activity",
         "keywords": ["acquisition", "acquired", "merger", "m&a", "takeover", "buyout"],
     },
-    # Add more agents as they are created
-    # "funding": {
-    #     "name": "funding",
-    #     "description": "Handles queries about funding rounds, investments, and fundraising",
-    #     "keywords": ["funding", "investment", "round", "raise", "investor"],
-    # },
-    # "organization": {
-    #     "name": "organization",
-    #     "description": "Handles queries about companies, organizations, and their details",
-    #     "keywords": ["company", "organization", "startup", "firm", "business"],
-    # },
+    "organizations": {
+        "name": "organizations",
+        "description": "Handles queries about companies, organizations, and their details",
+        "keywords": ["company", "organization", "startup", "firm", "business", "companies"],
+    },
+    "funding_rounds": {
+        "name": "funding_rounds",
+        "description": "Handles queries about funding rounds, investments, and fundraising",
+        "keywords": ["funding", "investment", "round", "raise", "investor", "fundraise"],
+    },
+    "sector_trends": {
+        "name": "sector_trends",
+        "description": "Analyzes funding trends within sectors over time, identifying growth patterns, funding velocity changes, and market momentum indicators",
+        "keywords": ["sector", "trend", "funding velocity", "growth", "momentum", "market analysis", "sector analysis", "funding trends", "market trends"],
+    },
 }
 
 
@@ -241,6 +254,7 @@ Rules:
             agent_name=self.name, system_prompt=base_prompt, overwrite=True
         )
 
+    @observe(as_type="agent")
     async def execute(self, context: AgentContext) -> AgentOutput:
         """Execute the orchestration agent in planning or consolidation mode.
 

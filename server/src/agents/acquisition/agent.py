@@ -12,6 +12,15 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+try:
+    from langfuse import observe
+except ImportError:
+    # Fallback decorator if langfuse is not available
+    def observe(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
 from src.contracts.agent_io import AgentOutput, create_agent_output
 from src.core.agent_response import AgentInsight
 from src.core.agent_base import AgentBase
@@ -93,6 +102,7 @@ Rules:
             overwrite=True,
         )
 
+    @observe(as_type="agent")
     async def execute(self, context: AgentContext) -> AgentOutput:
         """Execute the acquisition agent to handle acquisition-related queries.
 

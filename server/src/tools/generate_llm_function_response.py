@@ -9,6 +9,15 @@ import json
 import logging
 from typing import Any, Callable, Optional
 
+try:
+    from langfuse import observe
+except ImportError:
+    # Fallback decorator if langfuse is not available
+    def observe(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
 from openai.types.chat import ChatCompletion, ChatCompletionMessageToolCall
 
 from src.llm.openai_client import OpenAIClient, get_client
@@ -16,6 +25,7 @@ from src.llm.openai_client import OpenAIClient, get_client
 logger = logging.getLogger(__name__)
 
 
+@observe(as_type="tool")
 async def generate_llm_function_response(
     prompt: str,
     tools: list[dict[str, Any]],

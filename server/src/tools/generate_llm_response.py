@@ -8,6 +8,15 @@ reasoning effort, images, and files.
 import logging
 from typing import Any, AsyncIterator, Optional
 
+try:
+    from langfuse import observe
+except ImportError:
+    # Fallback decorator if langfuse is not available
+    def observe(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
 from src.llm.openai_client import OpenAIClient, get_client
@@ -15,6 +24,7 @@ from src.llm.openai_client import OpenAIClient, get_client
 logger = logging.getLogger(__name__)
 
 
+@observe(as_type="tool")
 async def generate_llm_response(
     prompt: str,
     model: str = "gpt-4.1-mini",

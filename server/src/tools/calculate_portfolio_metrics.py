@@ -12,6 +12,15 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
+try:
+    from langfuse import observe
+except ImportError:
+    # Fallback decorator if langfuse is not available
+    def observe(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
 from src.contracts.tool_io import (
     ToolMetadata,
     ToolOutput,
@@ -120,6 +129,7 @@ def get_tool_metadata() -> ToolMetadata:
     )
 
 
+@observe(as_type="tool")
 async def calculate_portfolio_metrics(
     portfolio_companies: List[Dict[str, Any]],
     time_period_start: Optional[str] = None,

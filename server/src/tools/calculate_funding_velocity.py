@@ -10,6 +10,15 @@ import statistics
 import time
 from typing import Any, Dict, List, Optional
 
+try:
+    from langfuse import observe
+except ImportError:
+    # Fallback decorator if langfuse is not available
+    def observe(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
 from src.contracts.tool_io import (
     ToolMetadata,
     ToolOutput,
@@ -255,6 +264,7 @@ def _determine_trend_direction(
         return "stable"
 
 
+@observe(as_type="tool")
 async def calculate_funding_velocity(
     trend_data: List[Dict[str, Any]],
     moving_average_periods: int = 3,

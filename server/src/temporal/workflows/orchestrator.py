@@ -16,7 +16,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
@@ -139,7 +139,12 @@ class OrchestratorWorkflow:
         try:
             # If no agent plan provided, start with orchestration agent
             if agent_plan is None:
-                agent_plan = await self._determine_agent_plan(context)
+                agent_plan, plan_execution_mode = await self._determine_agent_plan(context)
+                # Use execution_mode from orchestration agent's plan if available
+                if plan_execution_mode:
+                    execution_mode = plan_execution_mode
+                    self._state.metadata["execution_mode"] = execution_mode
+                    workflow.logger.info(f"Using execution_mode from orchestration plan: {execution_mode}")
 
             # Execute agents according to plan
             if execution_mode == "parallel":
@@ -252,14 +257,16 @@ class OrchestratorWorkflow:
             self._state.completed_at = workflow.now()
             raise
 
-    async def _determine_agent_plan(self, context: Dict[str, Any]) -> List[str]:
+    async def _determine_agent_plan(self, context: Dict[str, Any]) -> Tuple[List[str], Optional[str]]:
         """Determine which agents to execute using orchestration agent.
 
         Args:
             context: Initial context.
 
         Returns:
-            List of agent names to execute.
+            Tuple of (agent_plan, execution_mode):
+            - agent_plan: List of agent names to execute
+            - execution_mode: Execution mode from orchestration plan, or None if not found
         """
         workflow.logger.info("Determining agent plan using orchestration agent")
 
@@ -269,21 +276,24 @@ class OrchestratorWorkflow:
         if not result.get("success"):
             # Fallback: if orchestration fails, return empty plan
             workflow.logger.warning("Orchestration agent failed, using empty plan")
-            return []
+            return [], None
 
-        # Extract agent plan from orchestration response metadata
+        # Extract agent plan and execution_mode from orchestration response metadata
         response = result.get("response", {})
         metadata = response.get("metadata", {})
         execution_plan = metadata.get("execution_plan", {})
         
         if isinstance(execution_plan, dict) and "agents" in execution_plan:
             agent_plan = execution_plan["agents"]
+            # Extract execution_mode from the plan
+            execution_mode = execution_plan.get("execution_mode")
+            workflow.logger.info(
+                f"Determined agent plan: {agent_plan}, execution_mode: {execution_mode}"
+            )
+            return agent_plan, execution_mode
         else:
             workflow.logger.warning("No execution plan found in orchestration response metadata")
-            agent_plan = []
-
-        workflow.logger.info(f"Determined agent plan: {agent_plan}")
-        return agent_plan
+            return [], None
 
     async def _execute_single_agent(
         self, agent_name: str, context: Dict[str, Any]

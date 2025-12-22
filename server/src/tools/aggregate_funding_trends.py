@@ -13,6 +13,15 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
+try:
+    from langfuse import observe
+except ImportError:
+    # Fallback decorator if langfuse is not available
+    def observe(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
 from src.contracts.tool_io import (ToolMetadata, ToolOutput,
                                    ToolParameterSchema, create_tool_output)
 from src.models.funding_rounds import FundingRound, FundingRoundModel
@@ -169,6 +178,7 @@ def _format_period_label(period_key: str, granularity: str) -> str:
         return period_key
 
 
+@observe(as_type="tool")
 async def aggregate_funding_trends(
     org_uuids: List[str],
     time_period_start: str,
