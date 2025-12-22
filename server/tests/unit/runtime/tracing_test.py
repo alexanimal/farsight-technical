@@ -265,9 +265,11 @@ class TestTracerSpan:
         """Test async_span context manager when tracing is enabled."""
         mock_observation = MagicMock()
         mock_observation.id = "obs-123"
-        mock_context_manager = AsyncMock()
-        mock_context_manager.__aenter__ = AsyncMock(return_value=mock_observation)
-        mock_context_manager.__aexit__ = AsyncMock(return_value=None)
+        # Note: start_as_current_observation() returns a sync context manager,
+        # which we manually call __enter__() and __exit__() on in async_span
+        mock_context_manager = MagicMock()
+        mock_context_manager.__enter__ = MagicMock(return_value=mock_observation)
+        mock_context_manager.__exit__ = MagicMock(return_value=None)
         mock_langfuse_client.start_as_current_observation.return_value = (
             mock_context_manager
         )
@@ -276,14 +278,18 @@ class TestTracerSpan:
             assert span == mock_observation
 
         mock_langfuse_client.start_as_current_observation.assert_called_once()
+        mock_context_manager.__enter__.assert_called_once()
+        mock_context_manager.__exit__.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_async_span_creates_trace_id(self, tracer_enabled, mock_langfuse_client):
         """Test async_span creates trace_id if not provided."""
         mock_observation = MagicMock()
-        mock_context_manager = AsyncMock()
-        mock_context_manager.__aenter__ = AsyncMock(return_value=mock_observation)
-        mock_context_manager.__aexit__ = AsyncMock(return_value=None)
+        # Note: start_as_current_observation() returns a sync context manager,
+        # which we manually call __enter__() and __exit__() on in async_span
+        mock_context_manager = MagicMock()
+        mock_context_manager.__enter__ = MagicMock(return_value=mock_observation)
+        mock_context_manager.__exit__ = MagicMock(return_value=None)
         mock_langfuse_client.start_as_current_observation.return_value = (
             mock_context_manager
         )
@@ -292,14 +298,18 @@ class TestTracerSpan:
             pass
 
         mock_langfuse_client.start_as_current_observation.assert_called_once()
+        mock_context_manager.__enter__.assert_called_once()
+        mock_context_manager.__exit__.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_async_span_with_metadata(self, tracer_enabled, mock_langfuse_client):
         """Test async_span with metadata."""
         mock_observation = MagicMock()
-        mock_context_manager = AsyncMock()
-        mock_context_manager.__aenter__ = AsyncMock(return_value=mock_observation)
-        mock_context_manager.__aexit__ = AsyncMock(return_value=None)
+        # Note: start_as_current_observation() returns a sync context manager,
+        # which we manually call __enter__() and __exit__() on in async_span
+        mock_context_manager = MagicMock()
+        mock_context_manager.__enter__ = MagicMock(return_value=mock_observation)
+        mock_context_manager.__exit__ = MagicMock(return_value=None)
         mock_langfuse_client.start_as_current_observation.return_value = (
             mock_context_manager
         )
@@ -310,6 +320,8 @@ class TestTracerSpan:
 
         call_args = mock_langfuse_client.start_as_current_observation.call_args
         assert call_args[1]["metadata"] == metadata
+        mock_context_manager.__enter__.assert_called_once()
+        mock_context_manager.__exit__.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_async_span_handles_error(self, tracer_enabled, mock_langfuse_client):

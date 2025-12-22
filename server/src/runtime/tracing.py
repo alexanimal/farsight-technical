@@ -11,8 +11,10 @@ It provides:
 - Structured metadata
 """
 
+import asyncio
 import contextvars
 import logging
+import sys
 import uuid
 from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime
@@ -266,13 +268,22 @@ class Tracer:
         try:
             # Use start_as_current_observation() which replaces deprecated start_as_current_span()
             # Parent relationships are handled automatically through Langfuse's current span context
-            # This returns a context manager that automatically handles the observation lifecycle
-            async with self.client.start_as_current_observation(
+            # Note: start_as_current_observation() returns a sync context manager, so we need
+            # to wrap it to work in async context by manually calling __enter__ and __exit__
+            sync_cm = self.client.start_as_current_observation(
                 name=name,
                 as_type="span",
                 metadata=metadata or {},
                 trace_context=trace_context,
-            ) as observation:
+            )
+            
+            # Enter the sync context manager (this is safe to do in async code as it's lightweight)
+            observation = sync_cm.__enter__()
+            
+            exc_type = None
+            exc_val = None
+            exc_tb = None
+            try:
                 # Set trace context for our internal tracking
                 context = {
                     "trace_id": trace_id,
@@ -287,6 +298,13 @@ class Tracer:
                 self.set_trace_context(context)
 
                 yield observation
+            except Exception:
+                # Capture exception info to pass to __exit__
+                exc_type, exc_val, exc_tb = sys.exc_info()
+                raise
+            finally:
+                # Exit the sync context manager, passing exception info if any
+                sync_cm.__exit__(exc_type, exc_val, exc_tb)
         except (AttributeError, TypeError) as e:
             # Fallback if method doesn't exist or has wrong signature
             logger.warning(

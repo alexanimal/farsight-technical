@@ -131,30 +131,77 @@ class Executor:
                         "timeout": timeout,
                     },
                 ) as span:
-                    # Execute with timeout if specified
-                    if timeout is not None:
-                        output = await asyncio.wait_for(
-                            self._execute_with_cancellation(
+                    # Set input on the observation
+                    if span is not None and hasattr(span, "update"):
+                        try:
+                            # Convert agent_input to dict for Langfuse
+                            input_dict = agent_input.model_dump() if hasattr(agent_input, "model_dump") else {
+                                "query": agent_context.query,
+                                "conversation_id": agent_context.conversation_id,
+                                "user_id": agent_context.user_id,
+                                "metadata": agent_context.metadata,
+                                "shared_data": agent_context.shared_data,
+                            }
+                            span.update(input=input_dict)
+                        except Exception as e:
+                            logger.debug(f"Failed to update span input: {e}")
+
+                    try:
+                        # Execute with timeout if specified
+                        if timeout is not None:
+                            output = await asyncio.wait_for(
+                                self._execute_with_cancellation(
+                                    agent, agent_context, cancellation_token
+                                ),
+                                timeout=timeout,
+                            )
+                        else:
+                            output = await self._execute_with_cancellation(
                                 agent, agent_context, cancellation_token
-                            ),
-                            timeout=timeout,
-                        )
-                    else:
-                        output = await self._execute_with_cancellation(
-                            agent, agent_context, cancellation_token
-                        )
+                            )
 
-                    # Ensure we have AgentOutput
-                    if not isinstance(output, AgentOutput):
-                        raise ValueError(
-                            f"Agent {agent.name} returned {type(output)}, expected AgentOutput"
-                        )
+                        # Ensure we have AgentOutput
+                        if not isinstance(output, AgentOutput):
+                            raise ValueError(
+                                f"Agent {agent.name} returned {type(output)}, expected AgentOutput"
+                            )
 
-                    # Add execution metadata to output
-                    output.metadata.update(execution_metadata)
-                    execution_metadata["span_completed"] = True
+                        # Set output on the observation
+                        if span is not None and hasattr(span, "update"):
+                            try:
+                                # Convert AgentOutput to dict for Langfuse
+                                output_dict = output.model_dump() if hasattr(output, "model_dump") else {
+                                    "content": str(output.content) if hasattr(output, "content") else "",
+                                    "status": output.status.value if hasattr(output.status, "value") else str(output.status),
+                                    "agent_name": output.agent_name,
+                                    "agent_category": output.agent_category,
+                                    "error": output.error if hasattr(output, "error") else None,
+                                }
+                                span.update(output=output_dict)
+                            except Exception as e:
+                                logger.debug(f"Failed to update span output: {e}")
 
-                    return output
+                        # Add execution metadata to output
+                        output.metadata.update(execution_metadata)
+                        execution_metadata["span_completed"] = True
+
+                        return output
+                    except Exception as e:
+                        # Capture errors that occur during execution and update the observation
+                        error_msg = str(e)
+                        if span is not None and hasattr(span, "update"):
+                            try:
+                                span.update(
+                                    output={
+                                        "error": error_msg,
+                                        "error_type": type(e).__name__,
+                                        "status": "error",
+                                    }
+                                )
+                            except Exception as update_error:
+                                logger.debug(f"Failed to update span with error: {update_error}")
+                        # Re-raise to be handled by outer exception handlers
+                        raise
             else:
                 # Execute without tracing
                 if timeout is not None:
@@ -340,32 +387,70 @@ class Executor:
                         "timeout": timeout,
                     },
                 ) as span:
-                    # Execute with timeout if specified
-                    if timeout is not None:
-                        result = await asyncio.wait_for(
-                            self._execute_tool_with_cancellation(
+                    # Set input on the observation
+                    if span is not None and hasattr(span, "update"):
+                        try:
+                            span.update(input={"tool_name": tool_name, "parameters": tool_params})
+                        except Exception as e:
+                            logger.debug(f"Failed to update span input: {e}")
+
+                    try:
+                        # Execute with timeout if specified
+                        if timeout is not None:
+                            result = await asyncio.wait_for(
+                                self._execute_tool_with_cancellation(
+                                    tool_func, tool_params, cancellation_token
+                                ),
+                                timeout=timeout,
+                            )
+                        else:
+                            result = await self._execute_tool_with_cancellation(
                                 tool_func, tool_params, cancellation_token
-                            ),
-                            timeout=timeout,
+                            )
+
+                        # Set output on the observation
+                        if span is not None and hasattr(span, "update"):
+                            try:
+                                # Convert result to a serializable format
+                                if isinstance(result, dict):
+                                    output_data = result
+                                elif hasattr(result, "model_dump"):
+                                    output_data = result.model_dump()
+                                else:
+                                    output_data = {"result": result}
+                                span.update(output=output_data)
+                            except Exception as e:
+                                logger.debug(f"Failed to update span output: {e}")
+
+                        execution_metadata["span_completed"] = True
+
+                        # Calculate execution time
+                        execution_time_ms = (time.time() - start_time) * 1000
+
+                        # Return ToolOutput
+                        return create_tool_output(
+                            tool_name=tool_name,
+                            success=True,
+                            result=result,
+                            execution_time_ms=execution_time_ms,
+                            metadata=execution_metadata,
                         )
-                    else:
-                        result = await self._execute_tool_with_cancellation(
-                            tool_func, tool_params, cancellation_token
-                        )
-
-                    execution_metadata["span_completed"] = True
-
-                    # Calculate execution time
-                    execution_time_ms = (time.time() - start_time) * 1000
-
-                    # Return ToolOutput
-                    return create_tool_output(
-                        tool_name=tool_name,
-                        success=True,
-                        result=result,
-                        execution_time_ms=execution_time_ms,
-                        metadata=execution_metadata,
-                    )
+                    except Exception as e:
+                        # Capture errors that occur during execution and update the observation
+                        error_msg = str(e)
+                        if span is not None and hasattr(span, "update"):
+                            try:
+                                span.update(
+                                    output={
+                                        "error": error_msg,
+                                        "error_type": type(e).__name__,
+                                        "success": False,
+                                    }
+                                )
+                            except Exception as update_error:
+                                logger.debug(f"Failed to update span with error: {update_error}")
+                        # Re-raise to be handled by outer exception handlers
+                        raise
             else:
                 # Execute without tracing
                 if timeout is not None:
