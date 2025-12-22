@@ -3,14 +3,18 @@
 This module provides a Pydantic model and query methods for the acquisitions table.
 """
 
+import json
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING, Union
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.db import PostgresClient, get_postgres_client
+
+if TYPE_CHECKING:
+    from src.models.organizations import Organization
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +44,24 @@ class Acquisition(BaseModel):
     )
     terms: Optional[str] = Field(None, description="Terms of the acquisition")
     acquirer_type: Optional[str] = Field(None, description="Type of acquirer")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AcquisitionWithOrganizations(Acquisition):
+    """Acquisition model with nested organization details.
+    
+    This extends Acquisition to include full organization objects for:
+    - acquiree_organization: The organization being acquired (from acquiree_uuid)
+    - acquirer_organization: The organization doing the acquiring (from acquirer_uuid)
+    """
+    
+    acquiree_organization: Optional["Organization"] = Field(
+        None, description="Organization being acquired"
+    )
+    acquirer_organization: Optional["Organization"] = Field(
+        None, description="Organization doing the acquiring"
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -102,7 +124,8 @@ class AcquisitionModel:
         acquirer_type: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
-    ) -> list[Acquisition]:
+        include_organizations: bool = False,
+    ) -> Union[list[Acquisition], list["AcquisitionWithOrganizations"]]:
         """Get acquisitions matching the specified filters.
 
         This method builds a dynamic SQL query based on the provided filters.
@@ -124,9 +147,13 @@ class AcquisitionModel:
             acquirer_type: Exact match for acquirer type.
             limit: Maximum number of results to return.
             offset: Number of results to skip (for pagination).
+            include_organizations: If True, includes nested organization details for
+                acquiree_uuid and acquirer_uuid. Returns AcquisitionWithOrganizations
+                objects instead of Acquisition objects.
 
         Returns:
-            List of Acquisition objects matching the filters.
+            List of Acquisition objects matching the filters. If include_organizations=True,
+            returns AcquisitionWithOrganizations objects with nested organization data.
 
         Raises:
             RuntimeError: If client is not initialized.
@@ -158,81 +185,97 @@ class AcquisitionModel:
             )
 
         # Build WHERE clause dynamically
+        # Use table alias 'a' when include_organizations is True, otherwise no alias
+        table_prefix = "a." if include_organizations else ""
         conditions: list[str] = []
         params: list[Any] = []
         param_index = 1
 
         if acquisition_uuid is not None:
-            conditions.append(f"acquisition_uuid = ${param_index}")
+            conditions.append(f"{table_prefix}acquisition_uuid = ${param_index}")
             params.append(str(acquisition_uuid))
             param_index += 1
 
         if acquiree_uuid is not None:
-            conditions.append(f"acquiree_uuid = ${param_index}")
+            conditions.append(f"{table_prefix}acquiree_uuid = ${param_index}")
             params.append(str(acquiree_uuid))
             param_index += 1
 
         if acquirer_uuid is not None:
-            conditions.append(f"acquirer_uuid = ${param_index}")
+            conditions.append(f"{table_prefix}acquirer_uuid = ${param_index}")
             params.append(str(acquirer_uuid))
             param_index += 1
 
         if acquisition_type is not None:
-            conditions.append(f"acquisition_type = ${param_index}")
+            conditions.append(f"{table_prefix}acquisition_type = ${param_index}")
             params.append(acquisition_type)
             param_index += 1
 
         if acquisition_announce_date is not None:
-            conditions.append(f"acquisition_announce_date = ${param_index}")
+            conditions.append(f"{table_prefix}acquisition_announce_date = ${param_index}")
             params.append(acquisition_announce_date)
             param_index += 1
 
         if acquisition_announce_date_from is not None:
-            conditions.append(f"acquisition_announce_date >= ${param_index}")
+            conditions.append(f"{table_prefix}acquisition_announce_date >= ${param_index}")
             params.append(acquisition_announce_date_from)
             param_index += 1
 
         if acquisition_announce_date_to is not None:
-            conditions.append(f"acquisition_announce_date <= ${param_index}")
+            conditions.append(f"{table_prefix}acquisition_announce_date <= ${param_index}")
             params.append(acquisition_announce_date_to)
             param_index += 1
 
         if acquisition_price_usd is not None:
-            conditions.append(f"acquisition_price_usd = ${param_index}")
+            conditions.append(f"{table_prefix}acquisition_price_usd = ${param_index}")
             params.append(acquisition_price_usd)
             param_index += 1
 
         if acquisition_price_usd_min is not None:
-            conditions.append(f"acquisition_price_usd >= ${param_index}")
+            conditions.append(f"{table_prefix}acquisition_price_usd >= ${param_index}")
             params.append(acquisition_price_usd_min)
             param_index += 1
 
         if acquisition_price_usd_max is not None:
-            conditions.append(f"acquisition_price_usd <= ${param_index}")
+            conditions.append(f"{table_prefix}acquisition_price_usd <= ${param_index}")
             params.append(acquisition_price_usd_max)
             param_index += 1
 
         if terms is not None:
-            conditions.append(f"terms = ${param_index}")
+            conditions.append(f"{table_prefix}terms = ${param_index}")
             params.append(terms)
             param_index += 1
 
         if terms_ilike is not None:
-            conditions.append(f"terms ILIKE ${param_index}")
+            conditions.append(f"{table_prefix}terms ILIKE ${param_index}")
             params.append(f"%{terms_ilike}%")
             param_index += 1
 
         if acquirer_type is not None:
-            conditions.append(f"acquirer_type = ${param_index}")
+            conditions.append(f"{table_prefix}acquirer_type = ${param_index}")
             params.append(acquirer_type)
             param_index += 1
 
         # Build the query
-        query = "SELECT * FROM acquisitions"
+        if include_organizations:
+            # Build SELECT with organization joins
+            query = """
+            SELECT 
+                a.*,
+                row_to_json(acquiree_org.*) as acquiree_organization,
+                row_to_json(acquirer_org.*) as acquirer_organization
+            FROM acquisitions a
+            LEFT JOIN organizations acquiree_org ON a.acquiree_uuid = acquiree_org.org_uuid
+            LEFT JOIN organizations acquirer_org ON a.acquirer_uuid = acquirer_org.org_uuid
+            """
+        else:
+            query = "SELECT * FROM acquisitions"
+        
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
-        query += " ORDER BY acquisition_announce_date DESC NULLS LAST"
+        order_by_field = f"{table_prefix}acquisition_announce_date" if include_organizations else "acquisition_announce_date"
+        query += f" ORDER BY {order_by_field} DESC NULLS LAST"
 
         if limit is not None:
             query += f" LIMIT ${param_index}"
@@ -246,23 +289,81 @@ class AcquisitionModel:
         # Execute query
         try:
             records = await self._client.query(query, *params)
-            acquisitions = [Acquisition(**dict(record)) for record in records]
-            logger.debug(f"Retrieved {len(acquisitions)} acquisition(s)")
-            return acquisitions
+            
+            if include_organizations:
+                # Import Organization here to avoid circular imports
+                from src.models.organizations import Organization
+                
+                acquisitions_with_orgs = []
+                for record in records:
+                    record_dict = dict(record)
+                    # Extract organization data (JSON strings from PostgreSQL)
+                    acquiree_org_data_raw = record_dict.pop('acquiree_organization', None)
+                    acquirer_org_data_raw = record_dict.pop('acquirer_organization', None)
+                    
+                    # Parse JSON strings if they exist
+                    acquiree_org_data = None
+                    if acquiree_org_data_raw is not None:
+                        if isinstance(acquiree_org_data_raw, str):
+                            acquiree_org_data = json.loads(acquiree_org_data_raw)
+                        else:
+                            acquiree_org_data = acquiree_org_data_raw
+                    
+                    acquirer_org_data = None
+                    if acquirer_org_data_raw is not None:
+                        if isinstance(acquirer_org_data_raw, str):
+                            acquirer_org_data = json.loads(acquirer_org_data_raw)
+                        else:
+                            acquirer_org_data = acquirer_org_data_raw
+                    
+                    # Create Acquisition from base fields
+                    acquisition = Acquisition(**record_dict)
+                    
+                    # Create nested organization objects
+                    acquiree_organization = (
+                        Organization(**acquiree_org_data) if acquiree_org_data else None
+                    )
+                    acquirer_organization = (
+                        Organization(**acquirer_org_data) if acquirer_org_data else None
+                    )
+                    
+                    # Create AcquisitionWithOrganizations
+                    acquisition_with_orgs = AcquisitionWithOrganizations(
+                        **acquisition.model_dump(),
+                        acquiree_organization=acquiree_organization,
+                        acquirer_organization=acquirer_organization,
+                    )
+                    acquisitions_with_orgs.append(acquisition_with_orgs)
+                
+                logger.debug(f"Retrieved {len(acquisitions_with_orgs)} acquisition(s) with organizations")
+                return acquisitions_with_orgs
+            else:
+                acquisitions = [Acquisition(**dict(record)) for record in records]
+                logger.debug(f"Retrieved {len(acquisitions)} acquisition(s)")
+                return acquisitions
         except Exception as e:
             logger.error(f"Failed to query acquisitions: {e}")
             raise
 
-    async def get_by_uuid(self, acquisition_uuid: UUID) -> Optional[Acquisition]:
+    async def get_by_uuid(
+        self,
+        acquisition_uuid: UUID,
+        include_organizations: bool = False,
+    ) -> Union[Optional[Acquisition], Optional["AcquisitionWithOrganizations"]]:
         """Get a single acquisition by UUID.
 
         Args:
             acquisition_uuid: The UUID of the acquisition to retrieve.
+            include_organizations: If True, includes nested organization details.
 
         Returns:
-            Acquisition object if found, None otherwise.
+            Acquisition or AcquisitionWithOrganizations object if found, None otherwise.
         """
-        results = await self.get(acquisition_uuid=acquisition_uuid, limit=1)
+        results = await self.get(
+            acquisition_uuid=acquisition_uuid,
+            limit=1,
+            include_organizations=include_organizations,
+        )
         return results[0] if results else None
 
     async def count(
