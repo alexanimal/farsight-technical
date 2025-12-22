@@ -263,6 +263,8 @@ async def aggregate_funding_trends(
                 investment_date_from=period_start,
                 investment_date_to=period_end,
                 fundraise_amount_usd_min=min_funding_amount,
+                order_by="investment_date",
+                order_direction="desc",
             )
             all_rounds.extend(rounds)
             num_batch_queries += 1
