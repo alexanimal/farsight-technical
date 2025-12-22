@@ -26,13 +26,13 @@ services:
     depends_on:
       - temporal
     environment:
-      - TEMPORAL_ADDRESS=http://localhost:7233
-      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:7234
     image: temporalio/ui:latest
     networks:
       - temporal-network
     ports:
-      - "7324:8080"
+      - "7234:8080"
 
   temporal-postgresql:
     image: postgres:14
