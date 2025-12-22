@@ -96,10 +96,13 @@ class FundingRoundModel:
         investment_date_to: Optional[datetime] = None,
         org_uuid: Optional[UUID] = None,
         org_uuids: Optional[list[UUID]] = None,
+        org_name_ilike: Optional[str] = None,
         general_funding_stage: Optional[str] = None,
         stage: Optional[str] = None,
         investors_contains: Optional[str] = None,
         lead_investors_contains: Optional[str] = None,
+        investor_name_contains: Optional[str] = None,
+        lead_investor_name_contains: Optional[str] = None,
         fundraise_amount_usd: Optional[int] = None,
         fundraise_amount_usd_min: Optional[int] = None,
         fundraise_amount_usd_max: Optional[int] = None,
@@ -122,10 +125,19 @@ class FundingRoundModel:
             org_uuid: Exact match for organization UUID (single).
             org_uuids: List of organization UUIDs to filter by (batch query).
                 If both org_uuid and org_uuids are provided, org_uuids takes precedence.
+            org_name_ilike: Search by organization name (case-insensitive partial match).
+                This performs a JOIN to the organizations table to match by name.
+                Can be combined with org_uuid or org_uuids filters.
             general_funding_stage: Exact match for general funding stage.
             stage: Exact match for specific funding stage.
-            investors_contains: Check if investors array contains this value.
-            lead_investors_contains: Check if lead_investors array contains this value.
+            investors_contains: Check if investors array contains this UUID (as string).
+                Note: This expects a UUID, not an investor name. Use investor_name_contains for name-based search.
+            lead_investors_contains: Check if lead_investors array contains this UUID (as string).
+                Note: This expects a UUID, not an investor name. Use lead_investor_name_contains for name-based search.
+            investor_name_contains: Search investors by organization name (case-insensitive partial match).
+                This performs a JOIN to the organizations table to match by name.
+            lead_investor_name_contains: Search lead_investors by organization name (case-insensitive partial match).
+                This performs a JOIN to the organizations table to match by name.
             fundraise_amount_usd: Exact match for fundraise amount.
             fundraise_amount_usd_min: Filter funding rounds with amount >= this value.
             fundraise_amount_usd_max: Filter funding rounds with amount <= this value.
@@ -158,11 +170,17 @@ class FundingRoundModel:
                 investment_date_to=datetime(2023, 12, 31)
             )
 
-            # Get rounds with specific investor
-            investor_rounds = await model.get(investors_contains="Sequoia Capital")
+            # Get rounds with specific investor by UUID
+            investor_rounds = await model.get(investors_contains="123e4567-e89b-12d3-a456-426614174000")
+
+            # Get rounds with specific investor by name
+            investor_rounds_by_name = await model.get(investor_name_contains="Sequoia Capital")
 
             # Get rounds for multiple organizations (batch query)
             org_rounds = await model.get(org_uuids=[UUID("..."), UUID("...")])
+
+            # Get rounds by organization name
+            org_rounds_by_name = await model.get(org_name_ilike="TechCorp")
 
             # Get with pagination
             page = await model.get(limit=50, offset=0)
@@ -179,22 +197,22 @@ class FundingRoundModel:
         param_index = 1
 
         if funding_round_uuid is not None:
-            conditions.append(f"funding_round_uuid = ${param_index}")
+            conditions.append(f"fr.funding_round_uuid = ${param_index}")
             params.append(str(funding_round_uuid))
             param_index += 1
 
         if investment_date is not None:
-            conditions.append(f"investment_date = ${param_index}")
+            conditions.append(f"fr.investment_date = ${param_index}")
             params.append(investment_date)
             param_index += 1
 
         if investment_date_from is not None:
-            conditions.append(f"investment_date >= ${param_index}")
+            conditions.append(f"fr.investment_date >= ${param_index}")
             params.append(investment_date_from)
             param_index += 1
 
         if investment_date_to is not None:
-            conditions.append(f"investment_date <= ${param_index}")
+            conditions.append(f"fr.investment_date <= ${param_index}")
             params.append(investment_date_to)
             param_index += 1
 
@@ -205,76 +223,113 @@ class FundingRoundModel:
                 return []
             elif len(org_uuids) == 1:
                 # Single UUID - use equality for better index usage
-                conditions.append(f"org_uuid = ${param_index}")
+                conditions.append(f"fr.org_uuid = ${param_index}")
                 params.append(str(org_uuids[0]))
                 param_index += 1
             else:
                 # Multiple UUIDs - use IN clause with ANY for array
-                conditions.append(f"org_uuid = ANY(${param_index}::uuid[])")
+                conditions.append(f"fr.org_uuid = ANY(${param_index}::uuid[])")
                 params.append([str(uuid) for uuid in org_uuids])
                 param_index += 1
         elif org_uuid is not None:
             # Existing single UUID support (backward compatible)
-            conditions.append(f"org_uuid = ${param_index}")
+            conditions.append(f"fr.org_uuid = ${param_index}")
             params.append(str(org_uuid))
             param_index += 1
 
+        if org_name_ilike is not None:
+            # Add condition to filter by organization name
+            # The JOIN will be added in the query building section
+            conditions.append(f"org.name ILIKE ${param_index}")
+            params.append(f"%{org_name_ilike}%")
+            param_index += 1
+
         if general_funding_stage is not None:
-            conditions.append(f"general_funding_stage = ${param_index}")
+            conditions.append(f"fr.general_funding_stage = ${param_index}")
             params.append(general_funding_stage)
             param_index += 1
 
         if stage is not None:
-            conditions.append(f"stage = ${param_index}")
+            conditions.append(f"fr.stage = ${param_index}")
             params.append(stage)
             param_index += 1
 
         if investors_contains is not None:
-            conditions.append(f"${param_index} = ANY(investors)")
+            conditions.append(f"${param_index} = ANY(fr.investors)")
             params.append(investors_contains)
             param_index += 1
 
         if lead_investors_contains is not None:
-            conditions.append(f"${param_index} = ANY(lead_investors)")
+            conditions.append(f"${param_index} = ANY(fr.lead_investors)")
             params.append(lead_investors_contains)
             param_index += 1
 
+        if investor_name_contains is not None:
+            # Use EXISTS subquery to join with organizations table and match by name
+            conditions.append(
+                f"EXISTS ("
+                f"SELECT 1 FROM unnest(fr.investors) AS inv_uuid "
+                f"JOIN organizations inv_org ON inv_uuid::uuid = inv_org.org_uuid "
+                f"WHERE inv_org.name ILIKE ${param_index}"
+                f")"
+            )
+            params.append(f"%{investor_name_contains}%")
+            param_index += 1
+
+        if lead_investor_name_contains is not None:
+            # Use EXISTS subquery to join with organizations table and match by name
+            conditions.append(
+                f"EXISTS ("
+                f"SELECT 1 FROM unnest(fr.lead_investors) AS lead_inv_uuid "
+                f"JOIN organizations lead_inv_org ON lead_inv_uuid::uuid = lead_inv_org.org_uuid "
+                f"WHERE lead_inv_org.name ILIKE ${param_index}"
+                f")"
+            )
+            params.append(f"%{lead_investor_name_contains}%")
+            param_index += 1
+
         if fundraise_amount_usd is not None:
-            conditions.append(f"fundraise_amount_usd = ${param_index}")
+            conditions.append(f"fr.fundraise_amount_usd = ${param_index}")
             params.append(fundraise_amount_usd)
             param_index += 1
 
         if fundraise_amount_usd_min is not None:
-            conditions.append(f"fundraise_amount_usd >= ${param_index}")
+            conditions.append(f"fr.fundraise_amount_usd >= ${param_index}")
             params.append(fundraise_amount_usd_min)
             param_index += 1
 
         if fundraise_amount_usd_max is not None:
-            conditions.append(f"fundraise_amount_usd <= ${param_index}")
+            conditions.append(f"fr.fundraise_amount_usd <= ${param_index}")
             params.append(fundraise_amount_usd_max)
             param_index += 1
 
         if valuation_usd is not None:
-            conditions.append(f"valuation_usd = ${param_index}")
+            conditions.append(f"fr.valuation_usd = ${param_index}")
             params.append(valuation_usd)
             param_index += 1
 
         if valuation_usd_min is not None:
-            conditions.append(f"valuation_usd >= ${param_index}")
+            conditions.append(f"fr.valuation_usd >= ${param_index}")
             params.append(valuation_usd_min)
             param_index += 1
 
         if valuation_usd_max is not None:
-            conditions.append(f"valuation_usd <= ${param_index}")
+            conditions.append(f"fr.valuation_usd <= ${param_index}")
             params.append(valuation_usd_max)
             param_index += 1
 
         # Build the query
-        query = "SELECT * FROM fundingrounds"
+        # Use table alias 'fr' for fundingrounds when name-based searches are used
+        query = "SELECT fr.* FROM fundingrounds fr"
+        
+        # Add JOIN to organizations table if org_name_ilike is used
+        if org_name_ilike is not None:
+            query += " JOIN organizations org ON fr.org_uuid = org.org_uuid"
+        
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
-        query += " ORDER BY investment_date DESC NULLS LAST"
+        query += " ORDER BY fr.investment_date DESC NULLS LAST"
 
         if limit is not None:
             query += f" LIMIT ${param_index}"
@@ -313,10 +368,13 @@ class FundingRoundModel:
         investment_date_from: Optional[datetime] = None,
         investment_date_to: Optional[datetime] = None,
         org_uuid: Optional[UUID] = None,
+        org_name_ilike: Optional[str] = None,
         general_funding_stage: Optional[str] = None,
         stage: Optional[str] = None,
         investors_contains: Optional[str] = None,
         lead_investors_contains: Optional[str] = None,
+        investor_name_contains: Optional[str] = None,
+        lead_investor_name_contains: Optional[str] = None,
         fundraise_amount_usd_min: Optional[int] = None,
         fundraise_amount_usd_max: Optional[int] = None,
         valuation_usd_min: Optional[int] = None,
@@ -343,65 +401,102 @@ class FundingRoundModel:
         param_index = 1
 
         if funding_round_uuid is not None:
-            conditions.append(f"funding_round_uuid = ${param_index}")
+            conditions.append(f"fr.funding_round_uuid = ${param_index}")
             params.append(str(funding_round_uuid))
             param_index += 1
 
         if investment_date_from is not None:
-            conditions.append(f"investment_date >= ${param_index}")
+            conditions.append(f"fr.investment_date >= ${param_index}")
             params.append(investment_date_from)
             param_index += 1
 
         if investment_date_to is not None:
-            conditions.append(f"investment_date <= ${param_index}")
+            conditions.append(f"fr.investment_date <= ${param_index}")
             params.append(investment_date_to)
             param_index += 1
 
         if org_uuid is not None:
-            conditions.append(f"org_uuid = ${param_index}")
+            conditions.append(f"fr.org_uuid = ${param_index}")
             params.append(str(org_uuid))
             param_index += 1
 
+        if org_name_ilike is not None:
+            # Add condition to filter by organization name
+            # The JOIN will be added in the query building section
+            conditions.append(f"org.name ILIKE ${param_index}")
+            params.append(f"%{org_name_ilike}%")
+            param_index += 1
+
         if general_funding_stage is not None:
-            conditions.append(f"general_funding_stage = ${param_index}")
+            conditions.append(f"fr.general_funding_stage = ${param_index}")
             params.append(general_funding_stage)
             param_index += 1
 
         if stage is not None:
-            conditions.append(f"stage = ${param_index}")
+            conditions.append(f"fr.stage = ${param_index}")
             params.append(stage)
             param_index += 1
 
         if investors_contains is not None:
-            conditions.append(f"${param_index} = ANY(investors)")
+            conditions.append(f"${param_index} = ANY(fr.investors)")
             params.append(investors_contains)
             param_index += 1
 
         if lead_investors_contains is not None:
-            conditions.append(f"${param_index} = ANY(lead_investors)")
+            conditions.append(f"${param_index} = ANY(fr.lead_investors)")
             params.append(lead_investors_contains)
             param_index += 1
 
+        if investor_name_contains is not None:
+            # Use EXISTS subquery to join with organizations table and match by name
+            conditions.append(
+                f"EXISTS ("
+                f"SELECT 1 FROM unnest(fr.investors) AS inv_uuid "
+                f"JOIN organizations inv_org ON inv_uuid::uuid = inv_org.org_uuid "
+                f"WHERE inv_org.name ILIKE ${param_index}"
+                f")"
+            )
+            params.append(f"%{investor_name_contains}%")
+            param_index += 1
+
+        if lead_investor_name_contains is not None:
+            # Use EXISTS subquery to join with organizations table and match by name
+            conditions.append(
+                f"EXISTS ("
+                f"SELECT 1 FROM unnest(fr.lead_investors) AS lead_inv_uuid "
+                f"JOIN organizations lead_inv_org ON lead_inv_uuid::uuid = lead_inv_org.org_uuid "
+                f"WHERE lead_inv_org.name ILIKE ${param_index}"
+                f")"
+            )
+            params.append(f"%{lead_investor_name_contains}%")
+            param_index += 1
+
         if fundraise_amount_usd_min is not None:
-            conditions.append(f"fundraise_amount_usd >= ${param_index}")
+            conditions.append(f"fr.fundraise_amount_usd >= ${param_index}")
             params.append(fundraise_amount_usd_min)
             param_index += 1
 
         if fundraise_amount_usd_max is not None:
-            conditions.append(f"fundraise_amount_usd <= ${param_index}")
+            conditions.append(f"fr.fundraise_amount_usd <= ${param_index}")
             params.append(fundraise_amount_usd_max)
             param_index += 1
 
         if valuation_usd_min is not None:
-            conditions.append(f"valuation_usd >= ${param_index}")
+            conditions.append(f"fr.valuation_usd >= ${param_index}")
             params.append(valuation_usd_min)
             param_index += 1
 
         if valuation_usd_max is not None:
-            conditions.append(f"valuation_usd <= ${param_index}")
+            conditions.append(f"fr.valuation_usd <= ${param_index}")
             params.append(valuation_usd_max)
 
-        query = "SELECT COUNT(*) FROM fundingrounds"
+        # Use table alias 'fr' for fundingrounds when name-based searches are used
+        query = "SELECT COUNT(*) FROM fundingrounds fr"
+        
+        # Add JOIN to organizations table if org_name_ilike is used
+        if org_name_ilike is not None:
+            query += " JOIN organizations org ON fr.org_uuid = org.org_uuid"
+        
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 

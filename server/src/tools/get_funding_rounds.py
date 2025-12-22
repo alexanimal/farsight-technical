@@ -60,6 +60,12 @@ def get_tool_metadata() -> ToolMetadata:
                 required=False,
             ),
             ToolParameterSchema(
+                name="org_name_ilike",
+                type="string",
+                description="Search by organization name (case-insensitive partial match). This performs a JOIN to the organizations table to match by name. Can be combined with org_uuid filter.",
+                required=False,
+            ),
+            ToolParameterSchema(
                 name="general_funding_stage",
                 type="string",
                 description="Exact match for general funding stage",
@@ -74,13 +80,25 @@ def get_tool_metadata() -> ToolMetadata:
             ToolParameterSchema(
                 name="investors_contains",
                 type="string",
-                description="Check if investors array contains this value",
+                description="Check if investors array contains this UUID (as string). Note: This expects a UUID, not an investor name. Use investor_name_contains for name-based search.",
                 required=False,
             ),
             ToolParameterSchema(
                 name="lead_investors_contains",
                 type="string",
-                description="Check if lead_investors array contains this value",
+                description="Check if lead_investors array contains this UUID (as string). Note: This expects a UUID, not an investor name. Use lead_investor_name_contains for name-based search.",
+                required=False,
+            ),
+            ToolParameterSchema(
+                name="investor_name_contains",
+                type="string",
+                description="Search investors by organization name (case-insensitive partial match). This performs a JOIN to the organizations table to match by name.",
+                required=False,
+            ),
+            ToolParameterSchema(
+                name="lead_investor_name_contains",
+                type="string",
+                description="Search lead_investors by organization name (case-insensitive partial match). This performs a JOIN to the organizations table to match by name.",
                 required=False,
             ),
             ToolParameterSchema(
@@ -154,10 +172,13 @@ async def get_funding_rounds(
     investment_date_from: Optional[str] = None,
     investment_date_to: Optional[str] = None,
     org_uuid: Optional[str] = None,
+    org_name_ilike: Optional[str] = None,
     general_funding_stage: Optional[str] = None,
     stage: Optional[str] = None,
     investors_contains: Optional[str] = None,
     lead_investors_contains: Optional[str] = None,
+    investor_name_contains: Optional[str] = None,
+    lead_investor_name_contains: Optional[str] = None,
     fundraise_amount_usd: Optional[int] = None,
     fundraise_amount_usd_min: Optional[int] = None,
     fundraise_amount_usd_max: Optional[int] = None,
@@ -178,10 +199,19 @@ async def get_funding_rounds(
         investment_date_from: Filter funding rounds on or after this date (ISO format string).
         investment_date_to: Filter funding rounds on or before this date (ISO format string).
         org_uuid: Exact match for organization UUID (as string).
+        org_name_ilike: Search by organization name (case-insensitive partial match).
+            This performs a JOIN to the organizations table to match by name.
+            Can be combined with org_uuid filter.
         general_funding_stage: Exact match for general funding stage.
         stage: Exact match for specific funding stage.
-        investors_contains: Check if investors array contains this value.
-        lead_investors_contains: Check if lead_investors array contains this value.
+        investors_contains: Check if investors array contains this UUID (as string).
+            Note: This expects a UUID, not an investor name. Use investor_name_contains for name-based search.
+        lead_investors_contains: Check if lead_investors array contains this UUID (as string).
+            Note: This expects a UUID, not an investor name. Use lead_investor_name_contains for name-based search.
+        investor_name_contains: Search investors by organization name (case-insensitive partial match).
+            This performs a JOIN to the organizations table to match by name.
+        lead_investor_name_contains: Search lead_investors by organization name (case-insensitive partial match).
+            This performs a JOIN to the organizations table to match by name.
         fundraise_amount_usd: Exact match for fundraise amount in USD.
         fundraise_amount_usd_min: Filter funding rounds with amount >= this value.
         fundraise_amount_usd_max: Filter funding rounds with amount <= this value.
@@ -208,6 +238,9 @@ async def get_funding_rounds(
         # Get by UUID
         round = await get_funding_rounds(funding_round_uuid="123e4567-e89b-12d3-a456-426614174000")
 
+        # Get funding rounds by organization name
+        org_rounds = await get_funding_rounds(org_name_ilike="TechCorp")
+
         # Get funding rounds with amount >= 1M USD
         large_rounds = await get_funding_rounds(fundraise_amount_usd_min=1000000)
 
@@ -217,8 +250,11 @@ async def get_funding_rounds(
             investment_date_to="2023-12-31T23:59:59"
         )
 
-        # Get rounds with specific investor
-        investor_rounds = await get_funding_rounds(investors_contains="Sequoia Capital")
+        # Get rounds with specific investor by name
+        investor_rounds = await get_funding_rounds(investor_name_contains="Sequoia Capital")
+        
+        # Get rounds with specific investor by UUID
+        investor_rounds_by_uuid = await get_funding_rounds(investors_contains="123e4567-e89b-12d3-a456-426614174000")
         ```
     """
     start_time = time.time()
@@ -256,10 +292,13 @@ async def get_funding_rounds(
             investment_date_from=investment_date_from_obj,
             investment_date_to=investment_date_to_obj,
             org_uuid=org_uuid_obj,
+            org_name_ilike=org_name_ilike,
             general_funding_stage=general_funding_stage,
             stage=stage,
             investors_contains=investors_contains,
             lead_investors_contains=lead_investors_contains,
+            investor_name_contains=investor_name_contains,
+            lead_investor_name_contains=lead_investor_name_contains,
             fundraise_amount_usd=fundraise_amount_usd,
             fundraise_amount_usd_min=fundraise_amount_usd_min,
             fundraise_amount_usd_max=fundraise_amount_usd_max,
