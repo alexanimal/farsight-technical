@@ -521,6 +521,16 @@ Identify any company names mentioned in this query and determine if they are the
                             "type": "boolean",
                             "description": "Include nested organization details for acquiree and acquirer. Should be set to true to get full organization information for generating insights.",
                         },
+                        "order_by": {
+                            "type": "string",
+                            "description": "Field to order results by. Must be one of: 'acquisition_announce_date', 'acquisition_price_usd'. Use 'acquisition_announce_date' for chronological ordering, 'acquisition_price_usd' for price-based ordering. Defaults to 'acquisition_announce_date' if not specified.",
+                            "enum": ["acquisition_announce_date", "acquisition_price_usd"],
+                        },
+                        "order_direction": {
+                            "type": "string",
+                            "description": "Direction to order results. Use 'desc' for descending (newest/highest first), 'asc' for ascending (oldest/lowest first). Defaults to 'desc' if not specified.",
+                            "enum": ["asc", "desc"],
+                        },
                     },
                     "required": [],
                 },

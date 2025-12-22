@@ -6,7 +6,7 @@ This module provides a Pydantic model and query methods for the acquisitions tab
 import json
 import logging
 from datetime import datetime
-from typing import Any, Optional, TYPE_CHECKING, Union
+from typing import Any, Literal, Optional, TYPE_CHECKING, Union
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -125,6 +125,8 @@ class AcquisitionModel:
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         include_organizations: bool = False,
+        order_by: Optional[Literal["acquisition_announce_date", "acquisition_price_usd"]] = None,
+        order_direction: Optional[Literal["asc", "desc"]] = None,
     ) -> Union[list[Acquisition], list["AcquisitionWithOrganizations"]]:
         """Get acquisitions matching the specified filters.
 
@@ -150,6 +152,10 @@ class AcquisitionModel:
             include_organizations: If True, includes nested organization details for
                 acquiree_uuid and acquirer_uuid. Returns AcquisitionWithOrganizations
                 objects instead of Acquisition objects.
+            order_by: Field to order results by. Must be one of: "acquisition_announce_date",
+                "acquisition_price_usd". Defaults to "acquisition_announce_date" if not specified.
+            order_direction: Direction to order results. Must be "asc" or "desc".
+                Defaults to "desc" if not specified.
 
         Returns:
             List of Acquisition objects matching the filters. If include_organizations=True,
@@ -274,8 +280,34 @@ class AcquisitionModel:
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
-        order_by_field = f"{table_prefix}acquisition_announce_date" if include_organizations else "acquisition_announce_date"
-        query += f" ORDER BY {order_by_field} DESC NULLS LAST"
+        # Build ORDER BY clause
+        # Default to acquisition_announce_date DESC if not specified
+        order_by_field_name = order_by if order_by is not None else "acquisition_announce_date"
+        order_direction_value = order_direction if order_direction is not None else "desc"
+        
+        # Validate order_by field
+        allowed_order_fields = {"acquisition_announce_date", "acquisition_price_usd"}
+        if order_by_field_name not in allowed_order_fields:
+            raise ValueError(
+                f"order_by must be one of {allowed_order_fields}, got: {order_by_field_name}"
+            )
+        
+        # Validate order_direction
+        if order_direction_value not in {"asc", "desc"}:
+            raise ValueError(
+                f"order_direction must be 'asc' or 'desc', got: {order_direction_value}"
+            )
+        
+        # Apply table prefix if needed
+        order_by_field = (
+            f"{table_prefix}{order_by_field_name}"
+            if include_organizations
+            else order_by_field_name
+        )
+        
+        # Use NULLS LAST for descending, NULLS FIRST for ascending (standard SQL behavior)
+        nulls_clause = "NULLS LAST" if order_direction_value == "desc" else "NULLS FIRST"
+        query += f" ORDER BY {order_by_field} {order_direction_value.upper()} {nulls_clause}"
 
         if limit is not None:
             query += f" LIMIT ${param_index}"

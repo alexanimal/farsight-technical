@@ -119,12 +119,30 @@ def get_tool_metadata() -> ToolMetadata:
                 description="Number of results to skip (for pagination)",
                 required=False,
             ),
+            ToolParameterSchema(
+                name="include_organizations",
+                type="boolean",
+                description="If true, includes nested organization details for acquiree_uuid and acquirer_uuid. Returns AcquisitionWithOrganizations objects with full organization data.",
+                required=False,
+            ),
+            ToolParameterSchema(
+                name="order_by",
+                type="string",
+                description="Field to order results by. Must be one of: 'acquisition_announce_date', 'acquisition_price_usd'. Defaults to 'acquisition_announce_date' if not specified.",
+                required=False,
+            ),
+            ToolParameterSchema(
+                name="order_direction",
+                type="string",
+                description="Direction to order results. Must be 'asc' or 'desc'. Defaults to 'desc' if not specified.",
+                required=False,
+            ),
         ],
         returns={
             "type": "array",
             "items": {
                 "type": "object",
-                "description": "Acquisition record with all fields from the Acquisition model",
+                "description": "Acquisition record with all fields from the Acquisition model. If include_organizations is true, also includes nested acquiree_organization and acquirer_organization fields.",
             },
         },
         cost_per_call=None,  # Database query, minimal cost
@@ -152,6 +170,9 @@ async def get_acquisitions(
     acquirer_type: Optional[str] = None,
     limit: Optional[int] = None,
     offset: Optional[int] = None,
+    include_organizations: bool = False,
+    order_by: Optional[str] = None,
+    order_direction: Optional[str] = None,
 ) -> ToolOutput:
     """Get acquisitions matching the specified filters.
 
@@ -174,12 +195,22 @@ async def get_acquisitions(
         acquirer_type: Exact match for acquirer type.
         limit: Maximum number of results to return.
         offset: Number of results to skip (for pagination).
+        include_organizations: If True, includes nested organization details for
+            acquiree_uuid and acquirer_uuid. Returns AcquisitionWithOrganizations objects
+            with full organization data instead of just UUIDs.
+        order_by: Field to order results by. Must be one of: "acquisition_announce_date",
+            "acquisition_price_usd". Defaults to "acquisition_announce_date" if not specified.
+        order_direction: Direction to order results. Must be "asc" or "desc".
+            Defaults to "desc" if not specified.
 
     Returns:
         ToolOutput object containing:
         - success: Whether the query succeeded
         - result: List of acquisition records as dictionaries (if successful).
             Each dictionary contains all fields from the Acquisition model.
+            If include_organizations=True, also includes:
+            - acquiree_organization: Full Organization object for the company being acquired
+            - acquirer_organization: Full Organization object for the acquiring company
         - error: Error message (if failed)
         - execution_time_ms: Time taken to execute the query
         - metadata: Additional metadata about the execution
@@ -199,6 +230,25 @@ async def get_acquisitions(
         recent = await get_acquisitions(
             acquisition_announce_date_from="2020-01-01T00:00:00",
             acquisition_announce_date_to="2023-12-31T23:59:59"
+        )
+        
+        # Get acquisitions with full organization details
+        acquisitions_with_orgs = await get_acquisitions(
+            acquiree_uuid="123e4567-e89b-12d3-a456-426614174000",
+            include_organizations=True
+        )
+        
+        # Get acquisitions ordered by price (descending)
+        expensive_first = await get_acquisitions(
+            acquisition_price_usd_min=1000000,
+            order_by="acquisition_price_usd",
+            order_direction="desc"
+        )
+        
+        # Get acquisitions ordered by announce date (ascending)
+        oldest_first = await get_acquisitions(
+            order_by="acquisition_announce_date",
+            order_direction="asc"
         )
         ```
     """
@@ -253,6 +303,9 @@ async def get_acquisitions(
             acquirer_type=acquirer_type,
             limit=limit,
             offset=offset,
+            include_organizations=include_organizations,
+            order_by=order_by,
+            order_direction=order_direction,
         )
 
         # Convert Pydantic models to dictionaries

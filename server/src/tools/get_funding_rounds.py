@@ -149,12 +149,30 @@ def get_tool_metadata() -> ToolMetadata:
                 description="Number of results to skip (for pagination)",
                 required=False,
             ),
+            ToolParameterSchema(
+                name="include_organizations",
+                type="boolean",
+                description="If true, includes nested organization details for org_uuid, investors, and lead_investors. Returns FundingRoundWithOrganizations objects with full organization data.",
+                required=False,
+            ),
+            ToolParameterSchema(
+                name="order_by",
+                type="string",
+                description="Field to order results by. Must be one of: 'investment_date', 'fundraise_amount_usd', 'valuation_usd'. Defaults to 'investment_date' if not specified.",
+                required=False,
+            ),
+            ToolParameterSchema(
+                name="order_direction",
+                type="string",
+                description="Direction to order results. Must be 'asc' or 'desc'. Defaults to 'desc' if not specified.",
+                required=False,
+            ),
         ],
         returns={
             "type": "array",
             "items": {
                 "type": "object",
-                "description": "Funding round record with all fields from the FundingRound model",
+                "description": "Funding round record with all fields from the FundingRound model. If include_organizations is true, also includes nested organization, investors_organizations, and lead_investors_organizations fields.",
             },
         },
         cost_per_call=None,  # Database query, minimal cost
@@ -187,6 +205,9 @@ async def get_funding_rounds(
     valuation_usd_max: Optional[int] = None,
     limit: Optional[int] = None,
     offset: Optional[int] = None,
+    include_organizations: bool = False,
+    order_by: Optional[str] = None,
+    order_direction: Optional[str] = None,
 ) -> ToolOutput:
     """Get funding rounds matching the specified filters.
 
@@ -220,12 +241,23 @@ async def get_funding_rounds(
         valuation_usd_max: Filter funding rounds with valuation <= this value.
         limit: Maximum number of results to return.
         offset: Number of results to skip (for pagination).
+        include_organizations: If True, includes nested organization details for org_uuid,
+            investors, and lead_investors. Returns FundingRoundWithOrganizations objects
+            with full organization data instead of just UUIDs.
+        order_by: Field to order results by. Must be one of: "investment_date",
+            "fundraise_amount_usd", "valuation_usd". Defaults to "investment_date" if not specified.
+        order_direction: Direction to order results. Must be "asc" or "desc".
+            Defaults to "desc" if not specified.
 
     Returns:
         ToolOutput object containing:
         - success: Whether the query succeeded
         - result: List of funding round records as dictionaries (if successful).
             Each dictionary contains all fields from the FundingRound model.
+            If include_organizations=True, also includes:
+            - organization: Full Organization object for the company receiving funding
+            - investors_organizations: List of Organization objects for all investors
+            - lead_investors_organizations: List of Organization objects for lead investors
         - error: Error message (if failed)
         - execution_time_ms: Time taken to execute the query
         - metadata: Additional metadata about the execution
@@ -255,6 +287,25 @@ async def get_funding_rounds(
         
         # Get rounds with specific investor by UUID
         investor_rounds_by_uuid = await get_funding_rounds(investors_contains="123e4567-e89b-12d3-a456-426614174000")
+        
+        # Get rounds with full organization details
+        rounds_with_orgs = await get_funding_rounds(
+            org_uuid="123e4567-e89b-12d3-a456-426614174000",
+            include_organizations=True
+        )
+        
+        # Get rounds ordered by fundraise amount (descending)
+        large_rounds = await get_funding_rounds(
+            fundraise_amount_usd_min=1000000,
+            order_by="fundraise_amount_usd",
+            order_direction="desc"
+        )
+        
+        # Get rounds ordered by investment date (ascending)
+        oldest_first = await get_funding_rounds(
+            order_by="investment_date",
+            order_direction="asc"
+        )
         ```
     """
     start_time = time.time()
@@ -307,6 +358,9 @@ async def get_funding_rounds(
             valuation_usd_max=valuation_usd_max,
             limit=limit,
             offset=offset,
+            include_organizations=include_organizations,
+            order_by=order_by,
+            order_direction=order_direction,
         )
 
         # Convert Pydantic models to dictionaries

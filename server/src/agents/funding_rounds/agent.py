@@ -478,6 +478,16 @@ Identify any company names mentioned in this query."""
                             "type": "boolean",
                             "description": "Include nested organization details for the company, investors, and lead investors. Should be set to true to get full organization information for generating insights.",
                         },
+                        "order_by": {
+                            "type": "string",
+                            "description": "Field to order results by. Must be one of: 'investment_date', 'fundraise_amount_usd', 'valuation_usd'. Use 'investment_date' for chronological ordering, 'fundraise_amount_usd' for amount-based ordering, 'valuation_usd' for valuation-based ordering. Defaults to 'investment_date' if not specified.",
+                            "enum": ["investment_date", "fundraise_amount_usd", "valuation_usd"],
+                        },
+                        "order_direction": {
+                            "type": "string",
+                            "description": "Direction to order results. Use 'desc' for descending (newest/highest first), 'asc' for ascending (oldest/lowest first). Defaults to 'desc' if not specified.",
+                            "enum": ["asc", "desc"],
+                        },
                     },
                     "required": [],
                 },

@@ -6,7 +6,7 @@ This module provides a Pydantic model and query methods for the fundingrounds ta
 import json
 import logging
 from datetime import datetime
-from typing import Any, Optional, TYPE_CHECKING, Union
+from typing import Any, Literal, Optional, TYPE_CHECKING, Union
 from uuid import UUID
 
 if TYPE_CHECKING:
@@ -138,6 +138,8 @@ class FundingRoundModel:
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         include_organizations: bool = False,
+        order_by: Optional[Literal["investment_date", "fundraise_amount_usd", "valuation_usd"]] = None,
+        order_direction: Optional[Literal["asc", "desc"]] = None,
     ) -> Union[list[FundingRound], list["FundingRoundWithOrganizations"]]:
         """Get funding rounds matching the specified filters.
 
@@ -176,6 +178,10 @@ class FundingRoundModel:
             include_organizations: If True, includes nested organization details for
                 org_uuid, investors, and lead_investors. Returns FundingRoundWithOrganizations
                 objects instead of FundingRound objects.
+            order_by: Field to order results by. Must be one of: "investment_date",
+                "fundraise_amount_usd", "valuation_usd". Defaults to "investment_date" if not specified.
+            order_direction: Direction to order results. Must be "asc" or "desc".
+                Defaults to "desc" if not specified.
 
         Returns:
             List of FundingRound objects matching the filters. If include_organizations=True,
@@ -390,8 +396,34 @@ class FundingRoundModel:
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
-        order_by_field = f"{table_prefix}investment_date" if needs_alias or include_organizations else "investment_date"
-        query += f" ORDER BY {order_by_field} DESC NULLS LAST"
+        # Build ORDER BY clause
+        # Default to investment_date DESC if not specified
+        order_by_field_name = order_by if order_by is not None else "investment_date"
+        order_direction_value = order_direction if order_direction is not None else "desc"
+        
+        # Validate order_by field
+        allowed_order_fields = {"investment_date", "fundraise_amount_usd", "valuation_usd"}
+        if order_by_field_name not in allowed_order_fields:
+            raise ValueError(
+                f"order_by must be one of {allowed_order_fields}, got: {order_by_field_name}"
+            )
+        
+        # Validate order_direction
+        if order_direction_value not in {"asc", "desc"}:
+            raise ValueError(
+                f"order_direction must be 'asc' or 'desc', got: {order_direction_value}"
+            )
+        
+        # Apply table prefix if needed
+        order_by_field = (
+            f"{table_prefix}{order_by_field_name}"
+            if needs_alias or include_organizations
+            else order_by_field_name
+        )
+        
+        # Use NULLS LAST for descending, NULLS FIRST for ascending (standard SQL behavior)
+        nulls_clause = "NULLS LAST" if order_direction_value == "desc" else "NULLS FIRST"
+        query += f" ORDER BY {order_by_field} {order_direction_value.upper()} {nulls_clause}"
 
         if limit is not None:
             query += f" LIMIT ${param_index}"

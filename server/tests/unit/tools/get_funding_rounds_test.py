@@ -102,6 +102,8 @@ class TestGetToolMetadata:
             "limit",
             "offset",
             "include_organizations",
+            "order_by",
+            "order_direction",
         }
 
         assert param_names == expected_params
