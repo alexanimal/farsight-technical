@@ -236,10 +236,15 @@ class TestExecutorExecuteAgent:
             mock_tracer = MagicMock()
             mock_tracer.get_trace_context.return_value = None
             mock_tracer.create_trace_id.return_value = "trace-123"
-            mock_span = AsyncMock()
-            mock_span.__aenter__ = AsyncMock(return_value=mock_span)
-            mock_span.__aexit__ = AsyncMock(return_value=None)
-            mock_tracer.async_span.return_value = mock_span
+            # The span object yielded by async_span should be a regular MagicMock
+            # (not AsyncMock) because span.update() is a synchronous method
+            mock_span = MagicMock()
+            mock_span.update = MagicMock()  # Explicitly set update as sync method
+            # async_span returns an async context manager that yields the span
+            mock_async_cm = AsyncMock()
+            mock_async_cm.__aenter__ = AsyncMock(return_value=mock_span)
+            mock_async_cm.__aexit__ = AsyncMock(return_value=None)
+            mock_tracer.async_span.return_value = mock_async_cm
             mock_get_tracer.return_value = mock_tracer
 
             result = await executor_with_tracing.execute_agent(
@@ -249,6 +254,8 @@ class TestExecutorExecuteAgent:
             assert isinstance(result, AgentOutput)
             mock_tracer.async_span.assert_called_once()
             assert "trace_id" in result.metadata
+            # Verify update was called (synchronously, not awaited)
+            assert mock_span.update.called
 
 
 class TestExecutorExecuteTool:
@@ -362,10 +369,15 @@ class TestExecutorExecuteTool:
             mock_tracer = MagicMock()
             mock_tracer.get_trace_context.return_value = None
             mock_tracer.create_trace_id.return_value = "trace-123"
-            mock_span = AsyncMock()
-            mock_span.__aenter__ = AsyncMock(return_value=mock_span)
-            mock_span.__aexit__ = AsyncMock(return_value=None)
-            mock_tracer.async_span.return_value = mock_span
+            # The span object yielded by async_span should be a regular MagicMock
+            # (not AsyncMock) because span.update() is a synchronous method
+            mock_span = MagicMock()
+            mock_span.update = MagicMock()  # Explicitly set update as sync method
+            # async_span returns an async context manager that yields the span
+            mock_async_cm = AsyncMock()
+            mock_async_cm.__aenter__ = AsyncMock(return_value=mock_span)
+            mock_async_cm.__aexit__ = AsyncMock(return_value=None)
+            mock_tracer.async_span.return_value = mock_async_cm
             mock_get_tracer.return_value = mock_tracer
 
             result = await executor_with_tracing.execute_tool(sample_tool_input, tool_func)
@@ -373,6 +385,8 @@ class TestExecutorExecuteTool:
             assert result.success is True
             mock_tracer.async_span.assert_called_once()
             assert "trace_id" in result.metadata
+            # Verify update was called (synchronously, not awaited)
+            assert mock_span.update.called
 
     @pytest.mark.asyncio
     async def test_execute_tool_measures_execution_time(self, executor, sample_tool_input):
