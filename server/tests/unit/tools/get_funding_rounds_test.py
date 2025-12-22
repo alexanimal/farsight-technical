@@ -86,10 +86,13 @@ class TestGetToolMetadata:
             "investment_date_from",
             "investment_date_to",
             "org_uuid",
+            "org_name_ilike",
             "general_funding_stage",
             "stage",
             "investors_contains",
             "lead_investors_contains",
+            "investor_name_contains",
+            "lead_investor_name_contains",
             "fundraise_amount_usd",
             "fundraise_amount_usd_min",
             "fundraise_amount_usd_max",
@@ -98,6 +101,7 @@ class TestGetToolMetadata:
             "valuation_usd_max",
             "limit",
             "offset",
+            "include_organizations",
         }
 
         assert param_names == expected_params

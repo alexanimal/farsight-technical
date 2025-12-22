@@ -101,6 +101,7 @@ class TestGetToolMetadata:
             "acquirer_type",
             "limit",
             "offset",
+            "include_organizations",
         }
 
         assert param_names == expected_params
