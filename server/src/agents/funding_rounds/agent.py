@@ -124,6 +124,8 @@ Rules:
             )
 
             # Step 3: Call get_funding_rounds tool with extracted parameters
+            # Always include organizations for better insights
+            search_params["include_organizations"] = True
             funding_rounds_output = await get_funding_rounds(**search_params)
 
             # Check if tool execution was successful
@@ -472,6 +474,10 @@ Identify any company names mentioned in this query."""
                             "type": "integer",
                             "description": "Number of results to skip for pagination",
                         },
+                        "include_organizations": {
+                            "type": "boolean",
+                            "description": "Include nested organization details for the company, investors, and lead investors. Should be set to true to get full organization information for generating insights.",
+                        },
                     },
                     "required": [],
                 },
@@ -541,6 +547,8 @@ Call the get_funding_rounds function with the extracted parameters."""
 
                     if "limit" not in filtered_params:
                         filtered_params["limit"] = 10
+                    # Always include organizations for better insights
+                    filtered_params["include_organizations"] = True
                     return filtered_params
                 else:
                     logger.warning(

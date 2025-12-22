@@ -126,6 +126,8 @@ Rules:
             )
 
             # Step 3: Call get_acquisitions tool with extracted parameters
+            # Always include organizations for better insights
+            search_params["include_organizations"] = True
             acquisitions_output = await get_acquisitions(**search_params)
 
             # Check if tool execution was successful
@@ -515,6 +517,10 @@ Identify any company names mentioned in this query and determine if they are the
                             "type": "integer",
                             "description": "Number of results to skip for pagination",
                         },
+                        "include_organizations": {
+                            "type": "boolean",
+                            "description": "Include nested organization details for acquiree and acquirer. Should be set to true to get full organization information for generating insights.",
+                        },
                     },
                     "required": [],
                 },
@@ -594,6 +600,8 @@ Call the get_acquisitions function with the extracted parameters."""
 
                     if "limit" not in filtered_params:
                         filtered_params["limit"] = 10
+                    # Always include organizations for better insights
+                    filtered_params["include_organizations"] = True
                     return filtered_params
                 else:
                     logger.warning(
