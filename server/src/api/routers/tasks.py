@@ -42,10 +42,6 @@ class CreateTaskRequest(BaseModel):
         default=None,
         description="Optional list of agent names to execute. If not provided, orchestration agent will determine plan.",
     )
-    execution_mode: str = Field(
-        default="sequential",
-        description="Execution mode: 'sequential' or 'parallel'",
-    )
     metadata: Optional[Dict[str, Any]] = Field(
         default_factory=dict, description="Additional metadata"
     )
@@ -138,10 +134,11 @@ async def create_task(
         }
 
         # Start workflow
+        # Note: execution_mode is not passed - let the orchestration agent decide
         workflow_id = await client.start_workflow(
             context=context,
             agent_plan=request.agent_plan,
-            execution_mode=request.execution_mode,
+            # execution_mode is determined by the orchestration agent, not the API
         )
 
         logger.info(f"Created task {workflow_id} for query: {request.query[:100]}")

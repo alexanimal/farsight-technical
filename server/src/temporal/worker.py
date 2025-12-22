@@ -178,15 +178,10 @@ async def main() -> None:
 
     # Configuration can come from environment variables or defaults
     # For production, these should be set via environment variables
-    temporal_address = DEFAULT_TEMPORAL_ADDRESS
-    temporal_namespace = DEFAULT_TEMPORAL_NAMESPACE
-    task_queue = DEFAULT_TASK_QUEUE
-
-    # You can override these via environment variables:
-    # import os
-    # temporal_address = os.getenv("TEMPORAL_ADDRESS", DEFAULT_TEMPORAL_ADDRESS)
-    # temporal_namespace = os.getenv("TEMPORAL_NAMESPACE", DEFAULT_TEMPORAL_NAMESPACE)
-    # task_queue = os.getenv("TEMPORAL_TASK_QUEUE", DEFAULT_TASK_QUEUE)
+    import os
+    temporal_address = os.getenv("TEMPORAL_ADDRESS", DEFAULT_TEMPORAL_ADDRESS)
+    temporal_namespace = os.getenv("TEMPORAL_NAMESPACE", DEFAULT_TEMPORAL_NAMESPACE)
+    task_queue = os.getenv("TEMPORAL_TASK_QUEUE", DEFAULT_TASK_QUEUE)
 
     # Run the worker
     await run_worker(

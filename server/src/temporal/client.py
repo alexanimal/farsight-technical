@@ -12,6 +12,7 @@ The client provides:
 """
 
 import logging
+import uuid
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
@@ -159,13 +160,16 @@ class TemporalClient:
         from src.temporal.workflows.orchestrator import OrchestratorWorkflow
 
         try:
-            # Build kwargs, only include id if provided
+            # Temporal requires an 'id' parameter - generate one if not provided
+            if workflow_id is None:
+                workflow_id = f"workflow-{uuid.uuid4().hex[:12]}"
+            
+            # Build kwargs for start_workflow
             workflow_kwargs: Dict[str, Any] = {
+                "id": workflow_id,
                 "args": [context, agent_plan, execution_mode],
                 "task_queue": self._task_queue,
             }
-            if workflow_id is not None:
-                workflow_kwargs["id"] = workflow_id
             if workflow_timeout is not None:
                 workflow_kwargs["execution_timeout"] = workflow_timeout
 

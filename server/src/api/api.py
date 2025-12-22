@@ -81,3 +81,22 @@ async def root():
 async def health():
     """Health check endpoint."""
     return {"status": "healthy"}
+
+
+# Allow running the API directly with: python -m src.api.api
+# Note: The RuntimeWarning about module import is harmless and can be ignored.
+# For production, use: uvicorn src.api.api:app --host 0.0.0.0 --port 8000
+if __name__ == "__main__":
+    import sys
+    import uvicorn
+    
+    # Suppress the harmless RuntimeWarning about module import
+    import warnings
+    warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*found in sys.modules.*")
+    
+    uvicorn.run(
+        "src.api.api:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+    )
