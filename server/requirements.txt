@@ -11,10 +11,7 @@ idna==3.10
 jiter==0.8.2
 lz4==4.3.3
 openai==1.59.7
-pinecone==4.0.0
 pyyaml>=6.0.0
-pinecone-client[grpc]==5.0.0
-pinecone-plugin-interface==0.0.7
 protobuf==4.25.5
 protoc-gen-openapiv2==0.0.1
 pydantic==2.10.5

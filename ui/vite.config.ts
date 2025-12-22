@@ -5,7 +5,8 @@ import pkg from './package.json'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: process.env.NODE_ENV === 'production' ? `/${pkg.name}/` : '/',
+  // Use root path for production since we're serving from Docker root
+  base: '/',
   plugins: [
     react(),
     tsconfigPaths()
