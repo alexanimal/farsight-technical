@@ -1,0 +1,67 @@
+[project]
+name = "server"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "asyncio>=4.0.0",
+    "asyncio-redis>=0.16.0",
+    "asyncpg>=0.31.0",
+    "black[jupyter]>=25.12.0",
+    "fastapi[standard]>=0.125.0",
+    "hiredis>=3.3.0",
+    "isort>=7.0.0",
+    "langfuse>=3.11.0",
+    "mypy>=1.19.1",
+    "pinecone[asyncio,grpc]>=8.0.0",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.12.0",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=7.0.0",
+    "redis>=7.1.0",
+    "temporalio>=1.21.0",
+    "types-pyyaml>=6.0.12.20250915",
+    "pdoc>=14.0.0",
+]
+
+[tool.pytest.ini_options]
+# Configure pytest to find tests and resolve imports
+testpaths = ["tests"]
+pythonpath = ["."]
+python_files = ["*_test.py", "test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+    "--cov",
+    "--cov-report=html",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+# Show all files including those with 0% coverage
+skip_covered = false
+skip_empty = false
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+extend_skip_glob = ["cdk.out/*"]
+
+[tool.mypy]
+exclude = ['^cdk\\.out/', '^setup\\.py$'] # Regex anchored to exclude cdk.out directory and setup.py

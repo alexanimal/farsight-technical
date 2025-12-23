@@ -1,0 +1,121 @@
+name: acquisition
+description: Agent specialized in handling acquisition-related queries and data retrieval. Handles M&A (mergers and acquisitions), company exits, buyouts, and acquisition details including prices, terms, dates, and participating companies.
+category: acquisition
+tools:
+  - name: get_acquisitions
+    description: Search for company acquisitions by various criteria (UUIDs, dates, prices, terms, etc.). Can filter by acquirer, acquiree, acquisition type, date ranges, price ranges, and more.
+    parameters:
+      - name: acquisition_uuid
+        type: string
+        description: Exact UUID of a specific acquisition (if mentioned)
+      - name: acquiree_uuid
+        type: string
+        description: UUID of the company that was acquired
+      - name: acquirer_uuid
+        type: string
+        description: UUID of the company that made the acquisition
+      - name: acquisition_type
+        type: string
+        description: Type of acquisition (e.g., 'acquisition', 'merger')
+      - name: acquisition_announce_date
+        type: string
+        description: "Exact announce date in ISO format (YYYY-MM-DDTHH:MM:SS)"
+      - name: acquisition_announce_date_from
+        type: string
+        description: Filter acquisitions announced on or after this date (ISO format)
+      - name: acquisition_announce_date_to
+        type: string
+        description: Filter acquisitions announced on or before this date (ISO format)
+      - name: acquisition_price_usd
+        type: integer
+        description: Exact acquisition price in USD
+      - name: acquisition_price_usd_min
+        type: integer
+        description: Minimum acquisition price in USD
+      - name: acquisition_price_usd_max
+        type: integer
+        description: Maximum acquisition price in USD
+      - name: terms
+        type: string
+        description: Exact match for acquisition terms
+      - name: terms_ilike
+        type: string
+        description: Case-insensitive partial match for terms (use for searching)
+      - name: acquirer_type
+        type: string
+        description: Type of acquirer (e.g., 'company', 'private_equity')
+      - name: limit
+        type: integer
+        description: "Maximum number of results to return (default: 10 if not specified)"
+      - name: offset
+        type: integer
+        description: Number of results to skip for pagination
+      - name: include_organizations
+        type: boolean
+        description: Include nested organization details for acquiree and acquirer. Should be set to true to get full organization information for generating insights.
+      - name: order_by
+        type: string
+        description: "Field to order results by. Must be one of: 'acquisition_announce_date', 'acquisition_price_usd'. Use 'acquisition_announce_date' for chronological ordering, 'acquisition_price_usd' for price-based ordering. Defaults to 'acquisition_announce_date' if not specified."
+        enum: ["acquisition_announce_date", "acquisition_price_usd"]
+      - name: order_direction
+        type: string
+        description: "Direction to order results. Use 'desc' for descending (newest/highest first), 'asc' for ascending (oldest/lowest first). Defaults to 'desc' if not specified."
+        enum: ["asc", "desc"]
+  - name: get_organizations
+    description: Search for organizations by name to resolve company names to UUIDs. Used to find acquirer and acquiree companies mentioned in queries.
+    parameters:
+      - name: name
+        type: string
+        description: Exact match for organization name
+      - name: name_ilike
+        type: string
+        description: Case-insensitive partial match for organization name
+      - name: limit
+        type: integer
+        description: Maximum number of results to return
+  - name: semantic_search_organizations
+    description: Search for organizations by name to resolve company names to UUIDs. Used for finding acquirer and acquiree companies mentioned in queries.
+    parameters:
+      - name: text
+        type: string
+        description: Company name or description to search for
+      - name: top_k
+        type: integer
+        description: Number of results to return
+metadata:
+  keywords:
+    - acquisition
+    - acquired
+    - merger
+    - m&a
+    - m and a
+    - takeover
+    - buyout
+    - exit
+    - exits
+    - company exit
+    - acquisition price
+    - acquisition terms
+    - acquirer
+    - acquiree
+    - target company
+    - buying company
+    - company bought
+    - company sold
+    - acquisition date
+    - acquisition announcement
+  use_cases:
+    - Finding companies that were acquired
+    - Getting acquisition details and terms (prices, dates, types)
+    - Analyzing acquisition trends over time
+    - Searching acquisitions by company name (resolves names to UUIDs automatically)
+    - Finding acquisitions by specific acquirer companies (who bought what)
+    - Finding acquisitions by specific acquiree companies (what was bought)
+    - Filtering acquisitions by price range or date range
+    - Finding company exits and buyouts
+    - Analyzing M&A activity
+  data_sources:
+    - acquisitions table
+    - organizations table
+    - pinecone_organizations (for semantic name resolution)
+

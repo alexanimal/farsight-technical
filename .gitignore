@@ -1,0 +1,17 @@
+.env
+.env.*
+.DS_STORE
+__MACOSX/
+ui/node_modules/*
+.venv
+.idea
+__pycache__
+.pytest_cache
+.mypy_cache
+coverage/
+htmlcov/
+.coverage
+exclude_plan.md
+queries/
+plans/
+*.isorted

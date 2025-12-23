@@ -1,0 +1,47 @@
+name: web_search
+description: Agent specialized in performing web searches to get additional context and up-to-date information about user queries. Uses LLM with web search capabilities to enrich responses with information that may not be available in the database. Can handle one or multiple search queries with parallel fan-out for efficiency.
+category: web_search
+tools:
+  - name: web_search
+    description: Perform a web search using LLM with web search capabilities to get additional context and information about a query. This tool leverages the LLM's built-in web search to provide enriched context and inferred information without making direct API calls to search engines.
+    parameters:
+      - name: query
+        type: string
+        description: The search query or question to get additional context about
+      - name: model
+        type: string
+        description: "Model to use for the web search-enabled LLM call (default: gpt-4.1-mini)"
+      - name: system_prompt
+        type: string
+        description: Optional system prompt to guide the LLM's response
+      - name: temperature
+        type: float
+        description: Sampling temperature (0-2). Higher values make output more random. Not used with o1 models.
+      - name: max_tokens
+        type: integer
+        description: Maximum tokens to generate in the response
+metadata:
+  keywords:
+    - web search
+    - search
+    - current events
+    - latest news
+    - recent information
+    - up-to-date
+    - current information
+    - web information
+    - online search
+    - internet search
+    - additional context
+    - external information
+    - real-time information
+  use_cases:
+    - Getting current information about companies, markets, or trends
+    - Finding recent news or events related to queries
+    - Enriching responses with information not in the database
+    - Getting up-to-date context about topics
+    - Performing multiple related searches in parallel
+    - Finding additional context to answer user questions
+  data_sources:
+    - LLM with web search capabilities (via generate_llm_response with enable_web_search=True)
+

@@ -1,0 +1,85 @@
+name: funding_rounds
+description: Agent specialized in handling funding round-related queries and data retrieval. PRIMARY agent for investor-related queries including finding companies investors have funded, investor portfolios, and funding rounds by specific investors.
+category: funding_rounds
+tools:
+  - name: get_funding_rounds
+    description: Search for funding rounds by various criteria (UUIDs, dates, amounts, investors, stages, etc.). Can filter by specific investors using investors_contains or lead_investors_contains parameters.
+    parameters:
+      - name: org_uuid
+        type: string
+        description: UUID of the organization that raised the funding
+      - name: investment_date_from
+        type: string
+        description: Filter funding rounds on or after this date (ISO format)
+      - name: investment_date_to
+        type: string
+        description: Filter funding rounds on or before this date (ISO format)
+      - name: fundraise_amount_usd_min
+        type: integer
+        description: Minimum fundraise amount in USD
+      - name: fundraise_amount_usd_max
+        type: integer
+        description: Maximum fundraise amount in USD
+      - name: general_funding_stage
+        type: string
+        description: General funding stage (e.g., seed, series_a, series_b, late_stage_venture, ipo)
+      - name: investors_contains
+        type: string
+        description: Check if investors array contains this value (investor name or UUID). Use this to find funding rounds where a specific investor participated.
+      - name: lead_investors_contains
+        type: string
+        description: Check if lead_investors array contains this value (investor name or UUID). Use this to find funding rounds where a specific investor was the lead investor.
+  - name: find_investor_portfolio
+    description: Find all companies that an investor has funded by searching funding rounds where the investor appears in investors or lead_investors fields. Returns comprehensive portfolio with investment details.
+    parameters:
+      - name: investor_name
+        type: string
+        description: Name of investor to search for (supports partial matching). Required.
+      - name: time_period_start
+        type: string
+        description: Start date for filtering investments (ISO format string, e.g., '2018-01-01T00:00:00'). Optional.
+      - name: time_period_end
+        type: string
+        description: End date for filtering investments (ISO format string, e.g., '2024-12-31T23:59:59'). Optional.
+      - name: include_lead_only
+        type: boolean
+        description: "If true, only include rounds where investor was a lead investor. Default: false."
+  - name: semantic_search_organizations
+    description: Search for organizations by name to resolve company names to UUIDs
+    parameters:
+      - name: text
+        type: string
+        description: Company name or description to search for
+      - name: top_k
+        type: integer
+        description: Number of results to return
+metadata:
+  keywords:
+    - funding
+    - investment
+    - round
+    - raise
+    - investor
+    - investors
+    - portfolio
+    - fundraise
+    - fundraising
+    - venture capital
+    - vc
+    - angel investor
+    - lead investor
+    - companies investors funded
+    - investor portfolio
+  use_cases:
+    - Finding funding rounds for companies
+    - Getting funding round details (amounts, investors, stages, dates)
+    - Finding companies that specific investors have funded (PRIMARY use case for investor queries)
+    - Getting investor portfolios (all companies an investor has invested in)
+    - Finding funding rounds by specific investors or investment stages
+    - Analyzing funding trends
+    - Searching funding rounds by company name (resolves names to UUIDs automatically)
+  data_sources:
+    - fundingrounds table
+    - organizations table
+    - pinecone_organizations (for semantic name resolution)
+
