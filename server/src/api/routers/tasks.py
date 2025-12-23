@@ -22,9 +22,14 @@ from pydantic import BaseModel, Field
 
 from src.api.middleware.auth import verify_api_key
 from src.db import get_redis_client
-from src.temporal import (TemporalClient, WorkflowProgressQueryResult,
-                          WorkflowStateQueryResult, WorkflowStatus,
-                          WorkflowStatusQueryResult, get_client)
+from src.temporal import (
+    TemporalClient,
+    WorkflowProgressQueryResult,
+    WorkflowStateQueryResult,
+    WorkflowStatus,
+    WorkflowStatusQueryResult,
+    get_client,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,9 +68,7 @@ async def _load_conversation_history(
     try:
         redis_client = await get_redis_client()
         history = await redis_client.get_conversation_history(conversation_id)
-        logger.debug(
-            f"Loaded {len(history)} messages from conversation {conversation_id}"
-        )
+        logger.debug(f"Loaded {len(history)} messages from conversation {conversation_id}")
         return history
     except Exception as e:
         logger.warning(
@@ -90,9 +93,7 @@ async def _check_existing_workflow(
     """
     try:
         redis_client = await get_redis_client()
-        workflow_id = await redis_client.get_workflow_id_for_conversation(
-            conversation_id
-        )
+        workflow_id = await redis_client.get_workflow_id_for_conversation(conversation_id)
 
         if not workflow_id:
             return None
@@ -169,18 +170,14 @@ class TaskStateResponse(BaseModel):
     progress: Optional[WorkflowProgressQueryResult] = Field(
         default=None, description="Detailed progress information"
     )
-    state: Optional[WorkflowStateQueryResult] = Field(
-        default=None, description="Full task state"
-    )
+    state: Optional[WorkflowStateQueryResult] = Field(default=None, description="Full task state")
 
 
 class TaskSignalRequest(BaseModel):
     """Request model for sending a signal to a task."""
 
     input_text: str = Field(..., description="User input text")
-    input_type: Optional[str] = Field(
-        default=None, description="Type/category of input"
-    )
+    input_type: Optional[str] = Field(default=None, description="Type/category of input")
     metadata: Optional[Dict[str, Any]] = Field(
         default_factory=dict, description="Additional metadata"
     )
@@ -197,9 +194,7 @@ class TaskSignalResponse(BaseModel):
 class CancelTaskRequest(BaseModel):
     """Request model for cancelling a task."""
 
-    reason: Optional[str] = Field(
-        default=None, description="Optional reason for cancellation"
-    )
+    reason: Optional[str] = Field(default=None, description="Optional reason for cancellation")
 
 
 class CancelTaskResponse(BaseModel):
@@ -238,9 +233,7 @@ async def create_task(
         conversation_id = await _get_or_create_conversation_id(request.conversation_id)
 
         # Check for existing running workflow
-        existing_workflow = await _check_existing_workflow(
-            conversation_id, temporal_client
-        )
+        existing_workflow = await _check_existing_workflow(conversation_id, temporal_client)
 
         if existing_workflow:
             # Workflow is running, send signal instead
@@ -296,9 +289,7 @@ async def create_task(
         # Store workflow_id mapping in Redis
         try:
             redis_client = await get_redis_client()
-            await redis_client.set_workflow_id_for_conversation(
-                conversation_id, workflow_id
-            )
+            await redis_client.set_workflow_id_for_conversation(conversation_id, workflow_id)
         except Exception as e:
             logger.warning(
                 f"Failed to store workflow mapping for {conversation_id}: {e}. "
