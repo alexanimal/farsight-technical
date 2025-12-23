@@ -14,3 +14,4 @@ htmlcov/
 exclude_plan.md
 queries/
 plans/
+*.isorted

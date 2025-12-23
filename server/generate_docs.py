@@ -25,8 +25,10 @@ try:
     import src
 
     # Discover all modules recursively
-    modules = []
-    for _, name, _ in pkgutil.walk_packages(src.__path__, src.__name__ + "."):
+    modules: list[str] = []
+    for item in pkgutil.walk_packages(src.__path__, src.__name__ + "."):
+        # Unpack: (finder, name, ispkg) - mypy has issues with direct unpacking
+        _finder, name, _ispkg = item  # type: ignore[misc]
         modules.append(name)
 
     if not modules:
