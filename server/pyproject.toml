@@ -8,7 +8,7 @@ dependencies = [
     "asyncio>=4.0.0",
     "asyncio-redis>=0.16.0",
     "asyncpg>=0.31.0",
-    "black>=25.12.0",
+    "black[jupyter]>=25.12.0",
     "fastapi[standard]>=0.125.0",
     "hiredis>=3.3.0",
     "isort>=7.0.0",
@@ -52,3 +52,15 @@ omit = [
 # Show all files including those with 0% coverage
 skip_covered = false
 skip_empty = false
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+extend_skip_glob = ["cdk.out/*"]
+
+[tool.mypy]
+exclude = ['^cdk\\.out/', '^setup\\.py$'] # Regex anchored to exclude cdk.out directory and setup.py

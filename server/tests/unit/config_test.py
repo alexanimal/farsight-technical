@@ -193,9 +193,7 @@ class TestSettingsEnvFile:
 
         # Verify the path structure is correct (ends with .env in server directory)
         assert actual_path.name == ".env"
-        assert actual_path.parent.name == "server" or "server" in str(
-            actual_path.parent
-        )
+        assert actual_path.parent.name == "server" or "server" in str(actual_path.parent)
 
     @patch(
         "builtins.open",
@@ -215,9 +213,7 @@ class TestSettingsEnvFile:
         with patch("src.config.Path") as mock_path:
             mock_file_path = MagicMock()
             mock_file_path.parent.parent = Path("/mock/server")
-            mock_file_path.__truediv__ = MagicMock(
-                return_value=Path("/mock/server/.env")
-            )
+            mock_file_path.__truediv__ = MagicMock(return_value=Path("/mock/server/.env"))
             mock_path.return_value = mock_file_path
 
             # Note: pydantic-settings may not actually read the file in this test
@@ -241,9 +237,7 @@ class TestSettingsValidation:
             (-1, True),  # Negative
         ],
     )
-    def test_postgres_port_validation(
-        self, isolated_settings, monkeypatch, port, should_raise
-    ):
+    def test_postgres_port_validation(self, isolated_settings, monkeypatch, port, should_raise):
         """Test PostgreSQL port validation for various values."""
         monkeypatch.setenv("POSTGRES_PORT", str(port))
         if should_raise:
@@ -295,9 +289,7 @@ class TestSettingsProperties:
         expected = "postgresql://myuser:mypass@db.example.com:5433/mydb"
         assert config.postgres_connection_string == expected
 
-    def test_postgres_connection_string_special_chars(
-        self, isolated_settings, monkeypatch
-    ):
+    def test_postgres_connection_string_special_chars(self, isolated_settings, monkeypatch):
         """Test PostgreSQL connection string with special characters in password."""
         # Use POSTGRES alias (not POSTGRES_USER) since that's how the field is configured
         monkeypatch.delenv("POSTGRES", raising=False)
@@ -308,9 +300,7 @@ class TestSettingsProperties:
         assert "user@domain" in config.postgres_connection_string
         assert "p@ssw0rd!@#$%" in config.postgres_connection_string
 
-    def test_postgres_async_connection_string_defaults(
-        self, isolated_settings, monkeypatch
-    ):
+    def test_postgres_async_connection_string_defaults(self, isolated_settings, monkeypatch):
         """Test PostgreSQL async connection string with default values."""
         for key in [
             "POSTGRES",
@@ -326,9 +316,7 @@ class TestSettingsProperties:
         expected = "postgresql+asyncpg://postgres:postgres@localhost:5432/farsight"
         assert config.postgres_async_connection_string == expected
 
-    def test_postgres_async_connection_string_custom(
-        self, isolated_settings, monkeypatch
-    ):
+    def test_postgres_async_connection_string_custom(self, isolated_settings, monkeypatch):
         """Test PostgreSQL async connection string with custom values."""
         # Use POSTGRES alias (not POSTGRES_USER) since that's how the field is configured
         monkeypatch.delenv("POSTGRES", raising=False)
