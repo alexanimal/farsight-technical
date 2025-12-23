@@ -69,9 +69,7 @@ class OpenAIClient:
             Exception: If client initialization fails.
         """
         if self._client is not None:
-            logger.warning(
-                "OpenAI client already initialized, skipping re-initialization"
-            )
+            logger.warning("OpenAI client already initialized, skipping re-initialization")
             return
 
         if not self._api_key:
@@ -248,9 +246,7 @@ class OpenAIClient:
                     f"Streaming chat completion with model '{model}', "
                     f"web_search={enable_web_search}, reasoning_effort={reasoning_effort}"
                 )
-                stream_response = await self._client.chat.completions.create(
-                    **request_params
-                )
+                stream_response = await self._client.chat.completions.create(**request_params)
                 return stream_response
             else:
                 logger.debug(
