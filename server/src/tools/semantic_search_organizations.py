@@ -18,12 +18,12 @@ except ImportError:
     def observe(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
 
-from src.contracts.tool_io import (ToolMetadata, ToolOutput,
-                                   ToolParameterSchema, create_tool_output)
-from src.models.pinecone_organizations import (PineconeOrganization,
-                                               PineconeOrganizationModel)
+
+from src.contracts.tool_io import ToolMetadata, ToolOutput, ToolParameterSchema, create_tool_output
+from src.models.pinecone_organizations import PineconeOrganization, PineconeOrganizationModel
 
 logger = logging.getLogger(__name__)
 
@@ -333,9 +333,7 @@ async def semantic_search_organizations(
 
         last_fundraise_date_from_obj: Optional[datetime] = None
         if last_fundraise_date_from is not None:
-            last_fundraise_date_from_obj = datetime.fromisoformat(
-                last_fundraise_date_from
-            )
+            last_fundraise_date_from_obj = datetime.fromisoformat(last_fundraise_date_from)
 
         last_fundraise_date_to_obj: Optional[datetime] = None
         if last_fundraise_date_to is not None:

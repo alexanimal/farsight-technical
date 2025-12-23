@@ -19,14 +19,11 @@ except ImportError:
     def observe(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
 
-from src.contracts.tool_io import (
-    ToolMetadata,
-    ToolOutput,
-    ToolParameterSchema,
-    create_tool_output,
-)
+
+from src.contracts.tool_io import ToolMetadata, ToolOutput, ToolParameterSchema, create_tool_output
 from src.models.acquisitions import AcquisitionModel
 from src.models.organizations import OrganizationModel
 
@@ -83,7 +80,10 @@ def get_tool_metadata() -> ToolMetadata:
                             "sector": {"type": "string"},
                             "company_count": {"type": "integer"},
                             "percentage": {"type": "number"},
-                            "total_investment_usd": {"type": "integer", "nullable": True},
+                            "total_investment_usd": {
+                                "type": "integer",
+                                "nullable": True,
+                            },
                             "exit_rate_pct": {"type": "number", "nullable": True},
                         },
                     },
@@ -128,9 +128,7 @@ def _calculate_herfindahl_index(sector_percentages: List[float]) -> float:
     return round(herfindahl, 4)
 
 
-def _match_category_to_sector(
-    category: str, sector: str, case_sensitive: bool = False
-) -> bool:
+def _match_category_to_sector(category: str, sector: str, case_sensitive: bool = False) -> bool:
     """Check if a category matches a sector name.
 
     Args:
@@ -225,7 +223,11 @@ async def analyze_sector_concentration(
 
         logger.info(
             f"Analyzing sector concentration for {len(portfolio_companies)} companies"
-            + (f" across {len(sectors)} sectors" if sectors else " (sectors will be auto-generated)")
+            + (
+                f" across {len(sectors)} sectors"
+                if sectors
+                else " (sectors will be auto-generated)"
+            )
         )
 
         # Extract org UUIDs
@@ -306,31 +308,36 @@ async def analyze_sector_concentration(
             # Strategy: If sectors were provided by user, match categories to those sectors
             # If sectors are auto-generated from categories, use exact category match
             best_sector = None
-            
+
             if use_auto_sectors:
                 # Auto-generated sectors: use first category that exists in sectors list
-                for category in categories_to_check:
-                    if category in sectors:
-                        best_sector = category
-                        break
+                if sectors is not None:
+                    for category in categories_to_check:
+                        if category in sectors:
+                            best_sector = category
+                            break
             else:
                 # User-provided sectors: match categories to sectors
                 # Prefer exact matches, then keyword matches
                 exact_match = None
                 keyword_match = None
-                
-                for category in categories_to_check:
-                    for sector in sectors:
-                        if _match_category_to_sector(category, sector, case_sensitive):
-                            # Check if exact match
-                            if (category.lower() == sector.lower() if not case_sensitive 
-                                else category == sector):
-                                exact_match = sector
-                                break
-                            # Otherwise take first keyword match
-                            elif keyword_match is None:
-                                keyword_match = sector
-                
+
+                if sectors is not None:
+                    for category in categories_to_check:
+                        for sector in sectors:
+                            if _match_category_to_sector(category, sector, case_sensitive):
+                                # Check if exact match
+                                if (
+                                    category.lower() == sector.lower()
+                                    if not case_sensitive
+                                    else category == sector
+                                ):
+                                    exact_match = sector
+                                    break
+                                # Otherwise take first keyword match
+                                elif keyword_match is None:
+                                    keyword_match = sector
+
                 best_sector = exact_match or keyword_match
 
             # Assign company to best matching sector (exclusive)
@@ -344,9 +351,7 @@ async def analyze_sector_concentration(
                 company_to_sector[org_uuid] = None
 
         categorized_count = sum(1 for sector in company_to_sector.values() if sector is not None)
-        logger.info(
-            f"Matched {categorized_count}/{len(org_uuids)} companies to sectors"
-        )
+        logger.info(f"Matched {categorized_count}/{len(org_uuids)} companies to sectors")
 
         # Get exit data for calculating exit rates per sector
         acquisition_model = AcquisitionModel()
@@ -359,26 +364,27 @@ async def analyze_sector_concentration(
             order_by="acquisition_announce_date",
             order_direction="desc",
         )
-        
+
         # Filter to only acquisitions of portfolio companies
         org_uuids_set = set(org_uuids)
         portfolio_acquisitions = [
-            acq for acq in all_acquisitions
+            acq
+            for acq in all_acquisitions
             if acq.acquiree_uuid and acq.acquiree_uuid in org_uuids_set
         ]
 
         # Create exit lookup
-        exited_companies = {acq.acquiree_uuid for acq in portfolio_acquisitions if acq.acquiree_uuid}
+        exited_companies = {
+            acq.acquiree_uuid for acq in portfolio_acquisitions if acq.acquiree_uuid
+        }
 
         # Calculate sector metrics (only for sectors that have companies)
         sector_data = []
         total_companies = len(portfolio_companies)
-        uncategorized_count = sum(
-            1 for sector in company_to_sector.values() if sector is None
-        )
+        uncategorized_count = sum(1 for sector in company_to_sector.values() if sector is None)
 
         # Only include sectors that have at least one company assigned
-        sectors_with_companies = [s for s in sectors if s in sector_assignments]
+        sectors_with_companies = [s for s in (sectors or []) if s in sector_assignments]
 
         for sector in sectors_with_companies:
             company_uuids = sector_assignments.get(sector, [])
@@ -386,17 +392,12 @@ async def analyze_sector_concentration(
 
             # Calculate total investment for this sector
             total_investment = sum(
-                org_lookup[uuid].get("total_invested_usd") or 0
-                for uuid in company_uuids
+                org_lookup[uuid].get("total_invested_usd") or 0 for uuid in company_uuids
             )
 
             # Calculate exit rate for this sector
-            exited_in_sector = sum(
-                1 for uuid in company_uuids if uuid in exited_companies
-            )
-            exit_rate_pct = (
-                (exited_in_sector / company_count * 100) if company_count > 0 else None
-            )
+            exited_in_sector = sum(1 for uuid in company_uuids if uuid in exited_companies)
+            exit_rate_pct = (exited_in_sector / company_count * 100) if company_count > 0 else None
 
             percentage = (company_count / total_companies * 100) if total_companies > 0 else 0.0
 
@@ -405,16 +406,32 @@ async def analyze_sector_concentration(
                     "sector": sector,
                     "company_count": company_count,
                     "percentage": round(percentage, 1),
-                    "total_investment_usd": total_investment if total_investment > 0 else None,
-                    "exit_rate_pct": round(exit_rate_pct, 1) if exit_rate_pct is not None else None,
+                    "total_investment_usd": (total_investment if total_investment > 0 else None),
+                    "exit_rate_pct": (
+                        round(exit_rate_pct, 1) if exit_rate_pct is not None else None
+                    ),
                 }
             )
 
         # Sort by company count (descending)
-        sector_data.sort(key=lambda x: x["company_count"], reverse=True)
+        def get_company_count(x: Dict[str, Any]) -> int:
+            count = x.get("company_count", 0)
+            if isinstance(count, int):
+                return count
+            elif isinstance(count, (float, str)):
+                return int(count)
+            return 0
+
+        sector_data.sort(key=get_company_count, reverse=True)
 
         # Calculate Herfindahl index
-        sector_percentages = [s["percentage"] for s in sector_data]
+        def get_percentage(s: Dict[str, Any]) -> float:
+            pct = s.get("percentage", 0.0)
+            if isinstance(pct, (int, float)):
+                return float(pct)
+            return 0.0
+
+        sector_percentages = [get_percentage(s) for s in sector_data]
         concentration_index = _calculate_herfindahl_index(sector_percentages)
 
         # Build result
@@ -428,7 +445,7 @@ async def analyze_sector_concentration(
 
         metadata = {
             "num_companies": total_companies,
-            "num_sectors": len(sectors),
+            "num_sectors": len(sectors) if sectors is not None else 0,
             "num_categorized": total_companies - uncategorized_count,
             "use_category_groups": use_category_groups,
             "case_sensitive": case_sensitive,
@@ -461,4 +478,3 @@ async def analyze_sector_concentration(
             execution_time_ms=execution_time_ms,
             metadata={"exception_type": type(e).__name__},
         )
-

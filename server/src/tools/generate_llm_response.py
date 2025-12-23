@@ -15,7 +15,9 @@ except ImportError:
     def observe(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
+
 
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
@@ -172,9 +174,7 @@ async def generate_llm_response(
                 # Assume it's already formatted
                 user_content.append(image)
             else:
-                raise ValueError(
-                    f"Invalid image format: {image}. Expected str (URL) or dict."
-                )
+                raise ValueError(f"Invalid image format: {image}. Expected str (URL) or dict.")
 
     # Build user message
     user_message: dict[str, Any] = {"role": "user"}
@@ -198,16 +198,12 @@ async def generate_llm_response(
         for file in files:
             if isinstance(file, str):
                 # Assume it's a file ID
-                attachments.append(
-                    {"file_id": file, "tools": [{"type": "file_search"}]}
-                )
+                attachments.append({"file_id": file, "tools": [{"type": "file_search"}]})
             elif isinstance(file, dict):
                 # Assume it's already formatted
                 attachments.append(file)
             else:
-                raise ValueError(
-                    f"Invalid file format: {file}. Expected str (file_id) or dict."
-                )
+                raise ValueError(f"Invalid file format: {file}. Expected str (file_id) or dict.")
         user_message["attachments"] = attachments
 
     messages.append(user_message)
@@ -217,8 +213,7 @@ async def generate_llm_response(
         valid_efforts = ["low", "medium", "high"]
         if reasoning_effort not in valid_efforts:
             raise ValueError(
-                f"Invalid reasoning_effort: {reasoning_effort}. "
-                f"Must be one of {valid_efforts}."
+                f"Invalid reasoning_effort: {reasoning_effort}. " f"Must be one of {valid_efforts}."
             )
 
     # Extract return_text from kwargs before passing to client

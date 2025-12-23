@@ -9,7 +9,7 @@ import logging
 import statistics
 import time
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -20,10 +20,11 @@ except ImportError:
     def observe(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
 
-from src.contracts.tool_io import (ToolMetadata, ToolOutput,
-                                   ToolParameterSchema, create_tool_output)
+
+from src.contracts.tool_io import ToolMetadata, ToolOutput, ToolParameterSchema, create_tool_output
 from src.models.funding_rounds import FundingRound, FundingRoundModel
 
 logger = logging.getLogger(__name__)
@@ -241,9 +242,28 @@ async def aggregate_funding_trends(
                 f"granularity must be one of: monthly, quarterly, yearly. Got: {granularity}"
             )
 
-        # Parse dates
-        period_start = datetime.fromisoformat(time_period_start)
-        period_end = datetime.fromisoformat(time_period_end)
+        # Parse dates - handle 'Z' suffix (UTC) by replacing with '+00:00'
+        # Python's fromisoformat doesn't support 'Z' directly
+        normalized_start = (
+            time_period_start.replace("Z", "+00:00")
+            if time_period_start.endswith("Z")
+            else time_period_start
+        )
+        normalized_end = (
+            time_period_end.replace("Z", "+00:00")
+            if time_period_end.endswith("Z")
+            else time_period_end
+        )
+
+        period_start = datetime.fromisoformat(normalized_start)
+        period_end = datetime.fromisoformat(normalized_end)
+
+        # Convert timezone-aware datetimes to UTC and make them naive
+        # PostgreSQL typically stores naive datetimes, so we need to ensure consistency
+        if period_start.tzinfo is not None:
+            period_start = period_start.astimezone(timezone.utc).replace(tzinfo=None)
+        if period_end.tzinfo is not None:
+            period_end = period_end.astimezone(timezone.utc).replace(tzinfo=None)
 
         if period_start >= period_end:
             raise ValueError(
@@ -261,13 +281,13 @@ async def aggregate_funding_trends(
         # Chunk size optimized for PostgreSQL IN clause performance
         CHUNK_SIZE = 1000
         result_size_warning_threshold = 1_000_000  # 1M records
-        
-        all_rounds = []
+
+        all_rounds: List[FundingRound] = []
         num_batch_queries = 0
-        
+
         # Process in chunks to avoid PostgreSQL query size limits
         for i in range(0, len(org_uuid_objs), CHUNK_SIZE):
-            chunk = org_uuid_objs[i:i + CHUNK_SIZE]
+            chunk = org_uuid_objs[i : i + CHUNK_SIZE]
             rounds = await model.get(
                 org_uuids=chunk,  # Batch query for chunk
                 investment_date_from=period_start,
@@ -316,9 +336,7 @@ async def aggregate_funding_trends(
 
             # Collect funding amount (if available)
             if round_obj.fundraise_amount_usd is not None:
-                period_data[period_key]["funding_amounts"].append(
-                    round_obj.fundraise_amount_usd
-                )
+                period_data[period_key]["funding_amounts"].append(round_obj.fundraise_amount_usd)
 
             # Collect investors
             if round_obj.investors:
@@ -339,21 +357,15 @@ async def aggregate_funding_trends(
             # Calculate metrics
             total_funding = sum(funding_amounts) if funding_amounts else 0
             round_count = len(rounds)
-            avg_round_size = (
-                statistics.mean(funding_amounts) if funding_amounts else 0.0
-            )
-            median_round_size = (
-                statistics.median(funding_amounts) if funding_amounts else 0.0
-            )
+            avg_round_size = statistics.mean(funding_amounts) if funding_amounts else 0.0
+            median_round_size = statistics.median(funding_amounts) if funding_amounts else 0.0
             unique_investors = len(investors)
 
             # Calculate velocity change (period-over-period change in total funding)
             velocity_change_pct = None
             if i > 0:
                 prev_period_key = sorted_periods[i - 1]
-                prev_total_funding = sum(
-                    period_data[prev_period_key]["funding_amounts"]
-                )
+                prev_total_funding = sum(period_data[prev_period_key]["funding_amounts"])
                 if prev_total_funding > 0:
                     velocity_change_pct = (
                         (total_funding - prev_total_funding) / prev_total_funding * 100
@@ -382,22 +394,18 @@ async def aggregate_funding_trends(
             for period_data in period_data.values()
             for amount in period_data["funding_amounts"]
         ]
-        all_investors = set()
+        all_investors: set[str] = set()
         for period_data in period_data.values():
             all_investors.update(period_data["investors"])
 
         summary = {
-            "total_funding_usd": int(sum(all_funding_amounts)) if all_funding_amounts else 0,
+            "total_funding_usd": (int(sum(all_funding_amounts)) if all_funding_amounts else 0),
             "total_rounds": len(all_rounds),
             "avg_round_size_usd": (
-                round(statistics.mean(all_funding_amounts), 2)
-                if all_funding_amounts
-                else 0.0
+                round(statistics.mean(all_funding_amounts), 2) if all_funding_amounts else 0.0
             ),
             "median_round_size_usd": (
-                round(statistics.median(all_funding_amounts), 2)
-                if all_funding_amounts
-                else 0.0
+                round(statistics.median(all_funding_amounts), 2) if all_funding_amounts else 0.0
             ),
             "total_unique_investors": len(all_investors),
             "num_periods": len(trend_data),
@@ -415,22 +423,22 @@ async def aggregate_funding_trends(
         }
 
         execution_time_ms = (time.time() - start_time) * 1000
-        
+
         # Build metadata with result size information
-        metadata = {
+        metadata: Dict[str, Any] = {
             "num_orgs": len(org_uuids),
             "num_rounds": len(all_rounds),
             "num_periods": len(trend_data),
             "num_batch_queries": num_batch_queries,
         }
-        
+
         # Add warning if result set is large
         if len(all_rounds) > result_size_warning_threshold:
             metadata["warning"] = (
                 f"Large result set: {len(all_rounds):,} funding rounds. "
                 "Consider filtering by date range or min_funding_amount to reduce size."
             )
-        
+
         logger.debug(
             f"Aggregated funding trends for {len(org_uuids)} organizations "
             f"across {len(trend_data)} periods in {execution_time_ms:.2f}ms"
@@ -458,4 +466,3 @@ async def aggregate_funding_trends(
             execution_time_ms=execution_time_ms,
             metadata={"exception_type": type(e).__name__},
         )
-

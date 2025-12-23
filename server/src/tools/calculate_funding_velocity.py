@@ -17,14 +17,11 @@ except ImportError:
     def observe(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
 
-from src.contracts.tool_io import (
-    ToolMetadata,
-    ToolOutput,
-    ToolParameterSchema,
-    create_tool_output,
-)
+
+from src.contracts.tool_io import ToolMetadata, ToolOutput, ToolParameterSchema, create_tool_output
 
 logger = logging.getLogger(__name__)
 
@@ -102,9 +99,7 @@ def get_tool_metadata() -> ToolMetadata:
     )
 
 
-def _calculate_moving_average(
-    values: List[float], window: int, index: int
-) -> Optional[float]:
+def _calculate_moving_average(values: List[float], window: int, index: int) -> Optional[float]:
     """Calculate moving average for a given index.
 
     Args:
@@ -125,9 +120,7 @@ def _calculate_moving_average(
     return statistics.mean(window_values)
 
 
-def _calculate_acceleration(
-    velocities: List[Optional[float]], index: int
-) -> Optional[float]:
+def _calculate_acceleration(velocities: List[Optional[float]], index: int) -> Optional[float]:
     """Calculate acceleration (change in velocity) for a given period.
 
     Args:
@@ -186,9 +179,7 @@ def _calculate_momentum_score(
     # Funding trend component (0-40 points)
     funding_trend = 0.0
     if len(recent_funding) >= 2:
-        funding_growth = (recent_funding[-1] - recent_funding[0]) / max(
-            recent_funding[0], 1
-        )
+        funding_growth = (recent_funding[-1] - recent_funding[0]) / max(recent_funding[0], 1)
         funding_trend = min(40.0, max(0.0, funding_growth * 10))  # Scale to 0-40
 
     # Velocity component (0-40 points)
@@ -201,16 +192,16 @@ def _calculate_momentum_score(
     consistency = 0.0
     if len(recent_velocities) >= 2:
         # Lower variance = higher consistency
-        velocity_variance = statistics.variance(recent_velocities) if len(recent_velocities) > 1 else 0
+        velocity_variance = (
+            statistics.variance(recent_velocities) if len(recent_velocities) > 1 else 0
+        )
         consistency = max(0.0, 20.0 - min(20.0, velocity_variance / 100))
 
     momentum_score = funding_trend + velocity_trend + consistency
     return round(min(100.0, max(0.0, momentum_score)), 2)
 
 
-def _calculate_cagr(
-    initial_value: float, final_value: float, num_periods: int
-) -> Optional[float]:
+def _calculate_cagr(initial_value: float, final_value: float, num_periods: int) -> Optional[float]:
     """Calculate Compound Annual Growth Rate (CAGR).
 
     Args:
@@ -234,9 +225,7 @@ def _calculate_cagr(
     return round(cagr, 2)
 
 
-def _determine_trend_direction(
-    velocities: List[Optional[float]], window: int = 3
-) -> str:
+def _determine_trend_direction(velocities: List[Optional[float]], window: int = 3) -> str:
     """Determine overall trend direction from recent velocities.
 
     Args:
@@ -246,9 +235,7 @@ def _determine_trend_direction(
     Returns:
         Trend direction: "increasing", "decreasing", "stable", or "insufficient_data".
     """
-    recent_velocities = [
-        v for v in velocities[-window:] if v is not None
-    ]
+    recent_velocities = [v for v in velocities[-window:] if v is not None]
 
     if len(recent_velocities) < 2:
         return "insufficient_data"
@@ -326,9 +313,7 @@ async def calculate_funding_velocity(
             raise ValueError("trend_data cannot be empty")
 
         if moving_average_periods < 1:
-            raise ValueError(
-                f"moving_average_periods must be >= 1. Got: {moving_average_periods}"
-            )
+            raise ValueError(f"moving_average_periods must be >= 1. Got: {moving_average_periods}")
 
         # Extract data from trend_data
         periods = []
@@ -359,7 +344,8 @@ async def calculate_funding_velocity(
 
         for i in range(len(periods)):
             # Calculate moving average
-            ma = _calculate_moving_average(funding_amounts, moving_average_periods, i)
+            funding_amounts_float = [float(x) for x in funding_amounts]
+            ma = _calculate_moving_average(funding_amounts_float, moving_average_periods, i)
             moving_averages.append(ma)
 
             # Calculate acceleration (if we have velocity data)
@@ -372,16 +358,18 @@ async def calculate_funding_velocity(
             )
             momentum_scores.append(momentum)
 
+            # Calculate velocity_change_pct with proper type checking
+            vel = velocities[i]
+            velocity_change_pct = None
+            if vel is not None and isinstance(vel, (int, float)):
+                velocity_change_pct = round(float(vel), 2)
+
             velocity_metrics.append(
                 {
                     "period": periods[i],
                     "total_funding_usd": funding_amounts[i],
-                    "velocity_change_pct": (
-                        round(velocities[i], 2) if velocities[i] is not None else None
-                    ),
-                    "moving_average_usd": (
-                        round(ma, 2) if ma is not None else None
-                    ),
+                    "velocity_change_pct": velocity_change_pct,
+                    "moving_average_usd": (round(ma, 2) if ma is not None else None),
                     "acceleration_pct": (
                         round(acceleration, 2) if acceleration is not None else None
                     ),
@@ -391,9 +379,7 @@ async def calculate_funding_velocity(
 
         # Calculate summary statistics
         valid_velocities = [v for v in velocities if v is not None]
-        avg_velocity = (
-            round(statistics.mean(valid_velocities), 2) if valid_velocities else None
-        )
+        avg_velocity = round(statistics.mean(valid_velocities), 2) if valid_velocities else None
 
         # Calculate CAGR if requested
         cagr_pct = None
@@ -473,4 +459,3 @@ async def calculate_funding_velocity(
             execution_time_ms=execution_time_ms,
             metadata={"exception_type": type(e).__name__},
         )
-

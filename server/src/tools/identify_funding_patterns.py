@@ -18,14 +18,11 @@ except ImportError:
     def observe(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
 
-from src.contracts.tool_io import (
-    ToolMetadata,
-    ToolOutput,
-    ToolParameterSchema,
-    create_tool_output,
-)
+
+from src.contracts.tool_io import ToolMetadata, ToolOutput, ToolParameterSchema, create_tool_output
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +149,14 @@ def get_tool_metadata() -> ToolMetadata:
         timeout_seconds=30.0,
         side_effects=False,  # Read-only computation
         idempotent=True,  # Safe to retry
-        tags=["analysis", "funding", "patterns", "anomalies", "seasonality", "read-only"],
+        tags=[
+            "analysis",
+            "funding",
+            "patterns",
+            "anomalies",
+            "seasonality",
+            "read-only",
+        ],
     )
 
 
@@ -172,9 +176,7 @@ def _calculate_z_score(value: float, mean: float, std_dev: float) -> Optional[fl
     return (value - mean) / std_dev
 
 
-def _detect_anomalies(
-    trend_data: List[Dict[str, Any]], threshold: float
-) -> List[Dict[str, Any]]:
+def _detect_anomalies(trend_data: List[Dict[str, Any]], threshold: float) -> List[Dict[str, Any]]:
     """Detect anomalies in funding data using z-scores.
 
     Args:
@@ -188,9 +190,7 @@ def _detect_anomalies(
         return []
 
     # Extract funding amounts
-    funding_amounts = [
-        item.get("total_funding_usd", 0) for item in trend_data
-    ]
+    funding_amounts = [item.get("total_funding_usd", 0) for item in trend_data]
 
     if not funding_amounts:
         return []
@@ -208,7 +208,9 @@ def _detect_anomalies(
         z_score = _calculate_z_score(float(funding), mean_funding, std_dev)
 
         if z_score is not None and abs(z_score) >= threshold:
-            deviation_pct = ((funding - mean_funding) / mean_funding * 100) if mean_funding > 0 else 0
+            deviation_pct = (
+                ((funding - mean_funding) / mean_funding * 100) if mean_funding > 0 else 0
+            )
             anomaly_type = "spike" if z_score > 0 else "drop"
 
             anomalies.append(
@@ -273,9 +275,7 @@ def _identify_peaks_and_troughs(
     return peaks, troughs
 
 
-def _detect_seasonality(
-    trend_data: List[Dict[str, Any]], granularity: str
-) -> Dict[str, Any]:
+def _detect_seasonality(trend_data: List[Dict[str, Any]], granularity: str) -> Dict[str, Any]:
     """Detect seasonal patterns in funding data.
 
     Args:
@@ -313,8 +313,18 @@ def _detect_seasonality(
             elif " " in period:
                 # Format: "January 2022"
                 month_names = [
-                    "january", "february", "march", "april", "may", "june",
-                    "july", "august", "september", "october", "november", "december"
+                    "january",
+                    "february",
+                    "march",
+                    "april",
+                    "may",
+                    "june",
+                    "july",
+                    "august",
+                    "september",
+                    "october",
+                    "november",
+                    "december",
                 ]
                 period_lower = period.lower()
                 for i, month_name in enumerate(month_names):
@@ -352,8 +362,8 @@ def _detect_seasonality(
         }
 
     # Find strongest and weakest seasons
-    strongest_season = max(season_averages, key=season_averages.get)
-    weakest_season = min(season_averages, key=season_averages.get)
+    strongest_season = max(season_averages, key=lambda k: season_averages[k])
+    weakest_season = min(season_averages, key=lambda k: season_averages[k])
 
     # Calculate seasonal variation (coefficient of variation)
     season_values = list(season_averages.values())
@@ -377,9 +387,7 @@ def _detect_seasonality(
     }
 
 
-def _detect_cyclical_patterns(
-    trend_data: List[Dict[str, Any]], min_periods: int
-) -> Dict[str, Any]:
+def _detect_cyclical_patterns(trend_data: List[Dict[str, Any]], min_periods: int) -> Dict[str, Any]:
     """Detect cyclical patterns in funding data using autocorrelation.
 
     Args:
@@ -398,9 +406,7 @@ def _detect_cyclical_patterns(
         }
 
     # Extract funding amounts
-    funding_amounts = [
-        item.get("total_funding_usd", 0) for item in trend_data
-    ]
+    funding_amounts = [item.get("total_funding_usd", 0) for item in trend_data]
 
     if len(funding_amounts) < min_periods:
         return {
@@ -465,9 +471,7 @@ def _detect_cyclical_patterns(
     }
 
 
-def _analyze_trend_patterns(
-    trend_data: List[Dict[str, Any]]
-) -> Dict[str, Any]:
+def _analyze_trend_patterns(trend_data: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Analyze overall trend patterns in funding data.
 
     Args:
@@ -484,9 +488,7 @@ def _analyze_trend_patterns(
         }
 
     # Extract funding amounts
-    funding_amounts = [
-        item.get("total_funding_usd", 0) for item in trend_data
-    ]
+    funding_amounts = [item.get("total_funding_usd", 0) for item in trend_data]
 
     # Determine overall direction
     if len(funding_amounts) >= 2:
@@ -506,11 +508,11 @@ def _analyze_trend_patterns(
         direction = "insufficient_data"
 
     # Calculate growth consistency (coefficient of variation of velocity changes)
-    velocity_changes = [
-        item.get("velocity_change_pct")
-        for item in trend_data
-        if item.get("velocity_change_pct") is not None
-    ]
+    velocity_changes: List[float] = []
+    for item in trend_data:
+        vcp = item.get("velocity_change_pct")
+        if vcp is not None and isinstance(vcp, (int, float)):
+            velocity_changes.append(float(vcp))
 
     if len(velocity_changes) >= 2:
         mean_velocity = statistics.mean(velocity_changes)
@@ -705,9 +707,7 @@ async def identify_funding_patterns(
             raise ValueError(f"anomaly_threshold must be >= 0. Got: {anomaly_threshold}")
 
         if min_periods_for_cycles < 2:
-            raise ValueError(
-                f"min_periods_for_cycles must be >= 2. Got: {min_periods_for_cycles}"
-            )
+            raise ValueError(f"min_periods_for_cycles must be >= 2. Got: {min_periods_for_cycles}")
 
         # Identify peaks and troughs
         peaks, troughs = _identify_peaks_and_troughs(trend_data, top_n=5)
@@ -792,4 +792,3 @@ async def identify_funding_patterns(
             execution_time_ms=execution_time_ms,
             metadata={"exception_type": type(e).__name__},
         )
-

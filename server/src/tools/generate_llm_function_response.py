@@ -16,7 +16,9 @@ except ImportError:
     def observe(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
+
 
 from openai.types.chat import ChatCompletion, ChatCompletionMessageToolCall
 
@@ -202,9 +204,7 @@ async def generate_llm_function_response(
                 # Assume it's already formatted
                 user_content.append(image)
             else:
-                raise ValueError(
-                    f"Invalid image format: {image}. Expected str (URL) or dict."
-                )
+                raise ValueError(f"Invalid image format: {image}. Expected str (URL) or dict.")
 
     # Build user message
     user_message: dict[str, Any] = {"role": "user"}
@@ -228,16 +228,12 @@ async def generate_llm_function_response(
         for file in files:
             if isinstance(file, str):
                 # Assume it's a file ID
-                attachments.append(
-                    {"file_id": file, "tools": [{"type": "file_search"}]}
-                )
+                attachments.append({"file_id": file, "tools": [{"type": "file_search"}]})
             elif isinstance(file, dict):
                 # Assume it's already formatted
                 attachments.append(file)
             else:
-                raise ValueError(
-                    f"Invalid file format: {file}. Expected str (file_id) or dict."
-                )
+                raise ValueError(f"Invalid file format: {file}. Expected str (file_id) or dict.")
         user_message["attachments"] = attachments
 
     messages.append(user_message)
@@ -247,8 +243,7 @@ async def generate_llm_function_response(
         valid_efforts = ["low", "medium", "high"]
         if reasoning_effort not in valid_efforts:
             raise ValueError(
-                f"Invalid reasoning_effort: {reasoning_effort}. "
-                f"Must be one of {valid_efforts}."
+                f"Invalid reasoning_effort: {reasoning_effort}. " f"Must be one of {valid_efforts}."
             )
 
     # Default tool_choice to "auto" if not provided
@@ -286,9 +281,7 @@ async def generate_llm_function_response(
 
         # If no tool calls, return the full response
         if not tool_calls:
-            logger.warning(
-                "No tool calls found in LLM response. Returning full ChatCompletion."
-            )
+            logger.warning("No tool calls found in LLM response. Returning full ChatCompletion.")
             return response
 
         # Parse tool calls
@@ -305,9 +298,7 @@ async def generate_llm_function_response(
             try:
                 function_args = json.loads(function_args_str)
             except json.JSONDecodeError as e:
-                logger.error(
-                    f"Failed to parse function arguments for {function_name}: {e}"
-                )
+                logger.error(f"Failed to parse function arguments for {function_name}: {e}")
                 raise ValueError(
                     f"Invalid JSON in function arguments for {function_name}: {function_args_str}"
                 ) from e
@@ -321,9 +312,7 @@ async def generate_llm_function_response(
             # Execute tool if requested
             if execute_tools:
                 if tool_executors is None:
-                    raise ValueError(
-                        "tool_executors is required when execute_tools=True"
-                    )
+                    raise ValueError("tool_executors is required when execute_tools=True")
                 if function_name not in tool_executors:
                     raise ValueError(
                         f"No executor found for tool '{function_name}'. "
@@ -332,17 +321,13 @@ async def generate_llm_function_response(
 
                 executor = tool_executors[function_name]
                 if not callable(executor):
-                    raise ValueError(
-                        f"Tool executor for '{function_name}' is not callable"
-                    )
+                    raise ValueError(f"Tool executor for '{function_name}' is not callable")
                 try:
                     # Execute the tool with parsed arguments
                     result = await executor(**function_args)
                     parsed_call["result"] = result
                 except Exception as e:
-                    logger.error(
-                        f"Tool execution failed for {function_name}: {e}", exc_info=True
-                    )
+                    logger.error(f"Tool execution failed for {function_name}: {e}", exc_info=True)
                     parsed_call["error"] = str(e)
                     parsed_call["result"] = None
 

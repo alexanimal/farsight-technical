@@ -8,7 +8,7 @@ or lead_investors fields. It returns a comprehensive portfolio with investment d
 import asyncio
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -19,14 +19,11 @@ except ImportError:
     def observe(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
 
-from src.contracts.tool_io import (
-    ToolMetadata,
-    ToolOutput,
-    ToolParameterSchema,
-    create_tool_output,
-)
+
+from src.contracts.tool_io import ToolMetadata, ToolOutput, ToolParameterSchema, create_tool_output
 from src.models.funding_rounds import FundingRound, FundingRoundModel
 from src.models.organizations import Organization, OrganizationModel
 
@@ -95,17 +92,32 @@ def get_tool_metadata() -> ToolMetadata:
                             "investment_count": {"type": "integer"},
                             "lead_investment_count": {"type": "integer"},
                             "total_invested_usd": {"type": "integer", "nullable": True},
-                            "first_investment_date": {"type": "string", "nullable": True},
-                            "last_investment_date": {"type": "string", "nullable": True},
+                            "first_investment_date": {
+                                "type": "string",
+                                "nullable": True,
+                            },
+                            "last_investment_date": {
+                                "type": "string",
+                                "nullable": True,
+                            },
                             "funding_rounds": {
                                 "type": "array",
                                 "items": {
                                     "type": "object",
                                     "properties": {
                                         "funding_round_uuid": {"type": "string"},
-                                        "investment_date": {"type": "string", "nullable": True},
-                                        "fundraise_amount_usd": {"type": "integer", "nullable": True},
-                                        "valuation_usd": {"type": "integer", "nullable": True},
+                                        "investment_date": {
+                                            "type": "string",
+                                            "nullable": True,
+                                        },
+                                        "fundraise_amount_usd": {
+                                            "type": "integer",
+                                            "nullable": True,
+                                        },
+                                        "valuation_usd": {
+                                            "type": "integer",
+                                            "nullable": True,
+                                        },
                                         "stage": {"type": "string", "nullable": True},
                                         "was_lead": {"type": "boolean"},
                                     },
@@ -120,7 +132,10 @@ def get_tool_metadata() -> ToolMetadata:
                         "total_companies": {"type": "integer"},
                         "total_investments": {"type": "integer"},
                         "total_lead_investments": {"type": "integer"},
-                        "total_capital_deployed_usd": {"type": "integer", "nullable": True},
+                        "total_capital_deployed_usd": {
+                            "type": "integer",
+                            "nullable": True,
+                        },
                         "unique_companies": {"type": "integer"},
                     },
                 },
@@ -185,13 +200,31 @@ async def find_investor_portfolio(
         if not investor_name or not investor_name.strip():
             raise ValueError("investor_name cannot be empty")
 
-        # Parse dates if provided
+        # Parse dates if provided - handle 'Z' suffix (UTC) by replacing with '+00:00'
+        # Python's fromisoformat doesn't support 'Z' directly
         period_start = None
         period_end = None
         if time_period_start:
-            period_start = datetime.fromisoformat(time_period_start)
+            normalized_start = (
+                time_period_start.replace("Z", "+00:00")
+                if time_period_start.endswith("Z")
+                else time_period_start
+            )
+            period_start = datetime.fromisoformat(normalized_start)
+            # Convert timezone-aware datetimes to UTC and make them naive
+            # PostgreSQL typically stores naive datetimes, so we need to ensure consistency
+            if period_start.tzinfo is not None:
+                period_start = period_start.astimezone(timezone.utc).replace(tzinfo=None)
         if time_period_end:
-            period_end = datetime.fromisoformat(time_period_end)
+            normalized_end = (
+                time_period_end.replace("Z", "+00:00")
+                if time_period_end.endswith("Z")
+                else time_period_end
+            )
+            period_end = datetime.fromisoformat(normalized_end)
+            # Convert timezone-aware datetimes to UTC and make them naive
+            if period_end.tzinfo is not None:
+                period_end = period_end.astimezone(timezone.utc).replace(tzinfo=None)
 
         if period_start and period_end and period_start >= period_end:
             raise ValueError(
@@ -209,9 +242,9 @@ async def find_investor_portfolio(
         logger.info(f"Searching for funding rounds with investor: {investor_name}")
 
         # Query funding rounds - search in both investors and lead_investors
-        all_rounds = []
+        all_rounds: List[FundingRound] = []
         lead_round_uuids = set()  # Track which rounds came from lead_investors query
-        
+
         if include_lead_only:
             # Only search in lead_investors by name
             rounds = await funding_model.get(
@@ -241,10 +274,10 @@ async def find_investor_portfolio(
                 order_by="investment_date",
                 order_direction="desc",
             )
-            
+
             # Track which rounds came from lead query
             lead_round_uuids = {r.funding_round_uuid for r in rounds_lead}
-            
+
             # Merge and deduplicate by funding_round_uuid
             seen_uuids = set()
             for round_obj in rounds_investors + rounds_lead:
@@ -256,7 +289,7 @@ async def find_investor_portfolio(
 
         if not all_rounds:
             # Return empty portfolio
-            result = {
+            empty_result = {
                 "investor_name": investor_name,
                 "time_period": {
                     "start": time_period_start,
@@ -276,7 +309,7 @@ async def find_investor_portfolio(
             return create_tool_output(
                 tool_name="find_investor_portfolio",
                 success=True,
-                result=result,
+                result=empty_result,
                 execution_time_ms=execution_time_ms,
                 metadata={"num_rounds": 0, "num_companies": 0},
             )
@@ -308,7 +341,7 @@ async def find_investor_portfolio(
             except Exception as e:
                 logger.warning(f"Failed to fetch organization {uuid}: {e}")
                 return None
-        
+
         # Query organizations in parallel (batch of 50 at a time to avoid overwhelming the DB)
         BATCH_SIZE = 50
         all_orgs = []
@@ -350,9 +383,15 @@ async def find_investor_portfolio(
 
                 # Track dates
                 if round_obj.investment_date:
-                    if first_investment_date is None or round_obj.investment_date < first_investment_date:
+                    if (
+                        first_investment_date is None
+                        or round_obj.investment_date < first_investment_date
+                    ):
                         first_investment_date = round_obj.investment_date
-                    if last_investment_date is None or round_obj.investment_date > last_investment_date:
+                    if (
+                        last_investment_date is None
+                        or round_obj.investment_date > last_investment_date
+                    ):
                         last_investment_date = round_obj.investment_date
 
                 funding_rounds.append(
@@ -384,7 +423,7 @@ async def find_investor_portfolio(
                     ),
                     "investment_count": investment_count,
                     "lead_investment_count": lead_investment_count,
-                    "total_invested_usd": total_invested if total_invested > 0 else None,
+                    "total_invested_usd": (total_invested if total_invested > 0 else None),
                     "first_investment_date": (
                         first_investment_date.isoformat() if first_investment_date else None
                     ),
@@ -396,21 +435,21 @@ async def find_investor_portfolio(
             )
 
         # Sort by total invested (descending)
-        portfolio_companies.sort(
-            key=lambda x: x.get("total_invested_usd") or 0, reverse=True
-        )
+        portfolio_companies.sort(key=lambda x: x.get("total_invested_usd") or 0, reverse=True)
 
         # Build summary
         summary = {
             "total_companies": len(portfolio_companies),
             "total_investments": len(all_rounds),
             "total_lead_investments": total_lead_investments,
-            "total_capital_deployed_usd": total_capital_deployed if total_capital_deployed > 0 else None,
+            "total_capital_deployed_usd": (
+                total_capital_deployed if total_capital_deployed > 0 else None
+            ),
             "unique_companies": len(portfolio_companies),
         }
 
         # Build result
-        result = {
+        result: Dict[str, Any] = {
             "investor_name": investor_name,
             "time_period": {
                 "start": time_period_start,
@@ -455,4 +494,3 @@ async def find_investor_portfolio(
             execution_time_ms=execution_time_ms,
             metadata={"exception_type": type(e).__name__},
         )
-

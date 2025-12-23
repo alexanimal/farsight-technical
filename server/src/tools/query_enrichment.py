@@ -16,8 +16,8 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from src.prompts.prompt_manager import PromptOptions, get_prompt_manager
-from src.tools.get_organizations import get_organizations
 from src.tools.generate_llm_function_response import generate_llm_function_response
+from src.tools.get_organizations import get_organizations
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +29,7 @@ class ExtractedQueryMetadata(BaseModel):
         default="",
         description="Improved/enriched version of the query that resolves pronouns and adds context from conversation history",
     )
-    original_query: str = Field(
-        default="", description="Original user query as provided"
-    )
+    original_query: str = Field(default="", description="Original user query as provided")
     companies: Dict[str, Any] = Field(
         default_factory=dict,
         description="Companies mentioned in the query. Structure: {names: List[str], uuids: List[str], context: str}",
@@ -265,9 +263,7 @@ Rules:
             prompt_manager = get_prompt_manager()
             system_prompt = prompt_manager.build_system_prompt(
                 base_prompt=self._base_prompt,
-                options=PromptOptions(
-                    add_temporal_context=False, add_markdown_instructions=False
-                ),
+                options=PromptOptions(add_temporal_context=False, add_markdown_instructions=False),
             )
 
             # Build user prompt with conversation history if available
@@ -365,14 +361,10 @@ Rules:
                 )
 
         except Exception as e:
-            logger.error(
-                f"Query enrichment failed: {e}, using original query", exc_info=True
-            )
+            logger.error(f"Query enrichment failed: {e}, using original query", exc_info=True)
 
         # Fallback: return original query with empty metadata
-        empty_metadata = ExtractedQueryMetadata(
-            improved_query=query, original_query=query
-        )
+        empty_metadata = ExtractedQueryMetadata(improved_query=query, original_query=query)
         return {
             "improved_query": query,
             "original_query": query,
@@ -416,4 +408,3 @@ Rules:
             }
 
         return metadata_dict
-

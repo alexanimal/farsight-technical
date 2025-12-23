@@ -8,7 +8,7 @@ portfolio data from find_investor_portfolio and acquisition data.
 import logging
 import statistics
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -19,14 +19,11 @@ except ImportError:
     def observe(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
 
-from src.contracts.tool_io import (
-    ToolMetadata,
-    ToolOutput,
-    ToolParameterSchema,
-    create_tool_output,
-)
+
+from src.contracts.tool_io import ToolMetadata, ToolOutput, ToolParameterSchema, create_tool_output
 from src.models.acquisitions import Acquisition, AcquisitionModel
 
 logger = logging.getLogger(__name__)
@@ -78,10 +75,16 @@ def get_tool_metadata() -> ToolMetadata:
                     "properties": {
                         "total_companies": {"type": "integer"},
                         "total_investments": {"type": "integer"},
-                        "total_capital_deployed_usd": {"type": "integer", "nullable": True},
+                        "total_capital_deployed_usd": {
+                            "type": "integer",
+                            "nullable": True,
+                        },
                         "exited_companies": {"type": "integer"},
                         "exit_rate_pct": {"type": "number", "nullable": True},
-                        "average_time_to_exit_days": {"type": "number", "nullable": True},
+                        "average_time_to_exit_days": {
+                            "type": "number",
+                            "nullable": True,
+                        },
                     },
                 },
                 "performance_metrics": {
@@ -98,7 +101,10 @@ def get_tool_metadata() -> ToolMetadata:
                     "type": "object",
                     "properties": {
                         "investments_per_year": {"type": "number", "nullable": True},
-                        "capital_deployed_per_year_usd": {"type": "number", "nullable": True},
+                        "capital_deployed_per_year_usd": {
+                            "type": "number",
+                            "nullable": True,
+                        },
                         "average_round_size_usd": {"type": "number", "nullable": True},
                         "median_round_size_usd": {"type": "number", "nullable": True},
                     },
@@ -187,13 +193,31 @@ async def calculate_portfolio_metrics(
         if not portfolio_companies:
             raise ValueError("portfolio_companies cannot be empty")
 
-        # Parse dates if provided
+        # Parse dates if provided - handle 'Z' suffix (UTC) by replacing with '+00:00'
+        # Python's fromisoformat doesn't support 'Z' directly
         period_start = None
         period_end = None
         if time_period_start:
-            period_start = datetime.fromisoformat(time_period_start)
+            normalized_start = (
+                time_period_start.replace("Z", "+00:00")
+                if time_period_start.endswith("Z")
+                else time_period_start
+            )
+            period_start = datetime.fromisoformat(normalized_start)
+            # Convert timezone-aware datetimes to UTC and make them naive
+            # PostgreSQL typically stores naive datetimes, so we need to ensure consistency
+            if period_start.tzinfo is not None:
+                period_start = period_start.astimezone(timezone.utc).replace(tzinfo=None)
         if time_period_end:
-            period_end = datetime.fromisoformat(time_period_end)
+            normalized_end = (
+                time_period_end.replace("Z", "+00:00")
+                if time_period_end.endswith("Z")
+                else time_period_end
+            )
+            period_end = datetime.fromisoformat(normalized_end)
+            # Convert timezone-aware datetimes to UTC and make them naive
+            if period_end.tzinfo is not None:
+                period_end = period_end.astimezone(timezone.utc).replace(tzinfo=None)
 
         if period_start and period_end and period_start >= period_end:
             raise ValueError(
@@ -224,11 +248,12 @@ async def calculate_portfolio_metrics(
             order_by="acquisition_announce_date",
             order_direction="desc",
         )
-        
+
         # Filter to only acquisitions of portfolio companies
         org_uuids_set = set(org_uuids)
         portfolio_acquisitions = [
-            acq for acq in all_acquisitions
+            acq
+            for acq in all_acquisitions
             if acq.acquiree_uuid and acq.acquiree_uuid in org_uuids_set
         ]
 
@@ -315,10 +340,7 @@ async def calculate_portfolio_metrics(
                     first_investment_date = min(investment_dates)
 
             time_to_exit_days = None
-            if (
-                first_investment_date
-                and acquisition.acquisition_announce_date
-            ):
+            if first_investment_date and acquisition.acquisition_announce_date:
                 delta = acquisition.acquisition_announce_date - first_investment_date
                 time_to_exit_days = delta.days
                 if time_to_exit_days >= 0:
@@ -334,29 +356,23 @@ async def calculate_portfolio_metrics(
                         else None
                     ),
                     "exit_value_usd": exit_value,
-                    "total_invested_usd": total_invested if total_invested > 0 else None,
-                    "roi_estimate": round(roi_estimate, 2) if roi_estimate is not None else None,
+                    "total_invested_usd": (total_invested if total_invested > 0 else None),
+                    "roi_estimate": (round(roi_estimate, 2) if roi_estimate is not None else None),
                     "time_to_exit_days": time_to_exit_days,
                 }
             )
 
         # Calculate summary metrics
         exited_companies = len(exit_details)
-        exit_rate_pct = (
-            (exited_companies / total_companies * 100) if total_companies > 0 else None
-        )
+        exit_rate_pct = (exited_companies / total_companies * 100) if total_companies > 0 else None
 
         average_time_to_exit_days = (
             round(statistics.mean(times_to_exit), 1) if times_to_exit else None
         )
 
         # Performance metrics
-        average_roi_estimate = (
-            round(statistics.mean(roi_estimates), 2) if roi_estimates else None
-        )
-        median_roi_estimate = (
-            round(statistics.median(roi_estimates), 2) if roi_estimates else None
-        )
+        average_roi_estimate = round(statistics.mean(roi_estimates), 2) if roi_estimates else None
+        median_roi_estimate = round(statistics.median(roi_estimates), 2) if roi_estimates else None
 
         # Successful exits (ROI > 1.0)
         successful_exits = sum(1 for roi in roi_estimates if roi > 1.0)
@@ -364,12 +380,8 @@ async def calculate_portfolio_metrics(
             (successful_exits / exited_companies * 100) if exited_companies > 0 else None
         )
 
-        average_exit_value_usd = (
-            round(statistics.mean(exit_values)) if exit_values else None
-        )
-        median_exit_value_usd = (
-            round(statistics.median(exit_values)) if exit_values else None
-        )
+        average_exit_value_usd = round(statistics.mean(exit_values)) if exit_values else None
+        median_exit_value_usd = round(statistics.median(exit_values)) if exit_values else None
 
         # Deployment patterns
         # Calculate investments per year
@@ -406,30 +418,30 @@ async def calculate_portfolio_metrics(
                     capital_deployed_per_year_usd = round(total_deployed / date_range_years)
 
         average_round_size_usd = (
-            round(statistics.mean(all_investment_amounts))
-            if all_investment_amounts
-            else None
+            round(statistics.mean(all_investment_amounts)) if all_investment_amounts else None
         )
         median_round_size_usd = (
-            round(statistics.median(all_investment_amounts))
-            if all_investment_amounts
-            else None
+            round(statistics.median(all_investment_amounts)) if all_investment_amounts else None
         )
 
         # Build result
         portfolio_summary = {
             "total_companies": total_companies,
             "total_investments": total_investments,
-            "total_capital_deployed_usd": total_capital_deployed if total_capital_deployed > 0 else None,
+            "total_capital_deployed_usd": (
+                total_capital_deployed if total_capital_deployed > 0 else None
+            ),
             "exited_companies": exited_companies,
-            "exit_rate_pct": round(exit_rate_pct, 1) if exit_rate_pct is not None else None,
+            "exit_rate_pct": (round(exit_rate_pct, 1) if exit_rate_pct is not None else None),
             "average_time_to_exit_days": average_time_to_exit_days,
         }
 
         performance_metrics = {
             "average_roi_estimate": average_roi_estimate,
             "median_roi_estimate": median_roi_estimate,
-            "successful_exits_pct": round(successful_exits_pct, 1) if successful_exits_pct is not None else None,
+            "successful_exits_pct": (
+                round(successful_exits_pct, 1) if successful_exits_pct is not None else None
+            ),
             "average_exit_value_usd": average_exit_value_usd,
             "median_exit_value_usd": median_exit_value_usd,
         }
@@ -483,4 +495,3 @@ async def calculate_portfolio_metrics(
             execution_time_ms=execution_time_ms,
             metadata={"exception_type": type(e).__name__},
         )
-

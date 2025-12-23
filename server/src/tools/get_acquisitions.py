@@ -8,7 +8,7 @@ based on various filter criteria.
 import logging
 import time
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional, cast
 from uuid import UUID
 
 try:
@@ -18,10 +18,11 @@ except ImportError:
     def observe(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
 
-from src.contracts.tool_io import (ToolMetadata, ToolOutput,
-                                   ToolParameterSchema, create_tool_output)
+
+from src.contracts.tool_io import ToolMetadata, ToolOutput, ToolParameterSchema, create_tool_output
 from src.models.acquisitions import Acquisition, AcquisitionModel
 
 logger = logging.getLogger(__name__)
@@ -241,20 +242,20 @@ async def get_acquisitions(
             acquisition_announce_date_from="2020-01-01T00:00:00",
             acquisition_announce_date_to="2023-12-31T23:59:59"
         )
-        
+
         # Get acquisitions with full organization details
         acquisitions_with_orgs = await get_acquisitions(
             acquiree_uuid="123e4567-e89b-12d3-a456-426614174000",
             include_organizations=True
         )
-        
+
         # Get acquisitions ordered by price (descending)
         expensive_first = await get_acquisitions(
             acquisition_price_usd_min=1000000,
             order_by="acquisition_price_usd",
             order_direction="desc"
         )
-        
+
         # Get acquisitions ordered by announce date (ascending)
         oldest_first = await get_acquisitions(
             order_by="acquisition_announce_date",
@@ -288,9 +289,7 @@ async def get_acquisitions(
 
         announce_date_from_obj: Optional[datetime] = None
         if acquisition_announce_date_from is not None:
-            announce_date_from_obj = datetime.fromisoformat(
-                acquisition_announce_date_from
-            )
+            announce_date_from_obj = datetime.fromisoformat(acquisition_announce_date_from)
 
         announce_date_to_obj: Optional[datetime] = None
         if acquisition_announce_date_to is not None:
@@ -314,16 +313,26 @@ async def get_acquisitions(
             limit=limit,
             offset=offset,
             include_organizations=include_organizations,
-            order_by=order_by,
-            order_direction=order_direction,
+            order_by=(
+                cast(
+                    Optional[Literal["acquisition_announce_date", "acquisition_price_usd"]],
+                    order_by,
+                )
+                if isinstance(order_by, str)
+                and order_by in ("acquisition_announce_date", "acquisition_price_usd")
+                else None
+            ),
+            order_direction=(
+                cast(Optional[Literal["asc", "desc"]], order_direction)
+                if isinstance(order_direction, str) and order_direction in ("asc", "desc")
+                else None
+            ),
         )
 
         # Convert Pydantic models to dictionaries
         result = [acquisition.model_dump() for acquisition in acquisitions]
         execution_time_ms = (time.time() - start_time) * 1000
-        logger.debug(
-            f"Retrieved {len(result)} acquisition(s) in {execution_time_ms:.2f}ms"
-        )
+        logger.debug(f"Retrieved {len(result)} acquisition(s) in {execution_time_ms:.2f}ms")
 
         # Return ToolOutput with successful result
         return create_tool_output(

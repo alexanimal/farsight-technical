@@ -18,10 +18,11 @@ except ImportError:
     def observe(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
 
-from src.contracts.tool_io import (ToolMetadata, ToolOutput,
-                                   ToolParameterSchema, create_tool_output)
+
+from src.contracts.tool_io import ToolMetadata, ToolOutput, ToolParameterSchema, create_tool_output
 from src.models.organizations import Organization, OrganizationModel
 
 logger = logging.getLogger(__name__)
@@ -829,9 +830,7 @@ async def get_organizations(
         # Convert Pydantic models to dictionaries
         result = [org.model_dump() for org in organizations]
         execution_time_ms = (time.time() - start_time) * 1000
-        logger.debug(
-            f"Retrieved {len(result)} organization(s) in {execution_time_ms:.2f}ms"
-        )
+        logger.debug(f"Retrieved {len(result)} organization(s) in {execution_time_ms:.2f}ms")
 
         # Return ToolOutput with successful result
         return create_tool_output(
