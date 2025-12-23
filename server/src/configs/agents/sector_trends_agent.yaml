@@ -1,5 +1,5 @@
 name: sector_trends
-description: Agent specialized in analyzing funding trends within sectors over time, identifying growth patterns, funding velocity changes, and market momentum indicators
+description: "Agent specialized in analyzing funding trends within sectors/industries over time, identifying growth patterns, funding velocity changes, and market momentum indicators. Analyzes AGGREGATED funding data across multiple companies within a sector. NOTE: This agent is for SECTOR/INDUSTRY-level analysis, NOT for individual company funding trends - use the funding_rounds agent for queries about specific companies."
 category: trend_analysis
 tools:
   - name: semantic_search_organizations
@@ -62,19 +62,33 @@ tools:
 metadata:
   keywords:
     - sector
+    - industry
     - trend
+    - trends
     - funding velocity
     - growth
     - momentum
     - market analysis
     - sector analysis
+    - industry analysis
     - funding trends
     - market trends
+    - sector funding
+    - industry funding
+    - market momentum
+    - sector momentum
+    - funding patterns
+    - sector patterns
+    - aggregated funding
+    - sector comparison
+    - industry comparison
   use_cases:
-    - "Show me funding trends for AI companies over the last 2 years"
+    - "Show me funding trends for AI companies over the last 2 years (sector-level)"
     - "What's the funding velocity in the fintech sector?"
-    - "Analyze growth patterns for healthcare startups"
+    - "Analyze growth patterns for healthcare startups (sector-level)"
     - "Compare funding trends across different sectors"
+    - "What are the funding patterns in the biotech industry?"
+    - "NOT for individual company funding trends (use funding_rounds agent instead)"
   data_sources:
     - pinecone_organizations (for semantic sector search)
     - fundingrounds table (for funding data)

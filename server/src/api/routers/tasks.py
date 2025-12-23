@@ -13,6 +13,7 @@ The API is stateless and acts as a bridge to Temporal workflows.
 import asyncio
 import json
 import logging
+import uuid
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -20,13 +21,111 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from src.api.middleware.auth import verify_api_key
+from src.db import get_redis_client
 from src.temporal import (TemporalClient, WorkflowProgressQueryResult,
-                          WorkflowStateQueryResult, WorkflowStatusQueryResult,
-                          get_client)
+                          WorkflowStateQueryResult, WorkflowStatus,
+                          WorkflowStatusQueryResult, get_client)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# Helper Functions
+async def _get_or_create_conversation_id(
+    provided_id: Optional[str],
+) -> str:
+    """Generate or return conversation ID.
+
+    Args:
+        provided_id: Optional conversation ID from request.
+
+    Returns:
+        Conversation ID (provided or newly generated).
+    """
+    if provided_id:
+        return provided_id
+    # Generate short UUID (12 chars)
+    return uuid.uuid4().hex[:12]
+
+
+async def _load_conversation_history(
+    conversation_id: str,
+) -> List[Dict[str, str]]:
+    """Load conversation history from Redis.
+
+    Args:
+        conversation_id: The conversation identifier.
+
+    Returns:
+        List of message dictionaries. Returns empty list on error.
+    """
+    try:
+        redis_client = await get_redis_client()
+        history = await redis_client.get_conversation_history(conversation_id)
+        logger.debug(f"Loaded {len(history)} messages from conversation {conversation_id}")
+        return history
+    except Exception as e:
+        logger.warning(
+            f"Failed to load conversation history for {conversation_id}: {e}. "
+            "Continuing without history."
+        )
+        return []
+
+
+async def _check_existing_workflow(
+    conversation_id: str,
+    temporal_client: TemporalClient,
+) -> Optional[tuple[str, WorkflowStatus]]:
+    """Check if there's an existing workflow for this conversation.
+
+    Args:
+        conversation_id: The conversation identifier.
+        temporal_client: Temporal client instance.
+
+    Returns:
+        Tuple of (workflow_id, status) if found and RUNNING, None otherwise.
+    """
+    try:
+        redis_client = await get_redis_client()
+        workflow_id = await redis_client.get_workflow_id_for_conversation(conversation_id)
+
+        if not workflow_id:
+            return None
+
+        # Check workflow status
+        try:
+            status_result = await temporal_client.query_workflow_status(workflow_id)
+            status = status_result.status
+
+            # Only return if workflow is RUNNING
+            if status == WorkflowStatus.RUNNING:
+                logger.info(
+                    f"Found running workflow {workflow_id} for conversation {conversation_id}"
+                )
+                return (workflow_id, status)
+            else:
+                # Workflow is not running, clear the mapping
+                logger.debug(
+                    f"Workflow {workflow_id} for conversation {conversation_id} "
+                    f"is {status.value}, clearing mapping"
+                )
+                await redis_client.delete_workflow_mapping(conversation_id)
+                return None
+        except RuntimeError as e:
+            # Workflow not found, clear mapping
+            if "not found" in str(e).lower():
+                logger.debug(
+                    f"Workflow {workflow_id} not found, clearing mapping for {conversation_id}"
+                )
+                await redis_client.delete_workflow_mapping(conversation_id)
+            return None
+    except Exception as e:
+        logger.warning(
+            f"Error checking existing workflow for {conversation_id}: {e}. "
+            "Continuing with new workflow creation."
+        )
+        return None
 
 
 # Request/Response Models
@@ -53,6 +152,9 @@ class CreateTaskResponse(BaseModel):
     task_id: str = Field(..., description="Unique task identifier (workflow ID)")
     status: str = Field(..., description="Initial task status")
     message: str = Field(..., description="Status message")
+    conversation_id: Optional[str] = Field(
+        default=None, description="Conversation identifier (if provided or generated)"
+    )
 
 
 class TaskStateResponse(BaseModel):
@@ -111,42 +213,100 @@ async def create_task(
 ) -> CreateTaskResponse:
     """Create a new task by starting a Temporal workflow.
 
+    This endpoint handles conversation continuity:
+    - If conversation_id is provided and a workflow is RUNNING, sends a signal
+    - Otherwise, creates a new workflow with conversation history
+
     Args:
         request: Task creation request.
         api_key: Verified API key (from dependency).
 
     Returns:
-        CreateTaskResponse with task ID and status.
+        CreateTaskResponse with task ID, status, and conversation_id.
 
     Raises:
         HTTPException: If task creation fails.
     """
     try:
-        client: TemporalClient = await get_client()
+        temporal_client: TemporalClient = await get_client()
+
+        # Get or create conversation ID
+        conversation_id = await _get_or_create_conversation_id(request.conversation_id)
+
+        # Check for existing running workflow
+        existing_workflow = await _check_existing_workflow(conversation_id, temporal_client)
+
+        if existing_workflow:
+            # Workflow is running, send signal instead
+            workflow_id, _ = existing_workflow
+            logger.info(
+                f"Sending signal to existing workflow {workflow_id} "
+                f"for conversation {conversation_id}"
+            )
+
+            try:
+                await temporal_client.send_user_input_signal(
+                    workflow_id=workflow_id,
+                    input_text=request.query,
+                    user_id=request.user_id,
+                    conversation_id=conversation_id,
+                    metadata=request.metadata,
+                )
+
+                return CreateTaskResponse(
+                    task_id=workflow_id,
+                    status="running",
+                    message="Signal sent to existing workflow",
+                    conversation_id=conversation_id,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to send signal to workflow {workflow_id}: {e}. "
+                    "Creating new workflow instead."
+                )
+                # Fall through to create new workflow
+
+        # Load conversation history
+        conversation_history = await _load_conversation_history(conversation_id)
 
         # Build context from request
         context = {
             "query": request.query,
-            "conversation_id": request.conversation_id,
+            "conversation_id": conversation_id,
             "user_id": request.user_id,
             "metadata": request.metadata,
             "shared_data": {},
+            "conversation_history": conversation_history,
         }
 
-        # Start workflow
+        # Start new workflow
         # Note: execution_mode is not passed - let the orchestration agent decide
-        workflow_id = await client.start_workflow(
+        workflow_id = await temporal_client.start_workflow(
             context=context,
             agent_plan=request.agent_plan,
             # execution_mode is determined by the orchestration agent, not the API
         )
 
-        logger.info(f"Created task {workflow_id} for query: {request.query[:100]}")
+        # Store workflow_id mapping in Redis
+        try:
+            redis_client = await get_redis_client()
+            await redis_client.set_workflow_id_for_conversation(conversation_id, workflow_id)
+        except Exception as e:
+            logger.warning(
+                f"Failed to store workflow mapping for {conversation_id}: {e}. "
+                "Continuing without mapping."
+            )
+
+        logger.info(
+            f"Created task {workflow_id} for query: {request.query[:100]} "
+            f"(conversation: {conversation_id})"
+        )
 
         return CreateTaskResponse(
             task_id=workflow_id,
             status="pending",
             message="Task created successfully",
+            conversation_id=conversation_id,
         )
 
     except Exception as e:

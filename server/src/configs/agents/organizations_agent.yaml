@@ -1,5 +1,5 @@
 name: organizations
-description: Agent specialized in handling organization-related queries and data retrieval
+description: "Agent specialized in handling organization-related queries and data retrieval. Handles queries about companies/organizations themselves (finding by name, location, domain, etc.). NOTE: This agent is NOT for investor-related queries - use the funding_rounds agent for questions about investors, investor portfolios, or companies that investors have funded."
 category: organizations
 tools:
   - name: get_organizations
@@ -69,12 +69,24 @@ tools:
         type: number
         description: Filter with total_funding_usd <= this value
 metadata:
+  keywords:
+    - company
+    - organization
+    - startup
+    - firm
+    - business
+    - companies
+    - organization details
+    - company information
+    - find company
+    - company search
   use_cases:
     - Finding organizations by name, domain, location, or other criteria
     - Getting organization details (funding, stage, status, etc.)
     - Analyzing organization trends
     - Searching organizations by natural language queries (semantic search)
     - Finding organizations by specific filters (structured search)
+    - NOT for investor-related queries (use funding_rounds agent instead)
   data_sources:
     - organizations table
     - pinecone_organizations (for semantic search)

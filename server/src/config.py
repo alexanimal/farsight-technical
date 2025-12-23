@@ -69,12 +69,42 @@ class Settings(BaseSettings):
         default="https://us.cloud.langfuse.com", description="Langfuse Base URL"
     )
 
+    # Redis Configuration
+    redis_host: str = Field(
+        default="localhost",
+        description="Redis host address",
+    )
+    redis_port: int = Field(
+        default=6379,
+        description="Redis port number",
+    )
+    redis_db: int = Field(
+        default=0,
+        description="Redis database number",
+    )
+    redis_password: Optional[str] = Field(
+        default=None,
+        description="Redis password (if required)",
+    )
+    redis_max_connections: int = Field(
+        default=10,
+        description="Maximum number of Redis connections in pool",
+    )
+
     @field_validator("postgres_port")
     @classmethod
     def validate_port(cls, v: int) -> int:
         """Validate that port is within valid range."""
         if not (1 <= v <= 65535):
             raise ValueError("Port must be between 1 and 65535")
+        return v
+
+    @field_validator("redis_port")
+    @classmethod
+    def validate_redis_port(cls, v: int) -> int:
+        """Validate that Redis port is within valid range."""
+        if not (1 <= v <= 65535):
+            raise ValueError("Redis port must be between 1 and 65535")
         return v
 
     @property
@@ -103,6 +133,19 @@ class Settings(BaseSettings):
             "password": self.postgres_password,
             "database": self.postgres_db_name,
         }
+
+    @property
+    def redis_config(self) -> dict:
+        """Generate Redis config object for redis.asyncio."""
+        config = {
+            "host": self.redis_host,
+            "port": self.redis_port,
+            "db": self.redis_db,
+            "max_connections": self.redis_max_connections,
+        }
+        if self.redis_password:
+            config["password"] = self.redis_password
+        return config
 
 
 # Singleton instance - import this in other modules

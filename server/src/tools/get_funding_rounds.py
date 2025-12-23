@@ -327,11 +327,35 @@ async def get_funding_rounds(
         # Convert string UUIDs to UUID objects if provided
         funding_round_uuid_obj: Optional[UUID] = None
         if funding_round_uuid is not None:
-            funding_round_uuid_obj = UUID(funding_round_uuid)
+            try:
+                funding_round_uuid_obj = UUID(funding_round_uuid)
+            except (ValueError, TypeError) as e:
+                error_msg = f"Invalid funding_round_uuid format: {funding_round_uuid}. Expected a valid UUID string."
+                logger.error(error_msg)
+                execution_time_ms = (time.time() - start_time) * 1000
+                return create_tool_output(
+                    tool_name="get_funding_rounds",
+                    success=False,
+                    error=error_msg,
+                    execution_time_ms=execution_time_ms,
+                    metadata={"exception_type": type(e).__name__},
+                )
 
         org_uuid_obj: Optional[UUID] = None
         if org_uuid is not None:
-            org_uuid_obj = UUID(org_uuid)
+            try:
+                org_uuid_obj = UUID(org_uuid)
+            except (ValueError, TypeError) as e:
+                error_msg = f"Invalid org_uuid format: {org_uuid}. Expected a valid UUID string."
+                logger.error(error_msg)
+                execution_time_ms = (time.time() - start_time) * 1000
+                return create_tool_output(
+                    tool_name="get_funding_rounds",
+                    success=False,
+                    error=error_msg,
+                    execution_time_ms=execution_time_ms,
+                    metadata={"exception_type": type(e).__name__},
+                )
 
         # Convert date strings to datetime objects if provided
         investment_date_obj: Optional[datetime] = None

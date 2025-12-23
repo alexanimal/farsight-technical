@@ -68,6 +68,8 @@ async def generate_llm_function_response(
         tool_choice: Control which tools the model can use. Can be "auto",
             "none", or a specific tool definition. Defaults to "auto" if not provided.
         enable_web_search: Enable web search capabilities (default: False).
+            NOTE: Currently not supported - OpenAI API only supports 'function' and 'custom' tool types.
+            This parameter is ignored and will log a warning if set to True.
         reasoning_effort: Reasoning effort for o1 models. Can be "low", "medium",
             or "high". Only applicable to o1 models.
         images: Optional list of image URLs or image dicts with 'type' and 'image_url'

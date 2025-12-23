@@ -99,16 +99,52 @@ class AgentContext(BaseModel):
         """
         return self.metadata.get(key, default)
 
-    def add_to_history(self, role: str, content: str) -> None:
+    def add_to_history(self, role: str, content: str, timestamp: Optional[str] = None) -> None:
         """Add a message to the conversation history.
 
         Args:
             role: The role of the message sender (e.g., 'user', 'assistant', 'system').
             content: The content of the message.
+            timestamp: Optional timestamp (ISO format). If not provided, current time is used.
         """
         if self.conversation_history is None:
             self.conversation_history = []
-        self.conversation_history.append({"role": role, "content": content})
+        
+        if timestamp is None:
+            timestamp = datetime.utcnow().isoformat() + "Z"
+        
+        self.conversation_history.append({
+            "role": role,
+            "content": content,
+            "timestamp": timestamp,
+        })
+
+    def get_conversation_history_for_llm(
+        self, max_messages: Optional[int] = 50
+    ) -> List[Dict[str, str]]:
+        """Get conversation history formatted for LLM prompts.
+
+        This method returns the conversation history in a format suitable for
+        including in LLM prompts. It optionally truncates to the most
+        recent messages to prevent token limit issues.
+
+        Args:
+            max_messages: Maximum number of messages to return. If None,
+                returns all messages. Defaults to 50.
+
+        Returns:
+            List of message dictionaries with 'role' and 'content' keys.
+            Returns empty list if no history exists.
+        """
+        if self.conversation_history is None or len(self.conversation_history) == 0:
+            return []
+
+        # If max_messages is None, return all
+        if max_messages is None:
+            return self.conversation_history.copy()
+
+        # Return last N messages (most recent)
+        return self.conversation_history[-max_messages:].copy()
 
     def model_dump(self, **kwargs: Any) -> Dict[str, Any]:
         """Convert the context to a dictionary.

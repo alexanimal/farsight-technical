@@ -12,6 +12,7 @@ from fastapi import FastAPI
 
 from src.api.middleware import setup_cors, setup_error_handlers
 from src.api.routers import tasks
+from src.db import close_redis_client, get_redis_client
 from src.temporal import (
     DEFAULT_TASK_QUEUE,
     DEFAULT_TEMPORAL_ADDRESS,
@@ -59,6 +60,19 @@ async def lifespan(app: FastAPI):
         # Don't fail startup - client will be initialized on first use
         # This allows the API to start even if Temporal isn't available yet
 
+    # Initialize Redis client
+    try:
+        await get_redis_client()
+        logger.info("Redis client initialized and connected")
+    except Exception as e:
+        logger.warning(
+            f"Failed to initialize Redis client: {e}. "
+            "API will start but conversation history features will be unavailable. "
+            "Make sure Redis server is running."
+        )
+        # Don't fail startup - graceful degradation
+        # Conversation history will return empty lists on error
+
     yield
 
     # Shutdown
@@ -68,6 +82,12 @@ async def lifespan(app: FastAPI):
         logger.info("Temporal client closed")
     except Exception as e:
         logger.error(f"Error closing Temporal client: {e}", exc_info=True)
+
+    try:
+        await close_redis_client()
+        logger.info("Redis client closed")
+    except Exception as e:
+        logger.error(f"Error closing Redis client: {e}", exc_info=True)
 
 
 # Create FastAPI app

@@ -6,6 +6,9 @@ from .pinecone_client import get_client as get_pinecone_client
 from .postgres_client import PostgresClient
 from .postgres_client import close_default_client as close_postgres_client
 from .postgres_client import get_client as get_postgres_client
+from .redis_client import RedisClient
+from .redis_client import close_redis_client
+from .redis_client import get_redis_client
 
 __all__ = [
     "PostgresClient",
@@ -14,4 +17,7 @@ __all__ = [
     "PineconeClient",
     "get_pinecone_client",
     "close_pinecone_client",
+    "RedisClient",
+    "get_redis_client",
+    "close_redis_client",
 ]

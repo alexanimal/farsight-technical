@@ -707,7 +707,19 @@ async def get_organizations(
         # Convert string UUID to UUID object if provided
         org_uuid_obj: Optional[UUID] = None
         if org_uuid is not None:
-            org_uuid_obj = UUID(org_uuid)
+            try:
+                org_uuid_obj = UUID(org_uuid)
+            except (ValueError, TypeError) as e:
+                error_msg = f"Invalid org_uuid format: {org_uuid}. Expected a valid UUID string."
+                logger.error(error_msg)
+                execution_time_ms = (time.time() - start_time) * 1000
+                return create_tool_output(
+                    tool_name="get_organizations",
+                    success=False,
+                    error=error_msg,
+                    execution_time_ms=execution_time_ms,
+                    metadata={"exception_type": type(e).__name__},
+                )
 
         # Convert date strings to datetime objects if provided
         def parse_date(date_str: Optional[str]) -> Optional[datetime]:

@@ -32,7 +32,7 @@ class PromptOptions(BaseModel):
     """
 
     add_temporal_context: bool = Field(
-        default=False, description="Add current date and time to the prompt"
+        default=True, description="Add current date and time to the prompt"
     )
     persona: Optional[str] = Field(
         default=None, description="Persona description to append as a section"

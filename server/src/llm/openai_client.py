@@ -152,7 +152,8 @@ class OpenAIClient:
                 "none", or a specific tool definition.
             response_format: Optional response format (e.g., {"type": "json_object"}).
             enable_web_search: Enable web search capabilities (default: False).
-                This uses the web_search tool.
+                NOTE: Currently not supported - OpenAI API only supports 'function' and 'custom' tool types.
+                This parameter is ignored and will log a warning if set to True.
             reasoning_effort: Reasoning effort for o1 models. Can be "low", "medium",
                 or "high". Only applicable to o1 models.
             **kwargs: Additional parameters to pass to the API.
@@ -203,15 +204,19 @@ class OpenAIClient:
                 "OpenAI client not initialized. Call initialize() first or use as context manager."
             )
 
-        # Build tools list if web search is enabled
+        # Build tools list
+        # Note: web_search is not currently supported as a tool type by OpenAI API
+        # The API only supports "function" and "custom" tool types
+        # If web search is needed, it should be implemented as a function tool or
+        # may be available in specific models that support it natively
         final_tools = tools or []
         if enable_web_search:
-            web_search_tool = {
-                "type": "web_search",
-            }
-            # Check if web_search tool already exists
-            if not any(tool.get("type") == "web_search" for tool in final_tools):
-                final_tools.append(web_search_tool)
+            logger.warning(
+                "enable_web_search=True is not currently supported. "
+                "OpenAI API only supports 'function' and 'custom' tool types. "
+                "Web search functionality is not available as a tool type. "
+                "Ignoring enable_web_search parameter."
+            )
 
         # Build request parameters
         request_params: dict[str, Any] = {

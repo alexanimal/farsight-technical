@@ -4,6 +4,7 @@ This module provides a connection pool-based PostgreSQL client that can be used
 as a base class or singleton instance for querying the database.
 """
 
+import asyncio
 import logging
 from typing import Any, Optional, Sequence
 
@@ -260,13 +261,16 @@ class PostgresClient:
 
 # Singleton instance for convenience
 _default_client: Optional[PostgresClient] = None
+_client_lock = asyncio.Lock()
 
 
 async def get_client() -> PostgresClient:
     """Get or create the default singleton PostgresClient instance.
 
     This is a convenience function for modules that want to use a shared
-    client instance without managing it themselves.
+    client instance without managing it themselves. Uses a lock to prevent
+    race conditions when multiple coroutines try to initialize the client
+    simultaneously.
 
     Returns:
         The default PostgresClient instance.
@@ -278,9 +282,13 @@ async def get_client() -> PostgresClient:
         ```
     """
     global _default_client
-    if _default_client is None:
-        _default_client = PostgresClient()
-        await _default_client.initialize()
+    async with _client_lock:
+        if _default_client is None:
+            _default_client = PostgresClient()
+            await _default_client.initialize()
+        elif not _default_client.is_connected():
+            # Client exists but pool is not initialized, re-initialize
+            await _default_client.initialize()
     return _default_client
 
 
