@@ -24,3 +24,5 @@ tenacity==9.0.0
 tqdm==4.67.1
 typing_extensions==4.12.2
 urllib3==2.3.0
+redis==5.0.1
+hiredis==2.3.2
