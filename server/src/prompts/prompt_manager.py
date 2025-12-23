@@ -117,9 +117,7 @@ Ensure your output is well-formatted and easy to read.
                 If None, uses the default organizational standards.
         """
         self._agent_prompts: Dict[str, str] = {}
-        self._organizational_defaults = (
-            organizational_defaults or self.ORGANIZATIONAL_DEFAULTS
-        )
+        self._organizational_defaults = organizational_defaults or self.ORGANIZATIONAL_DEFAULTS
 
     def register_agent_prompt(
         self, agent_name: str, system_prompt: str, overwrite: bool = False
@@ -211,9 +209,7 @@ Ensure your output is well-formatted and easy to read.
         # Add temporal context if requested
         if options.add_temporal_context:
             current_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-            prompt_parts.append(
-                f"\n## Temporal Context\n\nCurrent date and time: {current_time}"
-            )
+            prompt_parts.append(f"\n## Temporal Context\n\nCurrent date and time: {current_time}")
 
         # Add persona if provided
         if options.persona:
