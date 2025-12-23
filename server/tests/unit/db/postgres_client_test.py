@@ -9,8 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import asyncpg  # type: ignore[import-untyped]
 import pytest
 
-from src.db.postgres_client import (PostgresClient, close_default_client,
-                                    get_client)
+from src.db.postgres_client import PostgresClient, close_default_client, get_client
 
 
 @pytest.fixture
@@ -278,9 +277,7 @@ class TestPostgresClientQuery:
     """Test PostgresClient.query() method."""
 
     @pytest.mark.asyncio
-    async def test_query_success(
-        self, test_config, mock_pool, mock_connection, mock_record
-    ):
+    async def test_query_success(self, test_config, mock_pool, mock_connection, mock_record):
         """Test successful query execution."""
         mock_records = [mock_record, MagicMock(spec=asyncpg.Record)]
         mock_connection.fetch.return_value = mock_records
@@ -316,14 +313,10 @@ class TestPostgresClientQuery:
             results = await client.query(query, 123, "active")
 
             assert len(results) == 1
-            mock_connection.fetch.assert_called_once_with(
-                query, 123, "active", timeout=None
-            )
+            mock_connection.fetch.assert_called_once_with(query, 123, "active", timeout=None)
 
     @pytest.mark.asyncio
-    async def test_query_with_timeout(
-        self, test_config, mock_pool, mock_connection, mock_record
-    ):
+    async def test_query_with_timeout(self, test_config, mock_pool, mock_connection, mock_record):
         """Test query with timeout parameter."""
         mock_connection.fetch.return_value = [mock_record]
         _setup_pool_acquire(mock_pool, mock_connection)
@@ -383,9 +376,7 @@ class TestPostgresClientQueryOne:
     """Test PostgresClient.query_one() method."""
 
     @pytest.mark.asyncio
-    async def test_query_one_success(
-        self, test_config, mock_pool, mock_connection, mock_record
-    ):
+    async def test_query_one_success(self, test_config, mock_pool, mock_connection, mock_record):
         """Test successful query_one execution."""
         mock_connection.fetchrow.return_value = mock_record
         _setup_pool_acquire(mock_pool, mock_connection)
@@ -414,9 +405,7 @@ class TestPostgresClientQueryOne:
             client = PostgresClient(config=test_config)
             await client.initialize()
 
-            result = await client.query_one(
-                "SELECT * FROM companies WHERE id = $1", 999
-            )
+            result = await client.query_one("SELECT * FROM companies WHERE id = $1", 999)
             assert result is None
 
     @pytest.mark.asyncio
@@ -447,9 +436,7 @@ class TestPostgresClientQueryOne:
         assert "not initialized" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
-    async def test_query_one_database_error(
-        self, test_config, mock_pool, mock_connection
-    ):
+    async def test_query_one_database_error(self, test_config, mock_pool, mock_connection):
         """Test query_one with database error."""
         mock_connection.fetchrow.side_effect = asyncpg.PostgresError("Query failed")
         _setup_pool_acquire(mock_pool, mock_connection)
@@ -486,9 +473,7 @@ class TestPostgresClientQueryValue:
             mock_connection.fetchval.assert_called_once_with(query, timeout=None)
 
     @pytest.mark.asyncio
-    async def test_query_value_string_result(
-        self, test_config, mock_pool, mock_connection
-    ):
+    async def test_query_value_string_result(self, test_config, mock_pool, mock_connection):
         """Test query_value returning string."""
         mock_connection.fetchval.return_value = "test_value"
         _setup_pool_acquire(mock_pool, mock_connection)
@@ -503,9 +488,7 @@ class TestPostgresClientQueryValue:
             assert result == "test_value"
 
     @pytest.mark.asyncio
-    async def test_query_value_with_parameters(
-        self, test_config, mock_pool, mock_connection
-    ):
+    async def test_query_value_with_parameters(self, test_config, mock_pool, mock_connection):
         """Test query_value with parameters."""
         mock_connection.fetchval.return_value = 5
         _setup_pool_acquire(mock_pool, mock_connection)
@@ -528,9 +511,7 @@ class TestPostgresClientQueryValue:
             )
 
     @pytest.mark.asyncio
-    async def test_query_value_with_timeout(
-        self, test_config, mock_pool, mock_connection
-    ):
+    async def test_query_value_with_timeout(self, test_config, mock_pool, mock_connection):
         """Test query_value with timeout parameter."""
         mock_connection.fetchval.return_value = 100
         _setup_pool_acquire(mock_pool, mock_connection)
@@ -556,9 +537,7 @@ class TestPostgresClientQueryValue:
         assert "not initialized" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
-    async def test_query_value_database_error(
-        self, test_config, mock_pool, mock_connection
-    ):
+    async def test_query_value_database_error(self, test_config, mock_pool, mock_connection):
         """Test query_value with database error."""
         mock_connection.fetchval.side_effect = asyncpg.PostgresError("Query failed")
         _setup_pool_acquire(mock_pool, mock_connection)

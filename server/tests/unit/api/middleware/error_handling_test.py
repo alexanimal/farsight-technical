@@ -232,9 +232,7 @@ class TestGeneralExceptionHandler:
         assert body["type"] == "RuntimeError"
 
     @pytest.mark.asyncio
-    async def test_general_exception_handler_with_different_exception_types(
-        self, mock_request
-    ):
+    async def test_general_exception_handler_with_different_exception_types(self, mock_request):
         """Test general exception handler with different exception types."""
         app = FastAPI()
         setup_error_handlers(app)
@@ -470,4 +468,3 @@ class TestErrorHandlingEdgeCases:
         body = json.loads(response.body.decode())
         # Note: detail is fixed, but type should be correct
         assert body["type"] == "RuntimeError"
-

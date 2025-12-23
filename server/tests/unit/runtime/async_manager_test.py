@@ -9,11 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.runtime.async_manager import (
-    AsyncManager,
-    get_async_manager,
-    set_async_manager,
-)
+from src.runtime.async_manager import AsyncManager, get_async_manager, set_async_manager
 
 
 @pytest.fixture
@@ -66,6 +62,7 @@ class TestAsyncManagerExecuteParallel:
     @pytest.mark.asyncio
     async def test_execute_parallel_success(self, async_manager):
         """Test successful parallel execution."""
+
         async def op1():
             await asyncio.sleep(0.01)
             return "result1"
@@ -109,6 +106,7 @@ class TestAsyncManagerExecuteParallel:
     @pytest.mark.asyncio
     async def test_execute_parallel_with_timeout(self, async_manager):
         """Test parallel execution with timeout."""
+
         async def slow_op():
             await asyncio.sleep(1.0)
             return "slow"
@@ -121,6 +119,7 @@ class TestAsyncManagerExecuteParallel:
     @pytest.mark.asyncio
     async def test_execute_parallel_with_default_timeout(self, async_manager_with_limits):
         """Test parallel execution uses default timeout."""
+
         async def slow_op():
             await asyncio.sleep(10.0)
             return "slow"
@@ -132,11 +131,12 @@ class TestAsyncManagerExecuteParallel:
     @pytest.mark.asyncio
     async def test_execute_parallel_return_exceptions(self, async_manager):
         """Test execute_parallel with return_exceptions=True.
-        
+
         Note: The current implementation's _gather_with_cancellation always raises
         exceptions, so return_exceptions=True doesn't work as documented. This test
         reflects the actual behavior where exceptions are still raised.
         """
+
         async def success_op():
             return "success"
 
@@ -147,14 +147,13 @@ class TestAsyncManagerExecuteParallel:
         # The current implementation raises even with return_exceptions=True
         # because _gather_with_cancellation raises before the check
         with pytest.raises(ValueError) as exc_info:
-            await async_manager.execute_parallel(
-                operations, return_exceptions=True
-            )
+            await async_manager.execute_parallel(operations, return_exceptions=True)
         assert "test error" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_execute_parallel_raise_exception(self, async_manager):
         """Test execute_parallel raises first exception."""
+
         async def fail_op():
             raise ValueError("first error")
 
@@ -169,7 +168,7 @@ class TestAsyncManagerExecuteParallel:
     @pytest.mark.asyncio
     async def test_execute_parallel_cancel_on_error(self, async_manager):
         """Test execute_parallel with cancel_on_error=True.
-        
+
         Note: The current implementation waits for all tasks to complete via gather()
         before checking for errors, so tasks that complete before the error is detected
         cannot be cancelled. This test verifies that the exception is raised correctly.
@@ -189,7 +188,7 @@ class TestAsyncManagerExecuteParallel:
         operations = [fail_op, slow_op]
         with pytest.raises(ValueError) as exc_info:
             await async_manager.execute_parallel(operations, cancel_on_error=True)
-        
+
         assert "error" in str(exc_info.value)
         # Note: slow_op completes because gather() waits for all tasks before checking errors
         # This is a limitation of the current implementation
@@ -198,14 +197,13 @@ class TestAsyncManagerExecuteParallel:
     @pytest.mark.asyncio
     async def test_execute_parallel_cancellation_propagation(self, async_manager):
         """Test that cancellation propagates correctly."""
+
         async def op():
             await asyncio.sleep(1.0)
             return "result"
 
         operations = [op]
-        task = asyncio.create_task(
-            async_manager.execute_parallel(operations)
-        )
+        task = asyncio.create_task(async_manager.execute_parallel(operations))
         task.cancel()
 
         with pytest.raises(asyncio.CancelledError):
@@ -231,6 +229,7 @@ class TestAsyncManagerExecuteBatch:
     @pytest.mark.asyncio
     async def test_execute_batch_empty_list(self, async_manager):
         """Test execute_batch with empty items list."""
+
         async def operation(item):
             return item
 
@@ -257,6 +256,7 @@ class TestAsyncManagerExecuteBatch:
     @pytest.mark.asyncio
     async def test_execute_batch_with_timeout(self, async_manager):
         """Test execute_batch with timeout."""
+
         async def slow_operation(item):
             await asyncio.sleep(1.0)
             return item
@@ -268,11 +268,12 @@ class TestAsyncManagerExecuteBatch:
     @pytest.mark.asyncio
     async def test_execute_batch_return_exceptions(self, async_manager):
         """Test execute_batch with return_exceptions=True.
-        
+
         Note: The current implementation's _gather_with_cancellation always raises
         exceptions, so return_exceptions=True doesn't work as documented. This test
         reflects the actual behavior where exceptions are still raised.
         """
+
         async def operation(item):
             if item == 2:
                 raise ValueError(f"Error for {item}")
@@ -281,14 +282,13 @@ class TestAsyncManagerExecuteBatch:
         items = [1, 2, 3]
         # The current implementation raises even with return_exceptions=True
         with pytest.raises(ValueError) as exc_info:
-            await async_manager.execute_batch(
-                items, operation, return_exceptions=True
-            )
+            await async_manager.execute_batch(items, operation, return_exceptions=True)
         assert "Error for 2" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_execute_batch_uses_max_concurrency(self, async_manager_with_limits):
         """Test execute_batch uses max_concurrency when batch_size not specified."""
+
         async def operation(item):
             await asyncio.sleep(0.01)
             return item * 2
@@ -306,6 +306,7 @@ class TestAsyncManagerExecuteWithRetry:
     @pytest.mark.asyncio
     async def test_execute_with_retry_success_first_attempt(self, async_manager):
         """Test retry succeeds on first attempt."""
+
         async def operation():
             return "success"
 
@@ -324,35 +325,31 @@ class TestAsyncManagerExecuteWithRetry:
                 raise ValueError("temporary error")
             return "success"
 
-        result = await async_manager.execute_with_retry(
-            operation, max_retries=3, retry_delay=0.01
-        )
+        result = await async_manager.execute_with_retry(operation, max_retries=3, retry_delay=0.01)
         assert result == "success"
         assert attempt_count == 3
 
     @pytest.mark.asyncio
     async def test_execute_with_retry_exhausts_retries(self, async_manager):
         """Test retry raises exception after all retries exhausted."""
+
         async def operation():
             raise ValueError("persistent error")
 
         with pytest.raises(ValueError) as exc_info:
-            await async_manager.execute_with_retry(
-                operation, max_retries=2, retry_delay=0.01
-            )
+            await async_manager.execute_with_retry(operation, max_retries=2, retry_delay=0.01)
         assert "persistent error" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_execute_with_retry_with_timeout(self, async_manager):
         """Test retry with timeout per attempt."""
+
         async def slow_operation():
             await asyncio.sleep(1.0)
             return "success"
 
         with pytest.raises(asyncio.TimeoutError):
-            await async_manager.execute_with_retry(
-                slow_operation, max_retries=1, timeout=0.1
-            )
+            await async_manager.execute_with_retry(slow_operation, max_retries=1, timeout=0.1)
 
     @pytest.mark.asyncio
     async def test_execute_with_retry_with_retry_on(self, async_manager):
@@ -389,9 +386,7 @@ class TestAsyncManagerExecuteWithRetry:
                 raise ValueError("error")
             return "success"
 
-        result = await async_manager.execute_with_retry(
-            operation, max_retries=2, retry_delay=0.0
-        )
+        result = await async_manager.execute_with_retry(operation, max_retries=2, retry_delay=0.0)
         assert result == "success"
         assert attempt_count == 2
 
@@ -424,6 +419,7 @@ class TestAsyncManagerPrivateMethods:
     @pytest.mark.asyncio
     async def test_execute_with_semaphore_no_limit(self, async_manager):
         """Test _execute_with_semaphore without limit."""
+
         async def operation():
             return "result"
 
@@ -433,6 +429,7 @@ class TestAsyncManagerPrivateMethods:
     @pytest.mark.asyncio
     async def test_gather_with_cancellation_success(self, async_manager):
         """Test _gather_with_cancellation with successful tasks."""
+
         async def op1():
             return "result1"
 
@@ -458,6 +455,7 @@ class TestAsyncManagerPrivateMethods:
     @pytest.mark.asyncio
     async def test_gather_with_cancellation_with_error(self, async_manager):
         """Test _gather_with_cancellation raises exception."""
+
         async def fail_op():
             raise ValueError("error")
 
@@ -468,7 +466,7 @@ class TestAsyncManagerPrivateMethods:
     @pytest.mark.asyncio
     async def test_gather_with_cancellation_cancel_on_error(self, async_manager):
         """Test _gather_with_cancellation with cancel_on_error=True.
-        
+
         Note: The current implementation waits for all tasks to complete via gather()
         before checking for errors, so tasks that complete before the error is detected
         cannot be cancelled. This test verifies that the exception is raised correctly.
@@ -491,7 +489,7 @@ class TestAsyncManagerPrivateMethods:
         ]
         with pytest.raises(ValueError) as exc_info:
             await async_manager._gather_with_cancellation(tasks, cancel_on_error=True)
-        
+
         assert "error" in str(exc_info.value)
         # Note: slow_op completes because gather() waits for all tasks before checking errors
         # This is a limitation of the current implementation
@@ -521,4 +519,3 @@ class TestAsyncManagerDefaultInstance:
         manager1 = get_async_manager()
         manager2 = get_async_manager()
         assert manager1 is manager2
-

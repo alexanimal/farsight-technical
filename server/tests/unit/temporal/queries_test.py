@@ -807,9 +807,7 @@ class TestQueryModelsEdgeCases:
         data = result.model_dump()
         assert "started_at" in data
         # Pydantic serializes datetime to ISO format string
-        assert isinstance(data["started_at"], str) or isinstance(
-            data["started_at"], datetime
-        )
+        assert isinstance(data["started_at"], str) or isinstance(data["started_at"], datetime)
 
     def test_metadata_preservation(self):
         """Test that metadata dictionaries are preserved correctly."""
@@ -828,4 +826,3 @@ class TestQueryModelsEdgeCases:
         assert result.metadata == complex_metadata
         data = result.model_dump()
         assert data["metadata"] == complex_metadata
-

@@ -9,12 +9,7 @@ from unittest.mock import patch
 import pytest
 from fastapi import HTTPException, status
 
-from src.api.middleware.auth import (
-    API_KEY_ENV,
-    API_KEY_HEADER,
-    DEFAULT_API_KEY,
-    verify_api_key,
-)
+from src.api.middleware.auth import API_KEY_ENV, API_KEY_HEADER, DEFAULT_API_KEY, verify_api_key
 
 
 class TestVerifyApiKeySuccess:
@@ -289,4 +284,3 @@ class TestVerifyApiKeyConstants:
         assert DEFAULT_API_KEY == "1234567890"
         assert isinstance(DEFAULT_API_KEY, str)
         assert len(DEFAULT_API_KEY) > 0
-

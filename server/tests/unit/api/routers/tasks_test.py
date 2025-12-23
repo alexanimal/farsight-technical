@@ -61,7 +61,6 @@ def sample_create_task_request():
         conversation_id="conv-123",
         user_id="user-456",
         agent_plan=["agent1", "agent2"],
-        execution_mode="sequential",
         metadata={"key": "value"},
     )
 
@@ -120,15 +119,25 @@ class TestCreateTask:
     """Test create_task endpoint."""
 
     @pytest.mark.asyncio
-    async def test_create_task_success(
-        self, mock_temporal_client, sample_create_task_request
-    ):
+    async def test_create_task_success(self, mock_temporal_client, sample_create_task_request):
         """Test successful task creation."""
         workflow_id = "workflow-123"
         mock_temporal_client.start_workflow.return_value = workflow_id
 
-        with patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client:
+        # Mock Redis client
+        mock_redis_client = MagicMock()
+        mock_redis_client.get_conversation_history = AsyncMock(return_value=[])
+        mock_redis_client.set_workflow_id_for_conversation = AsyncMock()
+        mock_redis_client.get_workflow_id_for_conversation = AsyncMock(return_value=None)
+
+        with (
+            patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch(
+                "src.api.routers.tasks.get_redis_client", new_callable=AsyncMock
+            ) as mock_get_redis,
+        ):
             mock_get_client.return_value = mock_temporal_client
+            mock_get_redis.return_value = mock_redis_client
 
             response = await create_task(
                 request=sample_create_task_request,
@@ -150,7 +159,7 @@ class TestCreateTask:
             )
             assert call_kwargs["context"]["user_id"] == sample_create_task_request.user_id
             assert call_kwargs["agent_plan"] == sample_create_task_request.agent_plan
-            assert call_kwargs["execution_mode"] == sample_create_task_request.execution_mode
+            # execution_mode is no longer passed - it's determined by orchestration agent
 
     @pytest.mark.asyncio
     async def test_create_task_with_minimal_request(self, mock_temporal_client):
@@ -160,8 +169,20 @@ class TestCreateTask:
 
         minimal_request = CreateTaskRequest(query="Minimal query")
 
-        with patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client:
+        # Mock Redis client
+        mock_redis_client = MagicMock()
+        mock_redis_client.get_conversation_history = AsyncMock(return_value=[])
+        mock_redis_client.set_workflow_id_for_conversation = AsyncMock()
+        mock_redis_client.get_workflow_id_for_conversation = AsyncMock(return_value=None)
+
+        with (
+            patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch(
+                "src.api.routers.tasks.get_redis_client", new_callable=AsyncMock
+            ) as mock_get_redis,
+        ):
             mock_get_client.return_value = mock_temporal_client
+            mock_get_redis.return_value = mock_redis_client
 
             response = await create_task(request=minimal_request, api_key="test-api-key")
 
@@ -171,10 +192,11 @@ class TestCreateTask:
             # Verify context has defaults
             call_kwargs = mock_temporal_client.start_workflow.call_args[1]
             assert call_kwargs["context"]["query"] == "Minimal query"
-            assert call_kwargs["context"]["conversation_id"] is None
+            # conversation_id is now auto-generated if not provided
+            assert call_kwargs["context"]["conversation_id"] is not None
             assert call_kwargs["context"]["user_id"] is None
             assert call_kwargs["agent_plan"] is None
-            assert call_kwargs["execution_mode"] == "sequential"
+            # execution_mode is no longer passed - it's determined by orchestration agent
 
     @pytest.mark.asyncio
     async def test_create_task_logs_info(self, mock_temporal_client, sample_create_task_request):
@@ -182,8 +204,10 @@ class TestCreateTask:
         workflow_id = "workflow-789"
         mock_temporal_client.start_workflow.return_value = workflow_id
 
-        with patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.routers.tasks.logger") as mock_logger:
+        with (
+            patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.routers.tasks.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_temporal_client
 
             await create_task(request=sample_create_task_request, api_key="test-api-key")
@@ -201,8 +225,10 @@ class TestCreateTask:
         error_message = "Workflow start failed"
         mock_temporal_client.start_workflow.side_effect = Exception(error_message)
 
-        with patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.routers.tasks.logger") as mock_logger:
+        with (
+            patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.routers.tasks.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_temporal_client
 
             with pytest.raises(HTTPException) as exc_info:
@@ -215,8 +241,10 @@ class TestCreateTask:
     @pytest.mark.asyncio
     async def test_create_task_handles_client_error(self, sample_create_task_request):
         """Test task creation handles client initialization errors."""
-        with patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.routers.tasks.logger") as mock_logger:
+        with (
+            patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.routers.tasks.logger") as mock_logger,
+        ):
             mock_get_client.side_effect = Exception("Client connection failed")
 
             with pytest.raises(HTTPException) as exc_info:
@@ -311,10 +339,14 @@ class TestGetTaskState:
         """Test task state retrieval when progress query fails."""
         task_id = "task-123"
         mock_temporal_client.query_workflow_status.return_value = sample_workflow_status_result
-        mock_temporal_client.query_workflow_progress.side_effect = Exception("Progress query failed")
+        mock_temporal_client.query_workflow_progress.side_effect = Exception(
+            "Progress query failed"
+        )
 
-        with patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.routers.tasks.logger") as mock_logger:
+        with (
+            patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.routers.tasks.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_temporal_client
 
             response = await get_task_state(
@@ -337,8 +369,10 @@ class TestGetTaskState:
         mock_temporal_client.query_workflow_status.return_value = sample_workflow_status_result
         mock_temporal_client.query_workflow_state.side_effect = Exception("State query failed")
 
-        with patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.routers.tasks.logger") as mock_logger:
+        with (
+            patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.routers.tasks.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_temporal_client
 
             response = await get_task_state(
@@ -358,8 +392,10 @@ class TestGetTaskState:
         task_id = "task-999"
         mock_temporal_client.query_workflow_status.side_effect = Exception("Workflow not found")
 
-        with patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.routers.tasks.logger") as mock_logger:
+        with (
+            patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.routers.tasks.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_temporal_client
 
             with pytest.raises(HTTPException) as exc_info:
@@ -380,8 +416,10 @@ class TestGetTaskState:
         task_id = "task-123"
         mock_temporal_client.query_workflow_status.side_effect = Exception("Generic error")
 
-        with patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.routers.tasks.logger") as mock_logger:
+        with (
+            patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.routers.tasks.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_temporal_client
 
             with pytest.raises(HTTPException) as exc_info:
@@ -402,7 +440,10 @@ class TestStreamTaskEvents:
 
     @pytest.mark.asyncio
     async def test_stream_task_events_success(
-        self, mock_temporal_client, sample_workflow_status_result, sample_workflow_progress_result
+        self,
+        mock_temporal_client,
+        sample_workflow_status_result,
+        sample_workflow_progress_result,
     ):
         """Test successful event streaming."""
         task_id = "task-123"
@@ -410,8 +451,10 @@ class TestStreamTaskEvents:
         mock_temporal_client.query_workflow_status.return_value = sample_workflow_status_result
         mock_temporal_client.query_workflow_progress.return_value = sample_workflow_progress_result
 
-        with patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("asyncio.sleep", new_callable=AsyncMock):  # Mock sleep to speed up test
+        with (
+            patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):  # Mock sleep to speed up test
             mock_get_client.return_value = mock_temporal_client
 
             response = await stream_task_events(task_id=task_id, api_key="test-api-key")
@@ -426,8 +469,10 @@ class TestStreamTaskEvents:
         task_id = "task-999"
         mock_temporal_client.query_workflow_status.side_effect = Exception("Workflow not found")
 
-        with patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.routers.tasks.logger") as mock_logger:
+        with (
+            patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.routers.tasks.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_temporal_client
 
             with pytest.raises(HTTPException) as exc_info:
@@ -443,8 +488,10 @@ class TestStreamTaskEvents:
         task_id = "task-123"
         mock_temporal_client.query_workflow_status.side_effect = Exception("Generic error")
 
-        with patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.routers.tasks.logger") as mock_logger:
+        with (
+            patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.routers.tasks.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_temporal_client
 
             with pytest.raises(HTTPException) as exc_info:
@@ -468,8 +515,10 @@ class TestSendTaskSignal:
             metadata={"key": "value"},
         )
 
-        with patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.routers.tasks.logger") as mock_logger:
+        with (
+            patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.routers.tasks.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_temporal_client
 
             response = await send_task_signal(
@@ -520,8 +569,10 @@ class TestSendTaskSignal:
         signal_request = TaskSignalRequest(input_text="Test input")
         mock_temporal_client.send_user_input_signal.side_effect = Exception("Workflow not found")
 
-        with patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.routers.tasks.logger") as mock_logger:
+        with (
+            patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.routers.tasks.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_temporal_client
 
             with pytest.raises(HTTPException) as exc_info:
@@ -542,8 +593,10 @@ class TestSendTaskSignal:
         signal_request = TaskSignalRequest(input_text="Test input")
         mock_temporal_client.send_user_input_signal.side_effect = Exception("Generic error")
 
-        with patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.routers.tasks.logger") as mock_logger:
+        with (
+            patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.routers.tasks.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_temporal_client
 
             with pytest.raises(HTTPException) as exc_info:
@@ -567,8 +620,10 @@ class TestCancelTask:
         task_id = "task-123"
         cancel_request = CancelTaskRequest(reason="User requested cancellation")
 
-        with patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.routers.tasks.logger") as mock_logger:
+        with (
+            patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.routers.tasks.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_temporal_client
 
             response = await cancel_task(
@@ -617,8 +672,10 @@ class TestCancelTask:
         cancel_request = CancelTaskRequest(reason="Test reason")
         mock_temporal_client.send_cancellation_signal.side_effect = Exception("Workflow not found")
 
-        with patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.routers.tasks.logger") as mock_logger:
+        with (
+            patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.routers.tasks.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_temporal_client
 
             with pytest.raises(HTTPException) as exc_info:
@@ -639,8 +696,10 @@ class TestCancelTask:
         cancel_request = CancelTaskRequest(reason="Test reason")
         mock_temporal_client.send_cancellation_signal.side_effect = Exception("Generic error")
 
-        with patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.routers.tasks.logger") as mock_logger:
+        with (
+            patch("src.api.routers.tasks.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.routers.tasks.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_temporal_client
 
             with pytest.raises(HTTPException) as exc_info:
@@ -663,7 +722,7 @@ class TestRequestResponseModels:
         # Valid request
         request = CreateTaskRequest(query="Test query")
         assert request.query == "Test query"
-        assert request.execution_mode == "sequential"
+        # execution_mode is no longer a field - it's determined by orchestration agent
         assert request.metadata == {}
 
         # Request with all fields
@@ -672,12 +731,11 @@ class TestRequestResponseModels:
             conversation_id="conv-1",
             user_id="user-1",
             agent_plan=["agent1"],
-            execution_mode="parallel",
             metadata={"key": "value"},
         )
         assert full_request.conversation_id == "conv-1"
         assert full_request.agent_plan == ["agent1"]
-        assert full_request.execution_mode == "parallel"
+        # execution_mode is no longer a field - it's determined by orchestration agent
 
     def test_task_signal_request_validation(self):
         """Test TaskSignalRequest model validation."""
@@ -705,4 +763,3 @@ class TestRequestResponseModels:
         # Without reason
         request_no_reason = CancelTaskRequest(reason=None)
         assert request_no_reason.reason is None
-

@@ -9,8 +9,7 @@ import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from openai.types.chat import (ChatCompletion, ChatCompletionChunk,
-                               ChatCompletionMessage)
+from openai.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
 
 from src.llm.openai_client import OpenAIClient
 from src.tools.generate_llm_response import generate_llm_response
@@ -107,9 +106,7 @@ class TestGenerateLLMResponseBasic:
     """Test basic generate_llm_response functionality."""
 
     @pytest.mark.asyncio
-    async def test_generate_llm_response_simple(
-        self, mock_openai_client, mock_chat_completion
-    ):
+    async def test_generate_llm_response_simple(self, mock_openai_client, mock_chat_completion):
         """Test simple LLM response generation."""
         mock_openai_client.chat_completion.return_value = mock_chat_completion
 
@@ -121,9 +118,7 @@ class TestGenerateLLMResponseBasic:
         ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
-            response = await generate_llm_response(
-                prompt="Hello!", model="gpt-4", client=None
-            )
+            response = await generate_llm_response(prompt="Hello!", model="gpt-4", client=None)
 
             assert response == mock_chat_completion
             mock_openai_client.chat_completion.assert_called_once()
@@ -264,9 +259,7 @@ class TestGenerateLLMResponseBasic:
         ) as mock_get_client:
             mock_get_client.return_value = mock_openai_client
 
-            await generate_llm_response(
-                prompt="Hello!", model="gpt-4", max_tokens=100, client=None
-            )
+            await generate_llm_response(prompt="Hello!", model="gpt-4", max_tokens=100, client=None)
 
             call_args = mock_openai_client.chat_completion.call_args[1]
             assert call_args["max_tokens"] == 100
@@ -394,9 +387,7 @@ class TestGenerateLLMResponseReasoningEffort:
             assert call_args["reasoning_effort"] == "high"
 
     @pytest.mark.asyncio
-    async def test_generate_llm_response_invalid_reasoning_effort(
-        self, mock_openai_client
-    ):
+    async def test_generate_llm_response_invalid_reasoning_effort(self, mock_openai_client):
         """Test generate_llm_response with invalid reasoning effort."""
         # Patch get_client in the module where it's used
         # Get the actual module object to ensure we're patching the right namespace
@@ -637,9 +628,7 @@ class TestGenerateLLMResponseAdvanced:
     """Test advanced generate_llm_response functionality."""
 
     @pytest.mark.asyncio
-    async def test_generate_llm_response_with_tools(
-        self, mock_openai_client, mock_chat_completion
-    ):
+    async def test_generate_llm_response_with_tools(self, mock_openai_client, mock_chat_completion):
         """Test generate_llm_response with tools."""
         mock_openai_client.chat_completion.return_value = mock_chat_completion
 
@@ -889,9 +878,7 @@ class TestGenerateLLMResponseErrorHandling:
             assert user_message["content"][0]["type"] == "image_url"
 
     @pytest.mark.asyncio
-    async def test_generate_llm_response_return_text_non_chat_completion(
-        self, mock_openai_client
-    ):
+    async def test_generate_llm_response_return_text_non_chat_completion(self, mock_openai_client):
         """Test generate_llm_response return_text with non-ChatCompletion response."""
         # Mock a non-ChatCompletion response (e.g., streaming response returned incorrectly)
         mock_openai_client.chat_completion.return_value = "unexpected_response_type"

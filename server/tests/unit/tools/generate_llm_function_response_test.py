@@ -10,11 +10,7 @@ import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from openai.types.chat import (
-    ChatCompletion,
-    ChatCompletionMessage,
-    ChatCompletionMessageToolCall,
-)
+from openai.types.chat import ChatCompletion, ChatCompletionMessage, ChatCompletionMessageToolCall
 
 from src.llm.openai_client import OpenAIClient
 from src.tools.generate_llm_function_response import generate_llm_function_response
@@ -196,9 +192,7 @@ class TestGenerateLLMFunctionResponseBasic:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test simple function response generation."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -226,9 +220,7 @@ class TestGenerateLLMFunctionResponseBasic:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with custom client."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         result = await generate_llm_function_response(
             prompt="What's the weather?",
@@ -276,9 +268,7 @@ class TestGenerateLLMFunctionResponseBasic:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with instructions."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -306,9 +296,7 @@ class TestGenerateLLMFunctionResponseBasic:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with system prompt."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -334,9 +322,7 @@ class TestGenerateLLMFunctionResponseBasic:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response defaults tool_choice to auto."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -361,9 +347,7 @@ class TestGenerateLLMFunctionResponseBasic:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with tool_choice=none."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -393,9 +377,7 @@ class TestGenerateLLMFunctionResponseToolExecution:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with tool execution."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         async def mock_get_weather(location: str, unit: str = "fahrenheit"):
             return {"temperature": 72, "condition": "sunny", "location": location}
@@ -430,9 +412,7 @@ class TestGenerateLLMFunctionResponseToolExecution:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with execute_tools but no executors."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -458,14 +438,12 @@ class TestGenerateLLMFunctionResponseToolExecution:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with missing tool executor."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         # Provide tool_executors with a different tool, but missing get_weather
         async def mock_other_tool():
             return {"result": "other"}
-        
+
         tool_executors = {"other_tool": mock_other_tool}  # Missing get_weather
 
         generate_llm_function_response_module = sys.modules[
@@ -493,9 +471,7 @@ class TestGenerateLLMFunctionResponseToolExecution:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response when tool execution fails."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         async def failing_get_weather(location: str, unit: str = "fahrenheit"):
             raise ValueError("Weather service unavailable")
@@ -611,9 +587,7 @@ class TestGenerateLLMFunctionResponseAdvanced:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with temperature."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -639,9 +613,7 @@ class TestGenerateLLMFunctionResponseAdvanced:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with max_tokens."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -667,9 +639,7 @@ class TestGenerateLLMFunctionResponseAdvanced:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with web search enabled."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -695,9 +665,7 @@ class TestGenerateLLMFunctionResponseAdvanced:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with reasoning effort."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -746,9 +714,7 @@ class TestGenerateLLMFunctionResponseAdvanced:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with response format."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -775,9 +741,7 @@ class TestGenerateLLMFunctionResponseAdvanced:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with additional kwargs."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -805,9 +769,7 @@ class TestGenerateLLMFunctionResponseErrorHandling:
     """Test generate_llm_function_response error handling."""
 
     @pytest.mark.asyncio
-    async def test_generate_llm_function_response_api_error(
-        self, mock_openai_client, sample_tools
-    ):
+    async def test_generate_llm_function_response_api_error(self, mock_openai_client, sample_tools):
         """Test generate_llm_function_response when API call fails."""
         mock_openai_client.chat_completion.side_effect = Exception("API error")
 
@@ -879,9 +841,7 @@ class TestGenerateLLMFunctionResponseErrorHandling:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with empty prompt."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -908,9 +868,7 @@ class TestGenerateLLMFunctionResponseImages:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with image URL."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -940,9 +898,7 @@ class TestGenerateLLMFunctionResponseImages:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with image dict."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -1000,9 +956,7 @@ class TestGenerateLLMFunctionResponseFiles:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with file ID."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -1031,9 +985,7 @@ class TestGenerateLLMFunctionResponseFiles:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with file dict."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -1084,9 +1036,7 @@ class TestGenerateLLMFunctionResponseFiles:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test that files trigger content array format."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -1114,9 +1064,7 @@ class TestGenerateLLMFunctionResponseFiles:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with single non-text content item."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -1153,6 +1101,7 @@ class TestGenerateLLMFunctionResponseEdgeCases:
         self, mock_openai_client, sample_tools
     ):
         """Test generate_llm_function_response with unexpected response type."""
+
         # Mock a non-ChatCompletion response (e.g., streaming response returned incorrectly)
         async def stream_generator():
             yield "unexpected_stream_chunk"
@@ -1232,9 +1181,7 @@ class TestGenerateLLMFunctionResponseEdgeCases:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with non-callable executor."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"
@@ -1263,9 +1210,7 @@ class TestGenerateLLMFunctionResponseEdgeCases:
         self, mock_openai_client, mock_chat_completion_with_tool_call, sample_tools
     ):
         """Test generate_llm_function_response with both images and files."""
-        mock_openai_client.chat_completion.return_value = (
-            mock_chat_completion_with_tool_call
-        )
+        mock_openai_client.chat_completion.return_value = mock_chat_completion_with_tool_call
 
         generate_llm_function_response_module = sys.modules[
             "src.tools.generate_llm_function_response"

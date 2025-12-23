@@ -138,9 +138,7 @@ class TestFundingRoundModelGet:
     """Test FundingRoundModel.get() method."""
 
     @pytest.mark.asyncio
-    async def test_get_all_funding_rounds(
-        self, mock_postgres_client, sample_funding_round_record
-    ):
+    async def test_get_all_funding_rounds(self, mock_postgres_client, sample_funding_round_record):
         """Test getting all funding rounds without filters."""
         mock_postgres_client.query.return_value = [sample_funding_round_record]
         model = FundingRoundModel(client=mock_postgres_client)
@@ -259,9 +257,7 @@ class TestFundingRoundModelGet:
         assert str(org_uuid_3) in params[0]
 
     @pytest.mark.asyncio
-    async def test_get_by_investment_date(
-        self, mock_postgres_client, sample_funding_round_record
-    ):
+    async def test_get_by_investment_date(self, mock_postgres_client, sample_funding_round_record):
         """Test getting funding rounds by exact investment date."""
         investment_date = datetime(2023, 6, 15)
         mock_postgres_client.query.return_value = [sample_funding_round_record]
@@ -321,9 +317,7 @@ class TestFundingRoundModelGet:
         assert "Series A" in params
 
     @pytest.mark.asyncio
-    async def test_get_by_stage(
-        self, mock_postgres_client, sample_funding_round_record
-    ):
+    async def test_get_by_stage(self, mock_postgres_client, sample_funding_round_record):
         """Test getting funding rounds by specific stage."""
         mock_postgres_client.query.return_value = [sample_funding_round_record]
         model = FundingRoundModel(client=mock_postgres_client)
@@ -416,9 +410,7 @@ class TestFundingRoundModelGet:
         assert 50000000 in params
 
     @pytest.mark.asyncio
-    async def test_get_by_valuation_exact(
-        self, mock_postgres_client, sample_funding_round_record
-    ):
+    async def test_get_by_valuation_exact(self, mock_postgres_client, sample_funding_round_record):
         """Test getting funding rounds by exact valuation."""
         mock_postgres_client.query.return_value = [sample_funding_round_record]
         model = FundingRoundModel(client=mock_postgres_client)
@@ -434,9 +426,7 @@ class TestFundingRoundModelGet:
         assert 50000000 in params
 
     @pytest.mark.asyncio
-    async def test_get_by_valuation_range(
-        self, mock_postgres_client, sample_funding_round_record
-    ):
+    async def test_get_by_valuation_range(self, mock_postgres_client, sample_funding_round_record):
         """Test getting funding rounds by valuation range."""
         mock_postgres_client.query.return_value = [sample_funding_round_record]
         model = FundingRoundModel(client=mock_postgres_client)
@@ -483,9 +473,7 @@ class TestFundingRoundModelGet:
         assert 1000000 in params
 
     @pytest.mark.asyncio
-    async def test_get_with_limit(
-        self, mock_postgres_client, sample_funding_round_record
-    ):
+    async def test_get_with_limit(self, mock_postgres_client, sample_funding_round_record):
         """Test getting funding rounds with limit."""
         mock_postgres_client.query.return_value = [sample_funding_round_record]
         model = FundingRoundModel(client=mock_postgres_client)
@@ -501,9 +489,7 @@ class TestFundingRoundModelGet:
         assert 10 in params
 
     @pytest.mark.asyncio
-    async def test_get_with_offset(
-        self, mock_postgres_client, sample_funding_round_record
-    ):
+    async def test_get_with_offset(self, mock_postgres_client, sample_funding_round_record):
         """Test getting funding rounds with offset."""
         mock_postgres_client.query.return_value = [sample_funding_round_record]
         model = FundingRoundModel(client=mock_postgres_client)
@@ -640,9 +626,7 @@ class TestFundingRoundModelGetByUuid:
         assert 1 in params
 
     @pytest.mark.asyncio
-    async def test_get_by_uuid_not_found(
-        self, mock_postgres_client, sample_funding_round_uuid
-    ):
+    async def test_get_by_uuid_not_found(self, mock_postgres_client, sample_funding_round_uuid):
         """Test get_by_uuid() when funding round is not found."""
         mock_postgres_client.query.return_value = []
         model = FundingRoundModel(client=mock_postgres_client)
@@ -904,9 +888,7 @@ class TestFundingRoundModelCount:
     @pytest.mark.asyncio
     async def test_count_database_error(self, mock_postgres_client):
         """Test count() raises exception when database query fails."""
-        mock_postgres_client.query_value.side_effect = Exception(
-            "Database connection failed"
-        )
+        mock_postgres_client.query_value.side_effect = Exception("Database connection failed")
         model = FundingRoundModel(client=mock_postgres_client)
         await model.initialize()
 
@@ -968,9 +950,7 @@ class TestFundingRoundModelEdgeCases:
         assert None not in params
 
     @pytest.mark.asyncio
-    async def test_get_query_ordering(
-        self, mock_postgres_client, sample_funding_round_record
-    ):
+    async def test_get_query_ordering(self, mock_postgres_client, sample_funding_round_record):
         """Test that query includes proper ORDER BY clause."""
         mock_postgres_client.query.return_value = [sample_funding_round_record]
         model = FundingRoundModel(client=mock_postgres_client)
@@ -983,9 +963,7 @@ class TestFundingRoundModelEdgeCases:
         assert "ORDER BY investment_date DESC NULLS LAST" in query
 
     @pytest.mark.asyncio
-    async def test_get_parameter_ordering(
-        self, mock_postgres_client, sample_funding_round_record
-    ):
+    async def test_get_parameter_ordering(self, mock_postgres_client, sample_funding_round_record):
         """Test that query parameters are correctly ordered."""
         mock_postgres_client.query.return_value = [sample_funding_round_record]
         model = FundingRoundModel(client=mock_postgres_client)

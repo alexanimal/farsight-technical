@@ -11,14 +11,14 @@ from uuid import uuid4
 import pytest
 import yaml
 
+from src.agents.orchestration.agent import (
+    _FALLBACK_AVAILABLE_AGENTS,
+    OrchestrationAgent,
+    _get_available_agents,
+)
 from src.contracts.agent_io import AgentOutput, create_agent_output
 from src.core.agent_context import AgentContext
 from src.core.agent_response import AgentInsight, ResponseStatus
-from src.agents.orchestration.agent import (
-    OrchestrationAgent,
-    _get_available_agents,
-    _FALLBACK_AVAILABLE_AGENTS,
-)
 
 
 @pytest.fixture
@@ -122,15 +122,21 @@ class TestOrchestrationAgentInitialization:
         config_file.write_text(sample_config_yaml, encoding="utf-8")
 
         # Mock __file__ to point to expected location
-        with patch("src.agents.orchestration.agent.__file__", str(tmp_path / "src" / "agents" / "orchestration" / "agent.py")):
+        with patch(
+            "src.agents.orchestration.agent.__file__",
+            str(tmp_path / "src" / "agents" / "orchestration" / "agent.py"),
+        ):
             agent = OrchestrationAgent(config_path=None)
             assert agent.name == "orchestration"
 
     def test_init_registers_prompt(self, temp_config_file, mock_prompt_manager):
         """Test that initialization registers prompt with prompt manager."""
-        with patch("src.agents.orchestration.agent.get_prompt_manager", return_value=mock_prompt_manager):
+        with patch(
+            "src.agents.orchestration.agent.get_prompt_manager",
+            return_value=mock_prompt_manager,
+        ):
             agent = OrchestrationAgent(config_path=temp_config_file)
-            
+
             # Should register one prompt
             assert mock_prompt_manager.register_agent_prompt.call_count == 1
             call_args = mock_prompt_manager.register_agent_prompt.call_args
@@ -160,9 +166,15 @@ class TestOrchestrationAgentExecute:
         }
 
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
-        with patch("src.agents.orchestration.agent._get_available_agents", return_value=sample_available_agents):
-            with patch("src.agents.orchestration.agent.generate_llm_function_response", return_value=plan_result):
+
+        with patch(
+            "src.agents.orchestration.agent._get_available_agents",
+            return_value=sample_available_agents,
+        ):
+            with patch(
+                "src.agents.orchestration.agent.generate_llm_function_response",
+                return_value=plan_result,
+            ):
                 result = await agent.execute(sample_agent_context)
 
                 assert isinstance(result, AgentOutput)
@@ -194,9 +206,15 @@ class TestOrchestrationAgentExecute:
         }
 
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
-        with patch("src.agents.orchestration.agent._get_available_agents", return_value=sample_available_agents):
-            with patch("src.agents.orchestration.agent.generate_llm_function_response", return_value=plan_result):
+
+        with patch(
+            "src.agents.orchestration.agent._get_available_agents",
+            return_value=sample_available_agents,
+        ):
+            with patch(
+                "src.agents.orchestration.agent.generate_llm_function_response",
+                return_value=plan_result,
+            ):
                 result = await agent.execute(sample_agent_context)
 
                 assert result.status == ResponseStatus.SUCCESS
@@ -224,9 +242,15 @@ class TestOrchestrationAgentExecute:
         }
 
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
-        with patch("src.agents.orchestration.agent._get_available_agents", return_value=sample_available_agents):
-            with patch("src.agents.orchestration.agent.generate_llm_function_response", return_value=plan_result):
+
+        with patch(
+            "src.agents.orchestration.agent._get_available_agents",
+            return_value=sample_available_agents,
+        ):
+            with patch(
+                "src.agents.orchestration.agent.generate_llm_function_response",
+                return_value=plan_result,
+            ):
                 result = await agent.execute(sample_agent_context)
 
                 assert result.status == ResponseStatus.SUCCESS
@@ -255,9 +279,12 @@ class TestOrchestrationAgentExecute:
         }
 
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
+
         with patch("src.agents.orchestration.agent._get_available_agents") as mock_get_agents:
-            with patch("src.agents.orchestration.agent.generate_llm_function_response", return_value=plan_result):
+            with patch(
+                "src.agents.orchestration.agent.generate_llm_function_response",
+                return_value=plan_result,
+            ):
                 result = await agent.execute(sample_agent_context)
 
                 # Should not call _get_available_agents since it's in metadata
@@ -287,8 +314,11 @@ class TestOrchestrationAgentExecute:
         }
 
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
-        with patch("src.agents.orchestration.agent.generate_llm_function_response", return_value=consolidate_result):
+
+        with patch(
+            "src.agents.orchestration.agent.generate_llm_function_response",
+            return_value=consolidate_result,
+        ):
             result = await agent.execute(sample_agent_context)
 
             assert isinstance(result, AgentOutput)
@@ -309,7 +339,7 @@ class TestOrchestrationAgentExecute:
         sample_agent_context.metadata["agent_responses"] = []
 
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
+
         result = await agent.execute(sample_agent_context)
 
         assert result.status == ResponseStatus.ERROR
@@ -324,7 +354,7 @@ class TestOrchestrationAgentExecute:
     ):
         """Test consolidation mode with multiple agent responses."""
         sample_agent_context.metadata["mode"] = "consolidation"
-        
+
         # Create second agent output
         agent_output2 = create_agent_output(
             content=AgentInsight(
@@ -335,8 +365,11 @@ class TestOrchestrationAgentExecute:
             agent_category="organizations",
             status=ResponseStatus.SUCCESS,
         )
-        
-        sample_agent_context.metadata["agent_responses"] = [sample_agent_output, agent_output2]
+
+        sample_agent_context.metadata["agent_responses"] = [
+            sample_agent_output,
+            agent_output2,
+        ]
 
         consolidate_result = {
             "function_name": "consolidate_insights",
@@ -347,8 +380,11 @@ class TestOrchestrationAgentExecute:
         }
 
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
-        with patch("src.agents.orchestration.agent.generate_llm_function_response", return_value=consolidate_result):
+
+        with patch(
+            "src.agents.orchestration.agent.generate_llm_function_response",
+            return_value=consolidate_result,
+        ):
             result = await agent.execute(sample_agent_context)
 
             assert result.status == ResponseStatus.SUCCESS
@@ -362,9 +398,12 @@ class TestOrchestrationAgentExecute:
     ):
         """Test execute handles exceptions gracefully."""
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
+
         # Mock _get_available_agents to raise exception
-        with patch("src.agents.orchestration.agent._get_available_agents", side_effect=Exception("Unexpected error")):
+        with patch(
+            "src.agents.orchestration.agent._get_available_agents",
+            side_effect=Exception("Unexpected error"),
+        ):
             result = await agent.execute(sample_agent_context)
 
             assert result.status == ResponseStatus.ERROR
@@ -394,9 +433,14 @@ class TestOrchestrationAgentCreateExecutionPlan:
         }
 
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
-        with patch("src.agents.orchestration.agent.generate_llm_function_response", return_value=plan_result):
-            result = await agent._create_execution_plan(sample_agent_context, sample_available_agents)
+
+        with patch(
+            "src.agents.orchestration.agent.generate_llm_function_response",
+            return_value=plan_result,
+        ):
+            result = await agent._create_execution_plan(
+                sample_agent_context, sample_available_agents
+            )
 
             assert result["agents"] == ["acquisition"]
             assert result["execution_mode"] == "sequential"
@@ -422,9 +466,14 @@ class TestOrchestrationAgentCreateExecutionPlan:
         }
 
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
-        with patch("src.agents.orchestration.agent.generate_llm_function_response", return_value=plan_result):
-            result = await agent._create_execution_plan(sample_agent_context, sample_available_agents)
+
+        with patch(
+            "src.agents.orchestration.agent.generate_llm_function_response",
+            return_value=plan_result,
+        ):
+            result = await agent._create_execution_plan(
+                sample_agent_context, sample_available_agents
+            )
 
             assert len(result["agents"]) == 2
             assert "acquisition" in result["agents"]
@@ -439,10 +488,15 @@ class TestOrchestrationAgentCreateExecutionPlan:
     ):
         """Test execution plan creation when LLM call fails."""
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
-        with patch("src.agents.orchestration.agent.generate_llm_function_response", side_effect=Exception("LLM error")):
+
+        with patch(
+            "src.agents.orchestration.agent.generate_llm_function_response",
+            side_effect=Exception("LLM error"),
+        ):
             with patch("src.agents.orchestration.agent.logger") as mock_logger:
-                result = await agent._create_execution_plan(sample_agent_context, sample_available_agents)
+                result = await agent._create_execution_plan(
+                    sample_agent_context, sample_available_agents
+                )
 
                 # Should use fallback plan
                 assert "agents" in result
@@ -464,10 +518,15 @@ class TestOrchestrationAgentCreateExecutionPlan:
         }
 
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
-        with patch("src.agents.orchestration.agent.generate_llm_function_response", return_value=wrong_result):
+
+        with patch(
+            "src.agents.orchestration.agent.generate_llm_function_response",
+            return_value=wrong_result,
+        ):
             with patch("src.agents.orchestration.agent.logger") as mock_logger:
-                result = await agent._create_execution_plan(sample_agent_context, sample_available_agents)
+                result = await agent._create_execution_plan(
+                    sample_agent_context, sample_available_agents
+                )
 
                 # Should use fallback plan
                 assert "agents" in result
@@ -482,10 +541,15 @@ class TestOrchestrationAgentCreateExecutionPlan:
     ):
         """Test execution plan creation when LLM doesn't make function call."""
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
-        with patch("src.agents.orchestration.agent.generate_llm_function_response", return_value="not a dict"):
+
+        with patch(
+            "src.agents.orchestration.agent.generate_llm_function_response",
+            return_value="not a dict",
+        ):
             with patch("src.agents.orchestration.agent.logger") as mock_logger:
-                result = await agent._create_execution_plan(sample_agent_context, sample_available_agents)
+                result = await agent._create_execution_plan(
+                    sample_agent_context, sample_available_agents
+                )
 
                 # Should use fallback plan
                 assert "agents" in result
@@ -701,8 +765,11 @@ class TestOrchestrationAgentConsolidateResponses:
         }
 
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
-        with patch("src.agents.orchestration.agent.generate_llm_function_response", return_value=consolidate_result):
+
+        with patch(
+            "src.agents.orchestration.agent.generate_llm_function_response",
+            return_value=consolidate_result,
+        ):
             result = await agent._consolidate_responses(sample_agent_context, [sample_agent_output])
 
             assert isinstance(result, AgentInsight)
@@ -737,8 +804,11 @@ class TestOrchestrationAgentConsolidateResponses:
         }
 
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
-        with patch("src.agents.orchestration.agent.generate_llm_function_response", return_value=consolidate_result):
+
+        with patch(
+            "src.agents.orchestration.agent.generate_llm_function_response",
+            return_value=consolidate_result,
+        ):
             result = await agent._consolidate_responses(
                 sample_agent_context, [sample_agent_output, agent_output2]
             )
@@ -762,7 +832,7 @@ class TestOrchestrationAgentConsolidateResponses:
         )
 
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
+
         with patch("src.agents.orchestration.agent.logger") as mock_logger:
             result = await agent._consolidate_responses(sample_agent_context, [empty_output])
 
@@ -791,8 +861,11 @@ class TestOrchestrationAgentConsolidateResponses:
         }
 
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
-        with patch("src.agents.orchestration.agent.generate_llm_function_response", return_value=consolidate_result):
+
+        with patch(
+            "src.agents.orchestration.agent.generate_llm_function_response",
+            return_value=consolidate_result,
+        ):
             result = await agent._consolidate_responses(sample_agent_context, [agent_output_dict])
 
             assert isinstance(result, AgentInsight)
@@ -807,10 +880,15 @@ class TestOrchestrationAgentConsolidateResponses:
     ):
         """Test consolidation when LLM call fails."""
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
-        with patch("src.agents.orchestration.agent.generate_llm_function_response", side_effect=Exception("LLM error")):
+
+        with patch(
+            "src.agents.orchestration.agent.generate_llm_function_response",
+            side_effect=Exception("LLM error"),
+        ):
             with patch("src.agents.orchestration.agent.logger") as mock_logger:
-                result = await agent._consolidate_responses(sample_agent_context, [sample_agent_output])
+                result = await agent._consolidate_responses(
+                    sample_agent_context, [sample_agent_output]
+                )
 
                 assert isinstance(result, AgentInsight)
                 assert "failed" in result.summary.lower() or "error" in result.summary.lower()
@@ -826,8 +904,11 @@ class TestOrchestrationAgentConsolidateResponses:
     ):
         """Test consolidation when LLM doesn't make function call."""
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
-        with patch("src.agents.orchestration.agent.generate_llm_function_response", return_value="not a dict"):
+
+        with patch(
+            "src.agents.orchestration.agent.generate_llm_function_response",
+            return_value="not a dict",
+        ):
             result = await agent._consolidate_responses(sample_agent_context, [sample_agent_output])
 
             assert isinstance(result, AgentInsight)
@@ -843,8 +924,13 @@ class TestGetAvailableAgents:
     ):
         """Test getting available agents from registry."""
         with patch("src.agents.orchestration.agent._AGENT_REGISTRY_AVAILABLE", True):
-            with patch("src.agents.orchestration.agent.list_available_agents", return_value=["acquisition", "organizations"]):
-                with patch("src.agents.orchestration.agent.get_agent_metadata") as mock_get_metadata:
+            with patch(
+                "src.agents.orchestration.agent.list_available_agents",
+                return_value=["acquisition", "organizations"],
+            ):
+                with patch(
+                    "src.agents.orchestration.agent.get_agent_metadata"
+                ) as mock_get_metadata:
                     # Mock metadata for each agent
                     def metadata_side_effect(agent_name):
                         if agent_name == "acquisition":
@@ -858,9 +944,9 @@ class TestGetAvailableAgents:
                                 "metadata": {"keywords": ["company", "organization"]},
                             }
                         return None
-                    
+
                     mock_get_metadata.side_effect = metadata_side_effect
-                    
+
                     result = _get_available_agents()
 
                     assert "acquisition" in result
@@ -882,7 +968,10 @@ class TestGetAvailableAgents:
     ):
         """Test getting available agents when registry raises error."""
         with patch("src.agents.orchestration.agent._AGENT_REGISTRY_AVAILABLE", True):
-            with patch("src.agents.orchestration.agent.list_available_agents", side_effect=Exception("Registry error")):
+            with patch(
+                "src.agents.orchestration.agent.list_available_agents",
+                side_effect=Exception("Registry error"),
+            ):
                 with patch("src.agents.orchestration.agent.logger") as mock_logger:
                     result = _get_available_agents()
 
@@ -904,19 +993,24 @@ class TestGetAvailableAgents:
         config_file.write_text(yaml.dump(config_data), encoding="utf-8")
 
         with patch("src.agents.orchestration.agent._AGENT_REGISTRY_AVAILABLE", True):
-            with patch("src.agents.orchestration.agent.list_available_agents", return_value=["acquisition"]):
+            with patch(
+                "src.agents.orchestration.agent.list_available_agents",
+                return_value=["acquisition"],
+            ):
                 # Mock get_agent_metadata to return default description (triggers config file loading)
-                with patch("src.agents.orchestration.agent.get_agent_metadata") as mock_get_metadata:
+                with patch(
+                    "src.agents.orchestration.agent.get_agent_metadata"
+                ) as mock_get_metadata:
                     mock_get_metadata.return_value = {
                         "description": "Agent for handling acquisition queries",  # Default description
                         "metadata": {},
                     }
-                    
+
                     with patch("src.agents.orchestration.agent.get_agent") as mock_get_agent:
                         # Mock get_agent to return config path
                         mock_agent_class = MagicMock()
                         mock_get_agent.return_value = (mock_agent_class, config_file)
-                        
+
                         with patch("builtins.open", mock_open(read_data=yaml.dump(config_data))):
                             result = _get_available_agents()
 
@@ -928,13 +1022,18 @@ class TestGetAvailableAgents:
     ):
         """Test that keywords are generated when not in metadata."""
         with patch("src.agents.orchestration.agent._AGENT_REGISTRY_AVAILABLE", True):
-            with patch("src.agents.orchestration.agent.list_available_agents", return_value=["acquisition"]):
-                with patch("src.agents.orchestration.agent.get_agent_metadata") as mock_get_metadata:
+            with patch(
+                "src.agents.orchestration.agent.list_available_agents",
+                return_value=["acquisition"],
+            ):
+                with patch(
+                    "src.agents.orchestration.agent.get_agent_metadata"
+                ) as mock_get_metadata:
                     mock_get_metadata.return_value = {
                         "description": "Handles queries about company acquisitions and mergers",
                         "metadata": {},  # No keywords
                     }
-                    
+
                     result = _get_available_agents()
 
                     assert "acquisition" in result
@@ -946,16 +1045,22 @@ class TestGetAvailableAgents:
     ):
         """Test that orchestration agent is filtered out."""
         with patch("src.agents.orchestration.agent._AGENT_REGISTRY_AVAILABLE", True):
-            with patch("src.agents.orchestration.agent.list_available_agents", return_value=["acquisition", "orchestration", "organizations"]):
-                with patch("src.agents.orchestration.agent.get_agent_metadata") as mock_get_metadata:
+            with patch(
+                "src.agents.orchestration.agent.list_available_agents",
+                return_value=["acquisition", "orchestration", "organizations"],
+            ):
+                with patch(
+                    "src.agents.orchestration.agent.get_agent_metadata"
+                ) as mock_get_metadata:
+
                     def metadata_side_effect(agent_name):
                         return {
                             "description": f"Handles {agent_name}",
                             "metadata": {},
                         }
-                    
+
                     mock_get_metadata.side_effect = metadata_side_effect
-                    
+
                     result = _get_available_agents()
 
                     assert "acquisition" in result
@@ -975,9 +1080,15 @@ class TestOrchestrationAgentEdgeCases:
     ):
         """Test that execute uses fallback plan when LLM fails."""
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
-        with patch("src.agents.orchestration.agent._get_available_agents", return_value=sample_available_agents):
-            with patch("src.agents.orchestration.agent.generate_llm_function_response", side_effect=Exception("LLM error")):
+
+        with patch(
+            "src.agents.orchestration.agent._get_available_agents",
+            return_value=sample_available_agents,
+        ):
+            with patch(
+                "src.agents.orchestration.agent.generate_llm_function_response",
+                side_effect=Exception("LLM error"),
+            ):
                 with patch("src.agents.orchestration.agent.logger") as mock_logger:
                     result = await agent.execute(sample_agent_context)
 
@@ -1011,8 +1122,11 @@ class TestOrchestrationAgentEdgeCases:
         }
 
         agent = OrchestrationAgent(config_path=temp_config_file)
-        
-        with patch("src.agents.orchestration.agent.generate_llm_function_response", return_value=consolidate_result):
+
+        with patch(
+            "src.agents.orchestration.agent.generate_llm_function_response",
+            return_value=consolidate_result,
+        ):
             with patch("src.agents.orchestration.agent.logger") as mock_logger:
                 result = await agent._consolidate_responses(
                     sample_agent_context, [sample_agent_output, string_output]
@@ -1021,4 +1135,3 @@ class TestOrchestrationAgentEdgeCases:
                 # Should only consolidate the valid insight
                 assert isinstance(result, AgentInsight)
                 mock_logger.debug.assert_called()
-

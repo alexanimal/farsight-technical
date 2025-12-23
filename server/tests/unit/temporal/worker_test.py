@@ -58,7 +58,8 @@ class TestGetActivities:
         """Test that _get_activities returns all expected activities."""
         activities = _get_activities()
         assert isinstance(activities, list)
-        assert len(activities) == 4
+        # Now includes save_conversation_history and enrich_query activities
+        assert len(activities) == 6
         assert agents.execute_agent in activities
         assert agents.execute_agent_with_options in activities
         assert tools.execute_tool in activities
@@ -86,9 +87,11 @@ class TestSetupSignalHandlers:
 
     def test_setup_signal_handlers_handler_calls_sys_exit(self):
         """Test that signal handler calls sys.exit."""
-        with patch("src.temporal.worker.signal.signal") as mock_signal, \
-             patch("src.temporal.worker.sys.exit") as mock_exit, \
-             patch("src.temporal.worker.logger") as mock_logger:
+        with (
+            patch("src.temporal.worker.signal.signal") as mock_signal,
+            patch("src.temporal.worker.sys.exit") as mock_exit,
+            patch("src.temporal.worker.logger") as mock_logger,
+        ):
             _setup_signal_handlers()
             # Get the handler function
             handler = mock_signal.call_args_list[0][0][1]
@@ -111,11 +114,13 @@ class TestRunWorker:
         mock_worker_instance.run = AsyncMock()
         mock_worker_instance.shutdown = AsyncMock()
 
-        with patch("src.temporal.worker.Client") as mock_client_class, \
-             patch("src.temporal.worker.Worker") as mock_worker_class, \
-             patch("src.temporal.worker._get_workflows") as mock_get_workflows, \
-             patch("src.temporal.worker._get_activities") as mock_get_activities, \
-             patch("src.temporal.worker.logger") as mock_logger:
+        with (
+            patch("src.temporal.worker.Client") as mock_client_class,
+            patch("src.temporal.worker.Worker") as mock_worker_class,
+            patch("src.temporal.worker._get_workflows") as mock_get_workflows,
+            patch("src.temporal.worker._get_activities") as mock_get_activities,
+            patch("src.temporal.worker.logger") as mock_logger,
+        ):
             mock_client_class.connect = AsyncMock(return_value=mock_client)
             mock_worker_class.return_value = mock_worker_instance
             mock_get_workflows.return_value = [OrchestratorWorkflow]
@@ -166,10 +171,12 @@ class TestRunWorker:
         mock_worker_instance.run = AsyncMock(side_effect=KeyboardInterrupt())
         mock_worker_instance.shutdown = AsyncMock()
 
-        with patch("src.temporal.worker.Client") as mock_client_class, \
-             patch("src.temporal.worker.Worker") as mock_worker_class, \
-             patch("src.temporal.worker._get_workflows") as mock_get_workflows, \
-             patch("src.temporal.worker._get_activities") as mock_get_activities:
+        with (
+            patch("src.temporal.worker.Client") as mock_client_class,
+            patch("src.temporal.worker.Worker") as mock_worker_class,
+            patch("src.temporal.worker._get_workflows") as mock_get_workflows,
+            patch("src.temporal.worker._get_activities") as mock_get_activities,
+        ):
             mock_client_class.connect = AsyncMock(return_value=mock_client)
             mock_worker_class.return_value = mock_worker_instance
             mock_get_workflows.return_value = [OrchestratorWorkflow]
@@ -195,11 +202,13 @@ class TestRunWorker:
         mock_worker_instance.run = AsyncMock(side_effect=KeyboardInterrupt())
         mock_worker_instance.shutdown = AsyncMock()
 
-        with patch("src.temporal.worker.Client") as mock_client_class, \
-             patch("src.temporal.worker.Worker") as mock_worker_class, \
-             patch("src.temporal.worker._get_workflows") as mock_get_workflows, \
-             patch("src.temporal.worker._get_activities") as mock_get_activities, \
-             patch("src.temporal.worker.logger") as mock_logger:
+        with (
+            patch("src.temporal.worker.Client") as mock_client_class,
+            patch("src.temporal.worker.Worker") as mock_worker_class,
+            patch("src.temporal.worker._get_workflows") as mock_get_workflows,
+            patch("src.temporal.worker._get_activities") as mock_get_activities,
+            patch("src.temporal.worker.logger") as mock_logger,
+        ):
             mock_client_class.connect = AsyncMock(return_value=mock_client)
             mock_worker_class.return_value = mock_worker_instance
             mock_get_workflows.return_value = [OrchestratorWorkflow]
@@ -210,10 +219,7 @@ class TestRunWorker:
             # Verify shutdown was called
             mock_worker_instance.shutdown.assert_called_once()
             # Verify interrupt was logged
-            assert any(
-                "interrupt" in str(call).lower()
-                for call in mock_logger.info.call_args_list
-            )
+            assert any("interrupt" in str(call).lower() for call in mock_logger.info.call_args_list)
 
     @pytest.mark.asyncio
     async def test_run_worker_exception_handling(self):
@@ -223,11 +229,13 @@ class TestRunWorker:
         mock_worker_instance.run = AsyncMock(side_effect=RuntimeError("Worker error"))
         mock_worker_instance.shutdown = AsyncMock()
 
-        with patch("src.temporal.worker.Client") as mock_client_class, \
-             patch("src.temporal.worker.Worker") as mock_worker_class, \
-             patch("src.temporal.worker._get_workflows") as mock_get_workflows, \
-             patch("src.temporal.worker._get_activities") as mock_get_activities, \
-             patch("src.temporal.worker.logger") as mock_logger:
+        with (
+            patch("src.temporal.worker.Client") as mock_client_class,
+            patch("src.temporal.worker.Worker") as mock_worker_class,
+            patch("src.temporal.worker._get_workflows") as mock_get_workflows,
+            patch("src.temporal.worker._get_activities") as mock_get_activities,
+            patch("src.temporal.worker.logger") as mock_logger,
+        ):
             mock_client_class.connect = AsyncMock(return_value=mock_client)
             mock_worker_class.return_value = mock_worker_instance
             mock_get_workflows.return_value = [OrchestratorWorkflow]
@@ -244,11 +252,11 @@ class TestRunWorker:
     @pytest.mark.asyncio
     async def test_run_worker_connection_failure(self):
         """Test worker execution when connection fails."""
-        with patch("src.temporal.worker.Client") as mock_client_class, \
-             patch("src.temporal.worker.logger") as mock_logger:
-            mock_client_class.connect = AsyncMock(
-                side_effect=ConnectionError("Connection failed")
-            )
+        with (
+            patch("src.temporal.worker.Client") as mock_client_class,
+            patch("src.temporal.worker.logger") as mock_logger,
+        ):
+            mock_client_class.connect = AsyncMock(side_effect=ConnectionError("Connection failed"))
 
             with pytest.raises(ConnectionError, match="Connection failed"):
                 await run_worker()
@@ -277,15 +285,20 @@ class TestRunWorker:
         mock_worker_instance.run = AsyncMock(side_effect=KeyboardInterrupt())
         mock_worker_instance.shutdown = AsyncMock()
 
-        with patch("src.temporal.worker.Client") as mock_client_class, \
-             patch("src.temporal.worker.Worker") as mock_worker_class, \
-             patch("src.temporal.worker._get_workflows") as mock_get_workflows, \
-             patch("src.temporal.worker._get_activities") as mock_get_activities, \
-             patch("src.temporal.worker.logger") as mock_logger:
+        with (
+            patch("src.temporal.worker.Client") as mock_client_class,
+            patch("src.temporal.worker.Worker") as mock_worker_class,
+            patch("src.temporal.worker._get_workflows") as mock_get_workflows,
+            patch("src.temporal.worker._get_activities") as mock_get_activities,
+            patch("src.temporal.worker.logger") as mock_logger,
+        ):
             mock_client_class.connect = AsyncMock(return_value=mock_client)
             mock_worker_class.return_value = mock_worker_instance
             mock_get_workflows.return_value = [OrchestratorWorkflow]
-            mock_get_activities.return_value = [agents.execute_agent, tools.execute_tool]
+            mock_get_activities.return_value = [
+                agents.execute_agent,
+                tools.execute_tool,
+            ]
 
             await run_worker(
                 temporal_address="test:7233",
@@ -309,10 +322,12 @@ class TestRunWorker:
         mock_worker_instance.run = AsyncMock(side_effect=KeyboardInterrupt())
         mock_worker_instance.shutdown = AsyncMock()
 
-        with patch("src.temporal.worker.Client") as mock_client_class, \
-             patch("src.temporal.worker.Worker") as mock_worker_class, \
-             patch("src.temporal.worker._get_workflows") as mock_get_workflows, \
-             patch("src.temporal.worker._get_activities") as mock_get_activities:
+        with (
+            patch("src.temporal.worker.Client") as mock_client_class,
+            patch("src.temporal.worker.Worker") as mock_worker_class,
+            patch("src.temporal.worker._get_workflows") as mock_get_workflows,
+            patch("src.temporal.worker._get_activities") as mock_get_activities,
+        ):
             mock_client_class.connect = AsyncMock(return_value=mock_client)
             mock_worker_class.return_value = mock_worker_instance
             mock_get_workflows.return_value = [OrchestratorWorkflow]
@@ -336,9 +351,11 @@ class TestMain:
     @pytest.mark.asyncio
     async def test_main_sets_up_logging(self):
         """Test that main sets up logging."""
-        with patch("src.temporal.worker.logging.basicConfig") as mock_basic_config, \
-             patch("src.temporal.worker._setup_signal_handlers") as mock_setup_signals, \
-             patch("src.temporal.worker.run_worker") as mock_run_worker:
+        with (
+            patch("src.temporal.worker.logging.basicConfig") as mock_basic_config,
+            patch("src.temporal.worker._setup_signal_handlers") as mock_setup_signals,
+            patch("src.temporal.worker.run_worker") as mock_run_worker,
+        ):
             mock_run_worker.return_value = None
 
             await main()
@@ -352,9 +369,11 @@ class TestMain:
     @pytest.mark.asyncio
     async def test_main_sets_up_signal_handlers(self):
         """Test that main sets up signal handlers."""
-        with patch("src.temporal.worker.logging.basicConfig"), \
-             patch("src.temporal.worker._setup_signal_handlers") as mock_setup_signals, \
-             patch("src.temporal.worker.run_worker") as mock_run_worker:
+        with (
+            patch("src.temporal.worker.logging.basicConfig"),
+            patch("src.temporal.worker._setup_signal_handlers") as mock_setup_signals,
+            patch("src.temporal.worker.run_worker") as mock_run_worker,
+        ):
             mock_run_worker.return_value = None
 
             await main()
@@ -365,9 +384,11 @@ class TestMain:
     @pytest.mark.asyncio
     async def test_main_calls_run_worker_with_defaults(self):
         """Test that main calls run_worker with default parameters."""
-        with patch("src.temporal.worker.logging.basicConfig"), \
-             patch("src.temporal.worker._setup_signal_handlers"), \
-             patch("src.temporal.worker.run_worker") as mock_run_worker:
+        with (
+            patch("src.temporal.worker.logging.basicConfig"),
+            patch("src.temporal.worker._setup_signal_handlers"),
+            patch("src.temporal.worker.run_worker") as mock_run_worker,
+        ):
             mock_run_worker.return_value = None
 
             await main()
@@ -382,9 +403,11 @@ class TestMain:
     @pytest.mark.asyncio
     async def test_main_handles_keyboard_interrupt(self):
         """Test that main completes when run_worker handles KeyboardInterrupt."""
-        with patch("src.temporal.worker.logging.basicConfig"), \
-             patch("src.temporal.worker._setup_signal_handlers"), \
-             patch("src.temporal.worker.run_worker") as mock_run_worker:
+        with (
+            patch("src.temporal.worker.logging.basicConfig"),
+            patch("src.temporal.worker._setup_signal_handlers"),
+            patch("src.temporal.worker.run_worker") as mock_run_worker,
+        ):
             # run_worker() catches KeyboardInterrupt internally and returns normally
             # So main() should complete successfully
             mock_run_worker.return_value = None
@@ -397,11 +420,12 @@ class TestMain:
     @pytest.mark.asyncio
     async def test_main_handles_exceptions(self):
         """Test that main propagates exceptions."""
-        with patch("src.temporal.worker.logging.basicConfig"), \
-             patch("src.temporal.worker._setup_signal_handlers"), \
-             patch("src.temporal.worker.run_worker") as mock_run_worker:
+        with (
+            patch("src.temporal.worker.logging.basicConfig"),
+            patch("src.temporal.worker._setup_signal_handlers"),
+            patch("src.temporal.worker.run_worker") as mock_run_worker,
+        ):
             mock_run_worker.side_effect = RuntimeError("Worker error")
 
             with pytest.raises(RuntimeError, match="Worker error"):
                 await main()
-

@@ -213,12 +213,12 @@ class TestAgentContextModelDump:
         context = AgentContext(query="test")
         assert isinstance(context.timestamp, datetime)
         original_timestamp = context.timestamp
-        
+
         # Call model_dump and verify timestamp is serialized to ISO string
         data = context.model_dump()
         assert isinstance(data["timestamp"], str)
         assert data["timestamp"] == original_timestamp.isoformat()
-        
+
         # Verify internal timestamp is still a datetime object
         assert isinstance(context.timestamp, datetime)
         assert context.timestamp == original_timestamp
@@ -232,9 +232,7 @@ class TestAgentContextModelDump:
         assert data["user_id"] == sample_context_data["user_id"]
         assert data["metadata"] == sample_context_data["metadata"]
         assert data["shared_data"] == sample_context_data["shared_data"]
-        assert data["conversation_history"] == sample_context_data[
-            "conversation_history"
-        ]
+        assert data["conversation_history"] == sample_context_data["conversation_history"]
         assert isinstance(data["timestamp"], str)
 
     def test_model_dump_preserves_datetime_object_internally(self):
@@ -247,4 +245,3 @@ class TestAgentContextModelDump:
         assert context.timestamp == original_timestamp
         # But serialized version should be string
         assert isinstance(data["timestamp"], str)
-

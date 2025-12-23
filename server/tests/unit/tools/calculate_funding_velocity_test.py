@@ -8,10 +8,7 @@ CAGR calculations, and trend direction determination.
 import pytest
 
 from src.contracts.tool_io import ToolOutput
-from src.tools.calculate_funding_velocity import (
-    calculate_funding_velocity,
-    get_tool_metadata,
-)
+from src.tools.calculate_funding_velocity import calculate_funding_velocity, get_tool_metadata
 
 
 @pytest.fixture
@@ -177,9 +174,7 @@ class TestCalculateFundingVelocityBasic:
         assert isinstance(result.result["summary"], dict)
 
     @pytest.mark.asyncio
-    async def test_calculate_funding_velocity_velocity_metrics_structure(
-        self, sample_trend_data
-    ):
+    async def test_calculate_funding_velocity_velocity_metrics_structure(self, sample_trend_data):
         """Test that velocity_metrics have correct structure."""
         result = await calculate_funding_velocity(trend_data=sample_trend_data)
 
@@ -211,9 +206,7 @@ class TestCalculateFundingVelocityMovingAverage:
     """Test calculate_funding_velocity moving average calculations."""
 
     @pytest.mark.asyncio
-    async def test_calculate_funding_velocity_moving_average_default(
-        self, sample_trend_data
-    ):
+    async def test_calculate_funding_velocity_moving_average_default(self, sample_trend_data):
         """Test moving average with default window (3 periods)."""
         result = await calculate_funding_velocity(trend_data=sample_trend_data)
 
@@ -230,9 +223,7 @@ class TestCalculateFundingVelocityMovingAverage:
         assert metrics[3]["moving_average_usd"] == 20000000.0  # (15M + 20M + 25M) / 3
 
     @pytest.mark.asyncio
-    async def test_calculate_funding_velocity_moving_average_custom_window(
-        self, sample_trend_data
-    ):
+    async def test_calculate_funding_velocity_moving_average_custom_window(self, sample_trend_data):
         """Test moving average with custom window size."""
         result = await calculate_funding_velocity(
             trend_data=sample_trend_data, moving_average_periods=2
@@ -249,9 +240,7 @@ class TestCalculateFundingVelocityMovingAverage:
         assert metrics[2]["moving_average_usd"] == 17500000.0  # (15M + 20M) / 2
 
     @pytest.mark.asyncio
-    async def test_calculate_funding_velocity_moving_average_window_1(
-        self, sample_trend_data
-    ):
+    async def test_calculate_funding_velocity_moving_average_window_1(self, sample_trend_data):
         """Test moving average with window size of 1."""
         result = await calculate_funding_velocity(
             trend_data=sample_trend_data, moving_average_periods=1
@@ -339,9 +328,7 @@ class TestCalculateFundingVelocityMomentum:
         assert 0 <= metrics[3]["momentum_score"] <= 100
 
     @pytest.mark.asyncio
-    async def test_calculate_funding_velocity_momentum_increasing_trend(
-        self, sample_trend_data
-    ):
+    async def test_calculate_funding_velocity_momentum_increasing_trend(self, sample_trend_data):
         """Test momentum scores for increasing trend."""
         result = await calculate_funding_velocity(trend_data=sample_trend_data)
 
@@ -371,9 +358,7 @@ class TestCalculateFundingVelocityCAGR:
     @pytest.mark.asyncio
     async def test_calculate_funding_velocity_cagr_enabled(self, sample_trend_data):
         """Test CAGR calculation when enabled."""
-        result = await calculate_funding_velocity(
-            trend_data=sample_trend_data, calculate_cagr=True
-        )
+        result = await calculate_funding_velocity(trend_data=sample_trend_data, calculate_cagr=True)
 
         assert result.success is True
         summary = result.result["summary"]
@@ -712,9 +697,7 @@ class TestCalculateFundingVelocityEdgeCases:
         assert result.metadata["exception_type"] == "ValueError"
 
     @pytest.mark.asyncio
-    async def test_calculate_funding_velocity_execution_time_recorded(
-        self, sample_trend_data
-    ):
+    async def test_calculate_funding_velocity_execution_time_recorded(self, sample_trend_data):
         """Test that execution time is properly recorded."""
         result = await calculate_funding_velocity(trend_data=sample_trend_data)
 
@@ -723,9 +706,7 @@ class TestCalculateFundingVelocityEdgeCases:
         assert result.execution_time_ms >= 0
 
     @pytest.mark.asyncio
-    async def test_calculate_funding_velocity_metadata_structure(
-        self, sample_trend_data
-    ):
+    async def test_calculate_funding_velocity_metadata_structure(self, sample_trend_data):
         """Test that metadata has correct structure."""
         result = await calculate_funding_velocity(trend_data=sample_trend_data)
 
@@ -736,9 +717,7 @@ class TestCalculateFundingVelocityEdgeCases:
         assert result.metadata["moving_average_periods"] == 3  # Default
 
     @pytest.mark.asyncio
-    async def test_calculate_funding_velocity_tool_output_structure(
-        self, sample_trend_data
-    ):
+    async def test_calculate_funding_velocity_tool_output_structure(self, sample_trend_data):
         """Test that ToolOutput structure is correct."""
         result = await calculate_funding_velocity(trend_data=sample_trend_data)
 
@@ -776,9 +755,7 @@ class TestCalculateFundingVelocityErrorHandling:
             }
         ]
 
-        result = await calculate_funding_velocity(
-            trend_data=trend_data, moving_average_periods=0
-        )
+        result = await calculate_funding_velocity(trend_data=trend_data, moving_average_periods=0)
 
         assert result.success is False
         assert result.error is not None
@@ -796,9 +773,7 @@ class TestCalculateFundingVelocityErrorHandling:
             }
         ]
 
-        result = await calculate_funding_velocity(
-            trend_data=trend_data, moving_average_periods=-1
-        )
+        result = await calculate_funding_velocity(trend_data=trend_data, moving_average_periods=-1)
 
         assert result.success is False
         assert result.error is not None
@@ -916,4 +891,3 @@ class TestCalculateFundingVelocityComplexScenarios:
         assert result.success is True
         assert result.result["velocity_metrics"][0]["total_funding_usd"] == 1000000000000
         assert result.result["velocity_metrics"][1]["total_funding_usd"] == 1500000000000
-

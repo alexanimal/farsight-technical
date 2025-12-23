@@ -146,16 +146,16 @@ class TestGetOrganizationsBasic:
     """Test basic get_organizations functionality."""
 
     @pytest.mark.asyncio
-    async def test_get_organizations_no_filters(
-        self, mock_organization_model, sample_organization
-    ):
+    async def test_get_organizations_no_filters(self, mock_organization_model, sample_organization):
         """Test getting organizations with no filters."""
         mock_organization_model.get.return_value = [sample_organization]
 
         # Patch OrganizationModel in the module where it's used
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations()
 
@@ -182,7 +182,9 @@ class TestGetOrganizationsBasic:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations()
 
@@ -209,7 +211,9 @@ class TestGetOrganizationsBasic:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations()
 
@@ -226,7 +230,9 @@ class TestGetOrganizationsBasic:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations()
 
@@ -250,7 +256,9 @@ class TestGetOrganizationsFiltering:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(org_uuid=str(sample_org_uuid))
 
@@ -261,15 +269,15 @@ class TestGetOrganizationsFiltering:
             assert isinstance(call_kwargs["org_uuid"], UUID)
 
     @pytest.mark.asyncio
-    async def test_get_organizations_by_name(
-        self, mock_organization_model, sample_organization
-    ):
+    async def test_get_organizations_by_name(self, mock_organization_model, sample_organization):
         """Test getting organizations by exact name."""
         mock_organization_model.get.return_value = [sample_organization]
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(name="Example Tech Inc")
 
@@ -286,7 +294,9 @@ class TestGetOrganizationsFiltering:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(name_ilike="example")
 
@@ -295,15 +305,15 @@ class TestGetOrganizationsFiltering:
             assert call_kwargs["name_ilike"] == "example"
 
     @pytest.mark.asyncio
-    async def test_get_organizations_by_country(
-        self, mock_organization_model, sample_organization
-    ):
+    async def test_get_organizations_by_country(self, mock_organization_model, sample_organization):
         """Test getting organizations by country."""
         mock_organization_model.get.return_value = [sample_organization]
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(country="United States")
 
@@ -320,7 +330,9 @@ class TestGetOrganizationsFiltering:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(
                 total_funding_usd_min=1000000,
@@ -341,7 +353,9 @@ class TestGetOrganizationsFiltering:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(categories_contains="Technology")
 
@@ -350,15 +364,15 @@ class TestGetOrganizationsFiltering:
             assert call_kwargs["categories_contains"] == "Technology"
 
     @pytest.mark.asyncio
-    async def test_get_organizations_by_stage(
-        self, mock_organization_model, sample_organization
-    ):
+    async def test_get_organizations_by_stage(self, mock_organization_model, sample_organization):
         """Test getting organizations by stage."""
         mock_organization_model.get.return_value = [sample_organization]
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(stage="Series A")
 
@@ -375,7 +389,9 @@ class TestGetOrganizationsFiltering:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(org_type="company")
 
@@ -392,7 +408,9 @@ class TestGetOrganizationsFiltering:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(
                 country="United States",
@@ -420,7 +438,9 @@ class TestGetOrganizationsDateFiltering:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(founding_date=date_str)
 
@@ -440,7 +460,9 @@ class TestGetOrganizationsDateFiltering:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(
                 founding_date_from=date_from_str,
@@ -462,7 +484,9 @@ class TestGetOrganizationsDateFiltering:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(closed_on=date_str)
 
@@ -480,7 +504,9 @@ class TestGetOrganizationsDateFiltering:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(exited_on=date_str)
 
@@ -493,15 +519,15 @@ class TestGetOrganizationsPagination:
     """Test get_organizations pagination functionality."""
 
     @pytest.mark.asyncio
-    async def test_get_organizations_with_limit(
-        self, mock_organization_model, sample_organization
-    ):
+    async def test_get_organizations_with_limit(self, mock_organization_model, sample_organization):
         """Test getting organizations with limit."""
         mock_organization_model.get.return_value = [sample_organization]
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(limit=10)
 
@@ -518,7 +544,9 @@ class TestGetOrganizationsPagination:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(offset=20)
 
@@ -535,7 +563,9 @@ class TestGetOrganizationsPagination:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(limit=10, offset=20)
 
@@ -557,7 +587,9 @@ class TestGetOrganizationsParameterConversion:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             uuid_str = str(sample_org_uuid)
             result = await get_organizations(org_uuid=uuid_str)
@@ -576,7 +608,9 @@ class TestGetOrganizationsParameterConversion:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             date_str = "2023-06-15T12:30:45"
             result = await get_organizations(founding_date=date_str)
@@ -595,7 +629,9 @@ class TestGetOrganizationsParameterConversion:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(
                 founding_date="2015-05-10T00:00:00",
@@ -618,7 +654,9 @@ class TestGetOrganizationsParameterConversion:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(org_uuid=None)
 
@@ -635,7 +673,9 @@ class TestGetOrganizationsParameterConversion:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(founding_date=None)
 
@@ -652,7 +692,9 @@ class TestGetOrganizationsErrorHandling:
         """Test that invalid UUID strings raise appropriate errors."""
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(org_uuid="invalid-uuid")
 
@@ -667,7 +709,9 @@ class TestGetOrganizationsErrorHandling:
         """Test that invalid date strings raise appropriate errors."""
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations(founding_date="invalid-date")
 
@@ -683,7 +727,9 @@ class TestGetOrganizationsErrorHandling:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations()
 
@@ -700,7 +746,9 @@ class TestGetOrganizationsErrorHandling:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations()
 
@@ -718,7 +766,9 @@ class TestGetOrganizationsErrorHandling:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations()
 
@@ -739,7 +789,9 @@ class TestGetOrganizationsEdgeCases:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations()
 
@@ -756,7 +808,9 @@ class TestGetOrganizationsEdgeCases:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations()
 
@@ -778,7 +832,9 @@ class TestGetOrganizationsEdgeCases:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             await get_organizations()
 
@@ -793,7 +849,9 @@ class TestGetOrganizationsEdgeCases:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             await get_organizations()
             await get_organizations()
@@ -809,7 +867,9 @@ class TestGetOrganizationsEdgeCases:
 
         get_organizations_module = sys.modules["src.tools.get_organizations"]
         with patch.object(
-            get_organizations_module, "OrganizationModel", return_value=mock_organization_model
+            get_organizations_module,
+            "OrganizationModel",
+            return_value=mock_organization_model,
         ):
             result = await get_organizations()
 
@@ -828,4 +888,3 @@ class TestGetOrganizationsEdgeCases:
             # Note: model_dump() by default keeps UUIDs as UUID objects, not strings
             # To serialize to strings, would need model_dump(mode="json")
             assert isinstance(result_dict["org_uuid"], UUID)
-

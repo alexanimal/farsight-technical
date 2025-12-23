@@ -176,9 +176,7 @@ class TestTemporalClientConnect:
     async def test_connect_failure(self):
         """Test connection failure."""
         with patch("src.temporal.client.Client") as mock_client_class:
-            mock_client_class.connect = AsyncMock(
-                side_effect=Exception("Connection failed")
-            )
+            mock_client_class.connect = AsyncMock(side_effect=Exception("Connection failed"))
             client = TemporalClient()
             with pytest.raises(RuntimeError) as exc_info:
                 await client.connect()
@@ -252,26 +250,18 @@ class TestTemporalClientStartWorkflow:
     """Test TemporalClient.start_workflow() method."""
 
     @pytest.mark.asyncio
-    async def test_start_workflow_success(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_start_workflow_success(self, temporal_client, mock_workflow_handle):
         """Test successful workflow start."""
-        temporal_client._client.start_workflow = AsyncMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.start_workflow = AsyncMock(return_value=mock_workflow_handle)
         context = {"query": "test query"}
         workflow_id = await temporal_client.start_workflow(context)
         assert workflow_id == "workflow-123"
         temporal_client._client.start_workflow.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_start_workflow_with_agent_plan(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_start_workflow_with_agent_plan(self, temporal_client, mock_workflow_handle):
         """Test workflow start with agent plan."""
-        temporal_client._client.start_workflow = AsyncMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.start_workflow = AsyncMock(return_value=mock_workflow_handle)
         context = {"query": "test query"}
         agent_plan = ["agent1", "agent2"]
         await temporal_client.start_workflow(context, agent_plan=agent_plan)
@@ -279,48 +269,30 @@ class TestTemporalClientStartWorkflow:
         assert call_kwargs[1]["args"][1] == agent_plan
 
     @pytest.mark.asyncio
-    async def test_start_workflow_with_execution_mode(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_start_workflow_with_execution_mode(self, temporal_client, mock_workflow_handle):
         """Test workflow start with execution mode."""
-        temporal_client._client.start_workflow = AsyncMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.start_workflow = AsyncMock(return_value=mock_workflow_handle)
         context = {"query": "test query"}
-        await temporal_client.start_workflow(
-            context, execution_mode="parallel"
-        )
+        await temporal_client.start_workflow(context, execution_mode="parallel")
         call_kwargs = temporal_client._client.start_workflow.call_args
         assert call_kwargs[1]["args"][2] == "parallel"
 
     @pytest.mark.asyncio
-    async def test_start_workflow_with_workflow_id(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_start_workflow_with_workflow_id(self, temporal_client, mock_workflow_handle):
         """Test workflow start with custom workflow ID."""
-        temporal_client._client.start_workflow = AsyncMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.start_workflow = AsyncMock(return_value=mock_workflow_handle)
         context = {"query": "test query"}
-        await temporal_client.start_workflow(
-            context, workflow_id="custom-workflow-id"
-        )
+        await temporal_client.start_workflow(context, workflow_id="custom-workflow-id")
         call_kwargs = temporal_client._client.start_workflow.call_args
         assert call_kwargs[1]["id"] == "custom-workflow-id"
 
     @pytest.mark.asyncio
-    async def test_start_workflow_with_timeout(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_start_workflow_with_timeout(self, temporal_client, mock_workflow_handle):
         """Test workflow start with timeout."""
-        temporal_client._client.start_workflow = AsyncMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.start_workflow = AsyncMock(return_value=mock_workflow_handle)
         context = {"query": "test query"}
         timeout = timedelta(minutes=30)
-        await temporal_client.start_workflow(
-            context, workflow_timeout=timeout
-        )
+        await temporal_client.start_workflow(context, workflow_timeout=timeout)
         call_kwargs = temporal_client._client.start_workflow.call_args
         assert call_kwargs[1]["execution_timeout"] == timeout
 
@@ -342,9 +314,7 @@ class TestTemporalClientStartWorkflow:
         assert "not connected" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
-    async def test_start_workflow_failure(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_start_workflow_failure(self, temporal_client, mock_workflow_handle):
         """Test workflow start failure."""
         temporal_client._client.start_workflow = AsyncMock(
             side_effect=Exception("Workflow start failed")
@@ -359,9 +329,7 @@ class TestTemporalClientStartWorkflow:
         self, temporal_client, mock_workflow_handle
     ):
         """Test that workflow uses correct task queue."""
-        temporal_client._client.start_workflow = AsyncMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.start_workflow = AsyncMock(return_value=mock_workflow_handle)
         context = {"query": "test query"}
         await temporal_client.start_workflow(context)
         call_kwargs = temporal_client._client.start_workflow.call_args
@@ -372,19 +340,13 @@ class TestTemporalClientSendCancellationSignal:
     """Test TemporalClient.send_cancellation_signal() method."""
 
     @pytest.mark.asyncio
-    async def test_send_cancellation_signal_success(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_send_cancellation_signal_success(self, temporal_client, mock_workflow_handle):
         """Test successful cancellation signal."""
-        temporal_client._client.get_workflow_handle = MagicMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.get_workflow_handle = MagicMock(return_value=mock_workflow_handle)
         await temporal_client.send_cancellation_signal(
             "workflow-123", reason="User requested", requested_by="user-1"
         )
-        temporal_client._client.get_workflow_handle.assert_called_once_with(
-            "workflow-123"
-        )
+        temporal_client._client.get_workflow_handle.assert_called_once_with("workflow-123")
         mock_workflow_handle.signal.assert_called_once()
         call_args = mock_workflow_handle.signal.call_args
         assert call_args[0][0] == "cancellation"
@@ -393,13 +355,9 @@ class TestTemporalClientSendCancellationSignal:
         assert call_args[0][1].requested_by == "user-1"
 
     @pytest.mark.asyncio
-    async def test_send_cancellation_signal_minimal(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_send_cancellation_signal_minimal(self, temporal_client, mock_workflow_handle):
         """Test cancellation signal with minimal parameters."""
-        temporal_client._client.get_workflow_handle = MagicMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.get_workflow_handle = MagicMock(return_value=mock_workflow_handle)
         await temporal_client.send_cancellation_signal("workflow-123")
         mock_workflow_handle.signal.assert_called_once()
         call_args = mock_workflow_handle.signal.call_args
@@ -408,9 +366,7 @@ class TestTemporalClientSendCancellationSignal:
         assert signal.requested_by is None
 
     @pytest.mark.asyncio
-    async def test_send_cancellation_signal_workflow_not_found(
-        self, temporal_client
-    ):
+    async def test_send_cancellation_signal_workflow_not_found(self, temporal_client):
         """Test cancellation signal when workflow not found."""
         temporal_client._client.get_workflow_handle = MagicMock(
             side_effect=Exception("Workflow not found")
@@ -432,12 +388,8 @@ class TestTemporalClientSendCancellationSignal:
         self, temporal_client, mock_workflow_handle
     ):
         """Test cancellation signal with other error."""
-        temporal_client._client.get_workflow_handle = MagicMock(
-            return_value=mock_workflow_handle
-        )
-        mock_workflow_handle.signal = AsyncMock(
-            side_effect=Exception("Network error")
-        )
+        temporal_client._client.get_workflow_handle = MagicMock(return_value=mock_workflow_handle)
+        mock_workflow_handle.signal = AsyncMock(side_effect=Exception("Network error"))
         with pytest.raises(Exception) as exc_info:
             await temporal_client.send_cancellation_signal("workflow-123")
         assert "Network error" in str(exc_info.value)
@@ -447,13 +399,9 @@ class TestTemporalClientSendUserInputSignal:
     """Test TemporalClient.send_user_input_signal() method."""
 
     @pytest.mark.asyncio
-    async def test_send_user_input_signal_success(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_send_user_input_signal_success(self, temporal_client, mock_workflow_handle):
         """Test successful user input signal."""
-        temporal_client._client.get_workflow_handle = MagicMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.get_workflow_handle = MagicMock(return_value=mock_workflow_handle)
         await temporal_client.send_user_input_signal(
             "workflow-123",
             input_text="Additional information",
@@ -474,16 +422,10 @@ class TestTemporalClientSendUserInputSignal:
         assert signal.metadata == {"source": "web"}
 
     @pytest.mark.asyncio
-    async def test_send_user_input_signal_minimal(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_send_user_input_signal_minimal(self, temporal_client, mock_workflow_handle):
         """Test user input signal with minimal parameters."""
-        temporal_client._client.get_workflow_handle = MagicMock(
-            return_value=mock_workflow_handle
-        )
-        await temporal_client.send_user_input_signal(
-            "workflow-123", input_text="Hello"
-        )
+        temporal_client._client.get_workflow_handle = MagicMock(return_value=mock_workflow_handle)
+        await temporal_client.send_user_input_signal("workflow-123", input_text="Hello")
         mock_workflow_handle.signal.assert_called_once()
         call_args = mock_workflow_handle.signal.call_args
         signal = call_args[0][1]
@@ -498,9 +440,7 @@ class TestTemporalClientSendUserInputSignal:
         self, temporal_client, mock_workflow_handle
     ):
         """Test user input signal with None metadata (should become empty dict)."""
-        temporal_client._client.get_workflow_handle = MagicMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.get_workflow_handle = MagicMock(return_value=mock_workflow_handle)
         await temporal_client.send_user_input_signal(
             "workflow-123", input_text="test", metadata=None
         )
@@ -509,17 +449,13 @@ class TestTemporalClientSendUserInputSignal:
         assert signal.metadata == {}
 
     @pytest.mark.asyncio
-    async def test_send_user_input_signal_workflow_not_found(
-        self, temporal_client
-    ):
+    async def test_send_user_input_signal_workflow_not_found(self, temporal_client):
         """Test user input signal when workflow not found."""
         temporal_client._client.get_workflow_handle = MagicMock(
             side_effect=Exception("Workflow not found")
         )
         with pytest.raises(RuntimeError) as exc_info:
-            await temporal_client.send_user_input_signal(
-                "workflow-123", input_text="test"
-            )
+            await temporal_client.send_user_input_signal("workflow-123", input_text="test")
         assert "not found" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
@@ -535,9 +471,7 @@ class TestTemporalClientQueryWorkflowStatus:
     """Test TemporalClient.query_workflow_status() method."""
 
     @pytest.mark.asyncio
-    async def test_query_workflow_status_success(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_query_workflow_status_success(self, temporal_client, mock_workflow_handle):
         """Test successful workflow status query."""
         started_at = datetime(2024, 1, 1, 12, 0, 0)
         query_result = WorkflowStatusQueryResult(
@@ -545,9 +479,7 @@ class TestTemporalClientQueryWorkflowStatus:
             status=WorkflowStatus.RUNNING,
             started_at=started_at,
         )
-        temporal_client._client.get_workflow_handle = MagicMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.get_workflow_handle = MagicMock(return_value=mock_workflow_handle)
         mock_workflow_handle.query = AsyncMock(return_value=query_result)
         result = await temporal_client.query_workflow_status("workflow-123")
         assert isinstance(result, WorkflowStatusQueryResult)
@@ -556,9 +488,7 @@ class TestTemporalClientQueryWorkflowStatus:
         mock_workflow_handle.query.assert_called_once_with("workflow_status")
 
     @pytest.mark.asyncio
-    async def test_query_workflow_status_dict_result(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_query_workflow_status_dict_result(self, temporal_client, mock_workflow_handle):
         """Test workflow status query with dict result."""
         started_at = datetime(2024, 1, 1, 12, 0, 0)
         dict_result = {
@@ -566,18 +496,14 @@ class TestTemporalClientQueryWorkflowStatus:
             "status": "running",
             "started_at": started_at.isoformat(),
         }
-        temporal_client._client.get_workflow_handle = MagicMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.get_workflow_handle = MagicMock(return_value=mock_workflow_handle)
         mock_workflow_handle.query = AsyncMock(return_value=dict_result)
         result = await temporal_client.query_workflow_status("workflow-123")
         assert isinstance(result, WorkflowStatusQueryResult)
         assert result.workflow_id == "workflow-123"
 
     @pytest.mark.asyncio
-    async def test_query_workflow_status_workflow_not_found(
-        self, temporal_client
-    ):
+    async def test_query_workflow_status_workflow_not_found(self, temporal_client):
         """Test workflow status query when workflow not found."""
         temporal_client._client.get_workflow_handle = MagicMock(
             side_effect=Exception("Workflow not found")
@@ -599,9 +525,7 @@ class TestTemporalClientQueryWorkflowProgress:
     """Test TemporalClient.query_workflow_progress() method."""
 
     @pytest.mark.asyncio
-    async def test_query_workflow_progress_success(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_query_workflow_progress_success(self, temporal_client, mock_workflow_handle):
         """Test successful workflow progress query."""
         query_result = WorkflowProgressQueryResult(
             workflow_id="workflow-123",
@@ -609,9 +533,7 @@ class TestTemporalClientQueryWorkflowProgress:
             total_agents=3,
             completed_agents=1,
         )
-        temporal_client._client.get_workflow_handle = MagicMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.get_workflow_handle = MagicMock(return_value=mock_workflow_handle)
         mock_workflow_handle.query = AsyncMock(return_value=query_result)
         result = await temporal_client.query_workflow_progress("workflow-123")
         assert isinstance(result, WorkflowProgressQueryResult)
@@ -620,27 +542,21 @@ class TestTemporalClientQueryWorkflowProgress:
         mock_workflow_handle.query.assert_called_once_with("workflow_progress")
 
     @pytest.mark.asyncio
-    async def test_query_workflow_progress_dict_result(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_query_workflow_progress_dict_result(self, temporal_client, mock_workflow_handle):
         """Test workflow progress query with dict result."""
         dict_result = {
             "workflow_id": "workflow-123",
             "status": "running",
             "total_agents": 2,
         }
-        temporal_client._client.get_workflow_handle = MagicMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.get_workflow_handle = MagicMock(return_value=mock_workflow_handle)
         mock_workflow_handle.query = AsyncMock(return_value=dict_result)
         result = await temporal_client.query_workflow_progress("workflow-123")
         assert isinstance(result, WorkflowProgressQueryResult)
         assert result.total_agents == 2
 
     @pytest.mark.asyncio
-    async def test_query_workflow_progress_workflow_not_found(
-        self, temporal_client
-    ):
+    async def test_query_workflow_progress_workflow_not_found(self, temporal_client):
         """Test workflow progress query when workflow not found."""
         temporal_client._client.get_workflow_handle = MagicMock(
             side_effect=Exception("Workflow not found")
@@ -654,18 +570,14 @@ class TestTemporalClientQueryWorkflowState:
     """Test TemporalClient.query_workflow_state() method."""
 
     @pytest.mark.asyncio
-    async def test_query_workflow_state_success(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_query_workflow_state_success(self, temporal_client, mock_workflow_handle):
         """Test successful workflow state query."""
         query_result = WorkflowStateQueryResult(
             workflow_id="workflow-123",
             status=WorkflowStatus.RUNNING,
             context={"query": "test"},
         )
-        temporal_client._client.get_workflow_handle = MagicMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.get_workflow_handle = MagicMock(return_value=mock_workflow_handle)
         mock_workflow_handle.query = AsyncMock(return_value=query_result)
         result = await temporal_client.query_workflow_state("workflow-123")
         assert isinstance(result, WorkflowStateQueryResult)
@@ -673,27 +585,21 @@ class TestTemporalClientQueryWorkflowState:
         mock_workflow_handle.query.assert_called_once_with("workflow_state")
 
     @pytest.mark.asyncio
-    async def test_query_workflow_state_dict_result(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_query_workflow_state_dict_result(self, temporal_client, mock_workflow_handle):
         """Test workflow state query with dict result."""
         dict_result = {
             "workflow_id": "workflow-123",
             "status": "running",
             "context": {"query": "test"},
         }
-        temporal_client._client.get_workflow_handle = MagicMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.get_workflow_handle = MagicMock(return_value=mock_workflow_handle)
         mock_workflow_handle.query = AsyncMock(return_value=dict_result)
         result = await temporal_client.query_workflow_state("workflow-123")
         assert isinstance(result, WorkflowStateQueryResult)
         assert result.context == {"query": "test"}
 
     @pytest.mark.asyncio
-    async def test_query_workflow_state_workflow_not_found(
-        self, temporal_client
-    ):
+    async def test_query_workflow_state_workflow_not_found(self, temporal_client):
         """Test workflow state query when workflow not found."""
         temporal_client._client.get_workflow_handle = MagicMock(
             side_effect=Exception("Workflow not found")
@@ -707,9 +613,7 @@ class TestTemporalClientQueryAgentStatus:
     """Test TemporalClient.query_agent_status() method."""
 
     @pytest.mark.asyncio
-    async def test_query_agent_status_success(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_query_agent_status_success(self, temporal_client, mock_workflow_handle):
         """Test successful agent status query."""
         started_at = datetime(2024, 1, 1, 12, 0, 0)
         query_result = AgentStatusQueryResult(
@@ -719,23 +623,15 @@ class TestTemporalClientQueryAgentStatus:
             status="running",
             started_at=started_at,
         )
-        temporal_client._client.get_workflow_handle = MagicMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.get_workflow_handle = MagicMock(return_value=mock_workflow_handle)
         mock_workflow_handle.query = AsyncMock(return_value=query_result)
-        result = await temporal_client.query_agent_status(
-            "workflow-123", "agent1"
-        )
+        result = await temporal_client.query_agent_status("workflow-123", "agent1")
         assert isinstance(result, AgentStatusQueryResult)
         assert result.agent_name == "agent1"
-        mock_workflow_handle.query.assert_called_once_with(
-            "agent_status", "agent1"
-        )
+        mock_workflow_handle.query.assert_called_once_with("agent_status", "agent1")
 
     @pytest.mark.asyncio
-    async def test_query_agent_status_dict_result(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_query_agent_status_dict_result(self, temporal_client, mock_workflow_handle):
         """Test agent status query with dict result."""
         started_at = datetime(2024, 1, 1, 12, 0, 0)
         dict_result = {
@@ -745,20 +641,14 @@ class TestTemporalClientQueryAgentStatus:
             "status": "running",
             "started_at": started_at.isoformat(),
         }
-        temporal_client._client.get_workflow_handle = MagicMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.get_workflow_handle = MagicMock(return_value=mock_workflow_handle)
         mock_workflow_handle.query = AsyncMock(return_value=dict_result)
-        result = await temporal_client.query_agent_status(
-            "workflow-123", "agent1"
-        )
+        result = await temporal_client.query_agent_status("workflow-123", "agent1")
         assert isinstance(result, AgentStatusQueryResult)
         assert result.agent_name == "agent1"
 
     @pytest.mark.asyncio
-    async def test_query_agent_status_workflow_not_found(
-        self, temporal_client
-    ):
+    async def test_query_agent_status_workflow_not_found(self, temporal_client):
         """Test agent status query when workflow not found."""
         temporal_client._client.get_workflow_handle = MagicMock(
             side_effect=Exception("Workflow not found")
@@ -772,37 +662,27 @@ class TestTemporalClientGetWorkflowResult:
     """Test TemporalClient.get_workflow_result() method."""
 
     @pytest.mark.asyncio
-    async def test_get_workflow_result_success(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_get_workflow_result_success(self, temporal_client, mock_workflow_handle):
         """Test successful workflow result retrieval."""
         workflow_result = {"success": True, "final_response": "result"}
-        temporal_client._client.get_workflow_handle = MagicMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.get_workflow_handle = MagicMock(return_value=mock_workflow_handle)
         mock_workflow_handle.result = AsyncMock(return_value=workflow_result)
         result = await temporal_client.get_workflow_result("workflow-123")
         assert result == workflow_result
         mock_workflow_handle.result.assert_called_once_with(rpc_timeout=None)
 
     @pytest.mark.asyncio
-    async def test_get_workflow_result_with_timeout(
-        self, temporal_client, mock_workflow_handle
-    ):
+    async def test_get_workflow_result_with_timeout(self, temporal_client, mock_workflow_handle):
         """Test workflow result retrieval with timeout."""
         workflow_result = {"success": True}
-        temporal_client._client.get_workflow_handle = MagicMock(
-            return_value=mock_workflow_handle
-        )
+        temporal_client._client.get_workflow_handle = MagicMock(return_value=mock_workflow_handle)
         mock_workflow_handle.result = AsyncMock(return_value=workflow_result)
         timeout = timedelta(seconds=30)
         await temporal_client.get_workflow_result("workflow-123", timeout=timeout)
         mock_workflow_handle.result.assert_called_once_with(rpc_timeout=timeout)
 
     @pytest.mark.asyncio
-    async def test_get_workflow_result_workflow_not_found(
-        self, temporal_client
-    ):
+    async def test_get_workflow_result_workflow_not_found(self, temporal_client):
         """Test workflow result retrieval when workflow not found."""
         temporal_client._client.get_workflow_handle = MagicMock(
             side_effect=Exception("Workflow not found")
@@ -873,6 +753,7 @@ class TestModuleLevelFunctions:
         with patch("src.temporal.client._default_client", None):
             set_client(mock_client)
             from src.temporal.client import _default_client
+
             assert _default_client == mock_client
 
     @pytest.mark.asyncio
@@ -884,6 +765,7 @@ class TestModuleLevelFunctions:
             await close_client()
             mock_client.close.assert_called_once()
             from src.temporal.client import _default_client
+
             assert _default_client is None
 
     @pytest.mark.asyncio
@@ -907,4 +789,3 @@ class TestModuleLevelFunctions:
                 # Should only create client once
                 assert mock_client_class.call_count == 1
                 assert mock_client.connect.call_count == 1
-

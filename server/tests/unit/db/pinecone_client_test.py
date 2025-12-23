@@ -8,8 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
-from src.db.pinecone_client import (PineconeClient, close_default_client,
-                                    get_client)
+from src.db.pinecone_client import PineconeClient, close_default_client, get_client
 
 
 @pytest.fixture
@@ -137,9 +136,7 @@ class TestPineconeClientInitialize:
                 assert client._client == mock_pinecone_client
 
     @pytest.mark.asyncio
-    async def test_initialize_with_custom_api_key(
-        self, mock_pinecone_client, monkeypatch
-    ):
+    async def test_initialize_with_custom_api_key(self, mock_pinecone_client, monkeypatch):
         """Test initialization with custom API key."""
         with patch("src.db.pinecone_client.settings") as mock_settings:
             mock_settings.pinecone_api_key = "default-key"
@@ -153,9 +150,7 @@ class TestPineconeClientInitialize:
                 mock_pinecone_class.assert_called_once_with(api_key="custom-key")
 
     @pytest.mark.asyncio
-    async def test_initialize_already_initialized(
-        self, mock_pinecone_client, monkeypatch
-    ):
+    async def test_initialize_already_initialized(self, mock_pinecone_client, monkeypatch):
         """Test that re-initialization is skipped with warning."""
         with patch("src.db.pinecone_client.settings") as mock_settings:
             mock_settings.pinecone_api_key = "test-key"
@@ -280,9 +275,7 @@ class TestPineconeClientContextManager:
                 assert client._client is None
 
     @pytest.mark.asyncio
-    async def test_context_manager_returns_self(
-        self, mock_pinecone_client, monkeypatch
-    ):
+    async def test_context_manager_returns_self(self, mock_pinecone_client, monkeypatch):
         """Test that context manager returns the client instance."""
         with patch("src.db.pinecone_client.settings") as mock_settings:
             mock_settings.pinecone_api_key = "test-key"
@@ -294,9 +287,7 @@ class TestPineconeClientContextManager:
                     assert isinstance(client, PineconeClient)
 
     @pytest.mark.asyncio
-    async def test_context_manager_with_exception(
-        self, mock_pinecone_client, monkeypatch
-    ):
+    async def test_context_manager_with_exception(self, mock_pinecone_client, monkeypatch):
         """Test context manager properly closes client even on exception."""
         with patch("src.db.pinecone_client.settings") as mock_settings:
             mock_settings.pinecone_api_key = "test-key"
@@ -366,9 +357,7 @@ class TestPineconeClientListIndexes:
             assert indexes == ["index1", "index2", "index3"]
             mock_pinecone_client.list_indexes.assert_called_once()
 
-    def test_list_indexes_success_with_list(
-        self, mock_pinecone_client, mock_index, monkeypatch
-    ):
+    def test_list_indexes_success_with_list(self, mock_pinecone_client, mock_index, monkeypatch):
         """Test successful list_indexes when response is a list."""
         with patch("src.db.pinecone_client.settings") as mock_settings:
             mock_settings.pinecone_api_key = "test-key"
@@ -742,9 +731,7 @@ class TestPineconeClientIsConnected:
             assert not client.is_connected()
 
     @pytest.mark.asyncio
-    async def test_is_connected_true_when_initialized(
-        self, mock_pinecone_client, monkeypatch
-    ):
+    async def test_is_connected_true_when_initialized(self, mock_pinecone_client, monkeypatch):
         """Test is_connected returns True when client is initialized."""
         with patch("src.db.pinecone_client.settings") as mock_settings:
             mock_settings.pinecone_api_key = "test-key"
@@ -757,9 +744,7 @@ class TestPineconeClientIsConnected:
                 assert client.is_connected()
 
     @pytest.mark.asyncio
-    async def test_is_connected_false_after_close(
-        self, mock_pinecone_client, monkeypatch
-    ):
+    async def test_is_connected_false_after_close(self, mock_pinecone_client, monkeypatch):
         """Test is_connected returns False after closing client."""
         with patch("src.db.pinecone_client.settings") as mock_settings:
             mock_settings.pinecone_api_key = "test-key"
@@ -897,9 +882,7 @@ class TestPineconeClientSingleton:
             with patch("src.db.pinecone_client.Pinecone") as mock_pinecone_class:
                 mock_pinecone_class.return_value = mock_pinecone_client
 
-                with patch(
-                    "src.db.pinecone_client.PineconeClient"
-                ) as mock_client_class:
+                with patch("src.db.pinecone_client.PineconeClient") as mock_client_class:
                     mock_client = MagicMock()
                     mock_client.initialize = AsyncMock()
                     mock_client_class.return_value = mock_client
@@ -915,9 +898,7 @@ class TestPineconeClientSingleton:
                     mock_client.initialize.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_client_returns_existing_instance(
-        self, mock_pinecone_client, monkeypatch
-    ):
+    async def test_get_client_returns_existing_instance(self, mock_pinecone_client, monkeypatch):
         """Test get_client returns existing instance if already created."""
         with patch("src.db.pinecone_client.settings") as mock_settings:
             mock_settings.pinecone_api_key = "test-key"
@@ -926,9 +907,7 @@ class TestPineconeClientSingleton:
             with patch("src.db.pinecone_client.Pinecone") as mock_pinecone_class:
                 mock_pinecone_class.return_value = mock_pinecone_client
 
-                with patch(
-                    "src.db.pinecone_client.PineconeClient"
-                ) as mock_client_class:
+                with patch("src.db.pinecone_client.PineconeClient") as mock_client_class:
                     mock_client = MagicMock()
                     mock_client.initialize = AsyncMock()
                     mock_client_class.return_value = mock_client
@@ -946,9 +925,7 @@ class TestPineconeClientSingleton:
                     assert mock_client.initialize.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_close_default_client_success(
-        self, mock_pinecone_client, monkeypatch
-    ):
+    async def test_close_default_client_success(self, mock_pinecone_client, monkeypatch):
         """Test close_default_client closes the singleton instance."""
         with patch("src.db.pinecone_client.settings") as mock_settings:
             mock_settings.pinecone_api_key = "test-key"
@@ -957,9 +934,7 @@ class TestPineconeClientSingleton:
             with patch("src.db.pinecone_client.Pinecone") as mock_pinecone_class:
                 mock_pinecone_class.return_value = mock_pinecone_client
 
-                with patch(
-                    "src.db.pinecone_client.PineconeClient"
-                ) as mock_client_class:
+                with patch("src.db.pinecone_client.PineconeClient") as mock_client_class:
                     mock_client = MagicMock()
                     mock_client.initialize = AsyncMock()
                     mock_client.close = AsyncMock()
@@ -998,9 +973,7 @@ class TestPineconeClientSingleton:
             with patch("src.db.pinecone_client.Pinecone") as mock_pinecone_class:
                 mock_pinecone_class.return_value = mock_pinecone_client
 
-                with patch(
-                    "src.db.pinecone_client.PineconeClient"
-                ) as mock_client_class:
+                with patch("src.db.pinecone_client.PineconeClient") as mock_client_class:
                     mock_client1 = MagicMock()
                     mock_client1.initialize = AsyncMock()
                     mock_client1.close = AsyncMock()

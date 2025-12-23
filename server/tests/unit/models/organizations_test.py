@@ -208,9 +208,7 @@ class TestOrganizationModelGet:
     """Test OrganizationModel.get() method."""
 
     @pytest.mark.asyncio
-    async def test_get_all_organizations(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_all_organizations(self, mock_postgres_client, sample_organization_record):
         """Test getting all organizations without filters."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
@@ -246,17 +244,13 @@ class TestOrganizationModelGet:
         assert str(sample_org_uuid) in params
 
     @pytest.mark.asyncio
-    async def test_get_by_cb_url(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_cb_url(self, mock_postgres_client, sample_organization_record):
         """Test getting organization by Crunchbase URL."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
         await model.initialize()
 
-        results = await model.get(
-            cb_url="https://www.crunchbase.com/organization/example"
-        )
+        results = await model.get(cb_url="https://www.crunchbase.com/organization/example")
 
         assert len(results) == 1
         call_args = mock_postgres_client.query.call_args
@@ -302,9 +296,7 @@ class TestOrganizationModelGet:
         assert "Technology" in params
 
     @pytest.mark.asyncio
-    async def test_get_by_country(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_country(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by country."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
@@ -320,9 +312,7 @@ class TestOrganizationModelGet:
         assert "United States" in params
 
     @pytest.mark.asyncio
-    async def test_get_by_continent(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_continent(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by continent."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
@@ -370,9 +360,7 @@ class TestOrganizationModelGet:
         assert "California" in params
 
     @pytest.mark.asyncio
-    async def test_get_by_name_exact(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_name_exact(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by exact name match."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
@@ -388,9 +376,7 @@ class TestOrganizationModelGet:
         assert "Example AI Corp" in params
 
     @pytest.mark.asyncio
-    async def test_get_by_name_ilike(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_name_ilike(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by case-insensitive name search."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
@@ -406,9 +392,7 @@ class TestOrganizationModelGet:
         assert "%example%" in params
 
     @pytest.mark.asyncio
-    async def test_get_by_org_domain(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_org_domain(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by exact domain match."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
@@ -424,9 +408,7 @@ class TestOrganizationModelGet:
         assert "example.com" in params
 
     @pytest.mark.asyncio
-    async def test_get_by_org_domain_ilike(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_org_domain_ilike(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by case-insensitive domain search."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
@@ -512,9 +494,7 @@ class TestOrganizationModelGet:
         assert "Series B-1" in params
 
     @pytest.mark.asyncio
-    async def test_get_by_org_type(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_org_type(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by organization type."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
@@ -530,9 +510,7 @@ class TestOrganizationModelGet:
         assert "company" in params
 
     @pytest.mark.asyncio
-    async def test_get_by_operating_status(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_operating_status(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by operating status."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
@@ -548,9 +526,7 @@ class TestOrganizationModelGet:
         assert "operating" in params
 
     @pytest.mark.asyncio
-    async def test_get_by_org_status(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_org_status(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by organization status."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
@@ -566,9 +542,7 @@ class TestOrganizationModelGet:
         assert "active" in params
 
     @pytest.mark.asyncio
-    async def test_get_by_ipo_status(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_ipo_status(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by IPO status."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
@@ -602,9 +576,7 @@ class TestOrganizationModelGet:
         assert "for_profit" in params
 
     @pytest.mark.asyncio
-    async def test_get_by_employee_count(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_employee_count(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by employee count."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
@@ -620,9 +592,7 @@ class TestOrganizationModelGet:
         assert "51-100" in params
 
     @pytest.mark.asyncio
-    async def test_get_by_revenue_range(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_revenue_range(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by revenue range."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
@@ -638,9 +608,7 @@ class TestOrganizationModelGet:
         assert "$10M-$50M" in params
 
     @pytest.mark.asyncio
-    async def test_get_by_founding_date(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_founding_date(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by exact founding date."""
         founding_date = datetime(2018, 5, 10)
         mock_postgres_client.query.return_value = [sample_organization_record]
@@ -774,9 +742,7 @@ class TestOrganizationModelGet:
         assert 5 in params
 
     @pytest.mark.asyncio
-    async def test_get_by_cb_rank_range(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_cb_rank_range(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by Crunchbase rank range."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
@@ -822,9 +788,7 @@ class TestOrganizationModelGet:
         assert date_to in params
 
     @pytest.mark.asyncio
-    async def test_get_by_created_at_range(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_created_at_range(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by created_at date range."""
         date_from = datetime(2020, 1, 1)
         date_to = datetime(2020, 12, 31)
@@ -847,9 +811,7 @@ class TestOrganizationModelGet:
         assert date_to in params
 
     @pytest.mark.asyncio
-    async def test_get_by_updated_at_range(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_updated_at_range(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by updated_at date range."""
         date_from = datetime(2023, 11, 1)
         date_to = datetime(2023, 12, 31)
@@ -872,9 +834,7 @@ class TestOrganizationModelGet:
         assert date_to in params
 
     @pytest.mark.asyncio
-    async def test_get_by_closed_on(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_closed_on(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by exact closed_on date."""
         closed_date = datetime(2020, 12, 31)
         mock_postgres_client.query.return_value = [sample_organization_record]
@@ -891,9 +851,7 @@ class TestOrganizationModelGet:
         assert closed_date in params
 
     @pytest.mark.asyncio
-    async def test_get_by_closed_on_range(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_closed_on_range(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by closed_on date range."""
         date_from = datetime(2020, 1, 1)
         date_to = datetime(2020, 12, 31)
@@ -1011,9 +969,7 @@ class TestOrganizationModelGet:
         assert 50000000 in params
 
     @pytest.mark.asyncio
-    async def test_get_by_exited_on(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_exited_on(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by exact exited_on date."""
         exited_date = datetime(2021, 6, 30)
         mock_postgres_client.query.return_value = [sample_organization_record]
@@ -1030,9 +986,7 @@ class TestOrganizationModelGet:
         assert exited_date in params
 
     @pytest.mark.asyncio
-    async def test_get_by_exited_on_range(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_exited_on_range(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by exited_on date range."""
         date_from = datetime(2021, 1, 1)
         date_to = datetime(2021, 12, 31)
@@ -1251,9 +1205,7 @@ class TestOrganizationModelGet:
         assert 50 in params
 
     @pytest.mark.asyncio
-    async def test_get_by_cb_rank_exact(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_cb_rank_exact(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by exact cb_rank."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
@@ -1305,9 +1257,7 @@ class TestOrganizationModelGet:
         assert 200000000 in params
 
     @pytest.mark.asyncio
-    async def test_get_by_valuation_date(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_by_valuation_date(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations by exact valuation_date."""
         valuation_date = datetime(2023, 6, 15)
         mock_postgres_client.query.return_value = [sample_organization_record]
@@ -1376,9 +1326,7 @@ class TestOrganizationModelGet:
         assert "Artificial Intelligence" in params
 
     @pytest.mark.asyncio
-    async def test_get_with_limit(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_with_limit(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations with limit."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
@@ -1394,9 +1342,7 @@ class TestOrganizationModelGet:
         assert 10 in params
 
     @pytest.mark.asyncio
-    async def test_get_with_offset(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_with_offset(self, mock_postgres_client, sample_organization_record):
         """Test getting organizations with offset."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
@@ -1444,9 +1390,7 @@ class TestOrganizationModelGet:
         mock_postgres_client.query.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_multiple_results(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_multiple_results(self, mock_postgres_client, sample_organization_record):
         """Test getting multiple organizations."""
 
         # Create a second record with a different UUID
@@ -1902,9 +1846,7 @@ class TestOrganizationModelCount:
     @pytest.mark.asyncio
     async def test_count_database_error(self, mock_postgres_client):
         """Test count() raises exception when database query fails."""
-        mock_postgres_client.query_value.side_effect = Exception(
-            "Database connection failed"
-        )
+        mock_postgres_client.query_value.side_effect = Exception("Database connection failed")
         model = OrganizationModel(client=mock_postgres_client)
         await model.initialize()
 
@@ -1966,9 +1908,7 @@ class TestOrganizationModelEdgeCases:
         assert None not in params
 
     @pytest.mark.asyncio
-    async def test_get_query_ordering(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_query_ordering(self, mock_postgres_client, sample_organization_record):
         """Test that query includes proper ORDER BY clause."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)
@@ -1981,9 +1921,7 @@ class TestOrganizationModelEdgeCases:
         assert "ORDER BY updated_at DESC NULLS LAST" in query
 
     @pytest.mark.asyncio
-    async def test_get_parameter_ordering(
-        self, mock_postgres_client, sample_organization_record
-    ):
+    async def test_get_parameter_ordering(self, mock_postgres_client, sample_organization_record):
         """Test that query parameters are correctly ordered."""
         mock_postgres_client.query.return_value = [sample_organization_record]
         model = OrganizationModel(client=mock_postgres_client)

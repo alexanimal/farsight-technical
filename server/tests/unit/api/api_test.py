@@ -29,8 +29,10 @@ class TestLifespan:
         """Test successful lifespan startup."""
         mock_client = MagicMock()
 
-        with patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.api.logger") as mock_logger:
+        with (
+            patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.api.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_client
 
             async with api.lifespan(mock_app):
@@ -48,8 +50,10 @@ class TestLifespan:
         error_message = "Connection failed"
         mock_get_client = AsyncMock(side_effect=Exception(error_message))
 
-        with patch("src.api.api.get_client", mock_get_client), \
-             patch("src.api.api.logger") as mock_logger:
+        with (
+            patch("src.api.api.get_client", mock_get_client),
+            patch("src.api.api.logger") as mock_logger,
+        ):
             # Should not raise exception
             async with api.lifespan(mock_app):
                 pass
@@ -65,9 +69,11 @@ class TestLifespan:
         """Test successful lifespan shutdown."""
         mock_client = MagicMock()
 
-        with patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.api.close_client", new_callable=AsyncMock) as mock_close_client, \
-             patch("src.api.api.logger") as mock_logger:
+        with (
+            patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.api.close_client", new_callable=AsyncMock) as mock_close_client,
+            patch("src.api.api.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_client
 
             async with api.lifespan(mock_app):
@@ -86,9 +92,11 @@ class TestLifespan:
         error_message = "Close failed"
         mock_client = MagicMock()
 
-        with patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.api.close_client", new_callable=AsyncMock) as mock_close_client, \
-             patch("src.api.api.logger") as mock_logger:
+        with (
+            patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.api.close_client", new_callable=AsyncMock) as mock_close_client,
+            patch("src.api.api.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_client
             mock_close_client.side_effect = Exception(error_message)
 
@@ -109,8 +117,10 @@ class TestLifespan:
         mock_client = MagicMock()
         control_yielded = False
 
-        with patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.api.close_client", new_callable=AsyncMock) as mock_close_client:
+        with (
+            patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.api.close_client", new_callable=AsyncMock) as mock_close_client,
+        ):
             mock_get_client.return_value = mock_client
 
             async with api.lifespan(mock_app):
@@ -127,9 +137,11 @@ class TestLifespan:
         """Test that lifespan handles exceptions during context gracefully."""
         mock_client = MagicMock()
 
-        with patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.api.close_client", new_callable=AsyncMock) as mock_close_client, \
-             patch("src.api.api.logger") as mock_logger:
+        with (
+            patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.api.close_client", new_callable=AsyncMock) as mock_close_client,
+            patch("src.api.api.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_client
 
             # Exception should be raised and caught
@@ -205,6 +217,7 @@ class TestMiddlewareSetup:
         with patch("src.api.api.setup_cors") as mock_setup_cors:
             # Re-import to catch the call
             import importlib
+
             importlib.reload(api)
             # Note: This test verifies the pattern, actual call happens at import time
             # We can verify by checking middleware is present
@@ -342,8 +355,10 @@ class TestLifespanEdgeCases:
     @pytest.mark.asyncio
     async def test_lifespan_startup_multiple_exceptions(self, mock_app):
         """Test lifespan handles multiple exceptions during startup."""
-        with patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.api.logger") as mock_logger:
+        with (
+            patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.api.logger") as mock_logger,
+        ):
             # First call fails, but lifespan should continue
             mock_get_client.side_effect = Exception("First error")
 
@@ -358,9 +373,11 @@ class TestLifespanEdgeCases:
         """Test lifespan handles multiple exceptions during shutdown."""
         mock_client = MagicMock()
 
-        with patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.api.close_client", new_callable=AsyncMock) as mock_close_client, \
-             patch("src.api.api.logger") as mock_logger:
+        with (
+            patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.api.close_client", new_callable=AsyncMock) as mock_close_client,
+            patch("src.api.api.logger") as mock_logger,
+        ):
             mock_get_client.return_value = mock_client
             mock_close_client.side_effect = [
                 Exception("First close error"),
@@ -380,8 +397,10 @@ class TestLifespanEdgeCases:
         # This shouldn't happen in practice, but test for robustness
         mock_client = MagicMock()
 
-        with patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client, \
-             patch("src.api.api.close_client", new_callable=AsyncMock) as mock_close_client:
+        with (
+            patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.api.close_client", new_callable=AsyncMock) as mock_close_client,
+        ):
             mock_get_client.return_value = mock_client
 
             # Should still work (app parameter is not used in lifespan logic)
@@ -389,4 +408,3 @@ class TestLifespanEdgeCases:
                 pass
 
             mock_close_client.assert_called_once()
-

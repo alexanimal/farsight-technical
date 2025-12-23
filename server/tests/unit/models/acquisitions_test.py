@@ -41,9 +41,7 @@ def sample_acquirer_uuid():
 
 
 @pytest.fixture
-def sample_acquisition_record(
-    sample_acquisition_uuid, sample_acquiree_uuid, sample_acquirer_uuid
-):
+def sample_acquisition_record(sample_acquisition_uuid, sample_acquiree_uuid, sample_acquirer_uuid):
     """Create a sample acquisition record (as would be returned from database)."""
 
     # Create a dict-like object that can be converted to a dict
@@ -72,9 +70,7 @@ def sample_acquisition_record(
 
 
 @pytest.fixture
-def sample_acquisition(
-    sample_acquisition_uuid, sample_acquiree_uuid, sample_acquirer_uuid
-):
+def sample_acquisition(sample_acquisition_uuid, sample_acquiree_uuid, sample_acquirer_uuid):
     """Create a sample Acquisition Pydantic model instance."""
     return Acquisition(
         acquisition_uuid=sample_acquisition_uuid,
@@ -146,9 +142,7 @@ class TestAcquisitionModelGet:
     """Test AcquisitionModel.get() method."""
 
     @pytest.mark.asyncio
-    async def test_get_all_acquisitions(
-        self, mock_postgres_client, sample_acquisition_record
-    ):
+    async def test_get_all_acquisitions(self, mock_postgres_client, sample_acquisition_record):
         """Test getting all acquisitions without filters."""
         mock_postgres_client.query.return_value = [sample_acquisition_record]
         model = AcquisitionModel(client=mock_postgres_client)
@@ -220,9 +214,7 @@ class TestAcquisitionModelGet:
         assert str(sample_acquirer_uuid) in params
 
     @pytest.mark.asyncio
-    async def test_get_by_acquisition_type(
-        self, mock_postgres_client, sample_acquisition_record
-    ):
+    async def test_get_by_acquisition_type(self, mock_postgres_client, sample_acquisition_record):
         """Test getting acquisitions by type."""
         mock_postgres_client.query.return_value = [sample_acquisition_record]
         model = AcquisitionModel(client=mock_postgres_client)
@@ -238,9 +230,7 @@ class TestAcquisitionModelGet:
         assert "merger" in params
 
     @pytest.mark.asyncio
-    async def test_get_by_announce_date(
-        self, mock_postgres_client, sample_acquisition_record
-    ):
+    async def test_get_by_announce_date(self, mock_postgres_client, sample_acquisition_record):
         """Test getting acquisitions by exact announce date."""
         announce_date = datetime(2023, 6, 15)
         mock_postgres_client.query.return_value = [sample_acquisition_record]
@@ -282,9 +272,7 @@ class TestAcquisitionModelGet:
         assert date_to in params
 
     @pytest.mark.asyncio
-    async def test_get_by_price_exact(
-        self, mock_postgres_client, sample_acquisition_record
-    ):
+    async def test_get_by_price_exact(self, mock_postgres_client, sample_acquisition_record):
         """Test getting acquisitions by exact price."""
         mock_postgres_client.query.return_value = [sample_acquisition_record]
         model = AcquisitionModel(client=mock_postgres_client)
@@ -300,9 +288,7 @@ class TestAcquisitionModelGet:
         assert 50000000 in params
 
     @pytest.mark.asyncio
-    async def test_get_by_price_range(
-        self, mock_postgres_client, sample_acquisition_record
-    ):
+    async def test_get_by_price_range(self, mock_postgres_client, sample_acquisition_record):
         """Test getting acquisitions by price range."""
         mock_postgres_client.query.return_value = [sample_acquisition_record]
         model = AcquisitionModel(client=mock_postgres_client)
@@ -323,9 +309,7 @@ class TestAcquisitionModelGet:
         assert 100000000 in params
 
     @pytest.mark.asyncio
-    async def test_get_by_terms_exact(
-        self, mock_postgres_client, sample_acquisition_record
-    ):
+    async def test_get_by_terms_exact(self, mock_postgres_client, sample_acquisition_record):
         """Test getting acquisitions by exact terms match."""
         mock_postgres_client.query.return_value = [sample_acquisition_record]
         model = AcquisitionModel(client=mock_postgres_client)
@@ -341,9 +325,7 @@ class TestAcquisitionModelGet:
         assert "Cash and stock" in params
 
     @pytest.mark.asyncio
-    async def test_get_by_terms_ilike(
-        self, mock_postgres_client, sample_acquisition_record
-    ):
+    async def test_get_by_terms_ilike(self, mock_postgres_client, sample_acquisition_record):
         """Test getting acquisitions by case-insensitive terms search."""
         mock_postgres_client.query.return_value = [sample_acquisition_record]
         model = AcquisitionModel(client=mock_postgres_client)
@@ -359,9 +341,7 @@ class TestAcquisitionModelGet:
         assert "%cash%" in params
 
     @pytest.mark.asyncio
-    async def test_get_by_acquirer_type(
-        self, mock_postgres_client, sample_acquisition_record
-    ):
+    async def test_get_by_acquirer_type(self, mock_postgres_client, sample_acquisition_record):
         """Test getting acquisitions by acquirer type."""
         mock_postgres_client.query.return_value = [sample_acquisition_record]
         model = AcquisitionModel(client=mock_postgres_client)
@@ -377,9 +357,7 @@ class TestAcquisitionModelGet:
         assert "public_company" in params
 
     @pytest.mark.asyncio
-    async def test_get_with_multiple_filters(
-        self, mock_postgres_client, sample_acquisition_record
-    ):
+    async def test_get_with_multiple_filters(self, mock_postgres_client, sample_acquisition_record):
         """Test getting acquisitions with multiple filters."""
         mock_postgres_client.query.return_value = [sample_acquisition_record]
         model = AcquisitionModel(client=mock_postgres_client)
@@ -403,9 +381,7 @@ class TestAcquisitionModelGet:
         assert "public_company" in params
 
     @pytest.mark.asyncio
-    async def test_get_with_limit(
-        self, mock_postgres_client, sample_acquisition_record
-    ):
+    async def test_get_with_limit(self, mock_postgres_client, sample_acquisition_record):
         """Test getting acquisitions with limit."""
         mock_postgres_client.query.return_value = [sample_acquisition_record]
         model = AcquisitionModel(client=mock_postgres_client)
@@ -421,9 +397,7 @@ class TestAcquisitionModelGet:
         assert 10 in params
 
     @pytest.mark.asyncio
-    async def test_get_with_offset(
-        self, mock_postgres_client, sample_acquisition_record
-    ):
+    async def test_get_with_offset(self, mock_postgres_client, sample_acquisition_record):
         """Test getting acquisitions with offset."""
         mock_postgres_client.query.return_value = [sample_acquisition_record]
         model = AcquisitionModel(client=mock_postgres_client)
@@ -439,9 +413,7 @@ class TestAcquisitionModelGet:
         assert 20 in params
 
     @pytest.mark.asyncio
-    async def test_get_with_limit_and_offset(
-        self, mock_postgres_client, sample_acquisition_record
-    ):
+    async def test_get_with_limit_and_offset(self, mock_postgres_client, sample_acquisition_record):
         """Test getting acquisitions with both limit and offset."""
         mock_postgres_client.query.return_value = [sample_acquisition_record]
         model = AcquisitionModel(client=mock_postgres_client)
@@ -560,9 +532,7 @@ class TestAcquisitionModelGetByUuid:
         assert 1 in params
 
     @pytest.mark.asyncio
-    async def test_get_by_uuid_not_found(
-        self, mock_postgres_client, sample_acquisition_uuid
-    ):
+    async def test_get_by_uuid_not_found(self, mock_postgres_client, sample_acquisition_uuid):
         """Test get_by_uuid() when acquisition is not found."""
         mock_postgres_client.query.return_value = []
         model = AcquisitionModel(client=mock_postgres_client)
@@ -603,9 +573,7 @@ class TestAcquisitionModelCount:
         assert "WHERE" not in query
 
     @pytest.mark.asyncio
-    async def test_count_by_acquisition_uuid(
-        self, mock_postgres_client, sample_acquisition_uuid
-    ):
+    async def test_count_by_acquisition_uuid(self, mock_postgres_client, sample_acquisition_uuid):
         """Test counting acquisitions by UUID."""
         mock_postgres_client.query_value.return_value = 1
         model = AcquisitionModel(client=mock_postgres_client)
@@ -621,9 +589,7 @@ class TestAcquisitionModelCount:
         assert str(sample_acquisition_uuid) in params
 
     @pytest.mark.asyncio
-    async def test_count_by_acquiree_uuid(
-        self, mock_postgres_client, sample_acquiree_uuid
-    ):
+    async def test_count_by_acquiree_uuid(self, mock_postgres_client, sample_acquiree_uuid):
         """Test counting acquisitions by acquiree UUID."""
         mock_postgres_client.query_value.return_value = 3
         model = AcquisitionModel(client=mock_postgres_client)
@@ -639,9 +605,7 @@ class TestAcquisitionModelCount:
         assert str(sample_acquiree_uuid) in params
 
     @pytest.mark.asyncio
-    async def test_count_by_acquirer_uuid(
-        self, mock_postgres_client, sample_acquirer_uuid
-    ):
+    async def test_count_by_acquirer_uuid(self, mock_postgres_client, sample_acquirer_uuid):
         """Test counting acquisitions by acquirer UUID."""
         mock_postgres_client.query_value.return_value = 5
         model = AcquisitionModel(client=mock_postgres_client)
@@ -791,9 +755,7 @@ class TestAcquisitionModelCount:
     @pytest.mark.asyncio
     async def test_count_database_error(self, mock_postgres_client):
         """Test count() raises exception when database query fails."""
-        mock_postgres_client.query_value.side_effect = Exception(
-            "Database connection failed"
-        )
+        mock_postgres_client.query_value.side_effect = Exception("Database connection failed")
         model = AcquisitionModel(client=mock_postgres_client)
         await model.initialize()
 
@@ -855,9 +817,7 @@ class TestAcquisitionModelEdgeCases:
         assert None not in params
 
     @pytest.mark.asyncio
-    async def test_get_query_ordering(
-        self, mock_postgres_client, sample_acquisition_record
-    ):
+    async def test_get_query_ordering(self, mock_postgres_client, sample_acquisition_record):
         """Test that query includes proper ORDER BY clause."""
         mock_postgres_client.query.return_value = [sample_acquisition_record]
         model = AcquisitionModel(client=mock_postgres_client)
@@ -870,9 +830,7 @@ class TestAcquisitionModelEdgeCases:
         assert "ORDER BY acquisition_announce_date DESC NULLS LAST" in query
 
     @pytest.mark.asyncio
-    async def test_get_parameter_ordering(
-        self, mock_postgres_client, sample_acquisition_record
-    ):
+    async def test_get_parameter_ordering(self, mock_postgres_client, sample_acquisition_record):
         """Test that query parameters are correctly ordered."""
         mock_postgres_client.query.return_value = [sample_acquisition_record]
         model = AcquisitionModel(client=mock_postgres_client)

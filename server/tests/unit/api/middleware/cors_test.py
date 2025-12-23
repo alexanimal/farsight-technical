@@ -124,7 +124,12 @@ class TestSetupCors:
         kwargs = call_args[1]
 
         # Should only have the 4 expected kwargs
-        expected_keys = {"allow_origins", "allow_credentials", "allow_methods", "allow_headers"}
+        expected_keys = {
+            "allow_origins",
+            "allow_credentials",
+            "allow_methods",
+            "allow_headers",
+        }
         assert set(kwargs.keys()) == expected_keys
 
     def test_setup_cors_with_patched_cors_middleware(self, mock_app):
@@ -221,4 +226,3 @@ class TestSetupCorsIntegration:
         # Verify CORS middleware is present
         middleware_classes = [mw.cls for mw in app.user_middleware]
         assert CORSMiddleware in middleware_classes
-

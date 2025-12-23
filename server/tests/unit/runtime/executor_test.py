@@ -105,7 +105,9 @@ class TestExecutorExecuteAgent:
     """Test Executor.execute_agent method."""
 
     @pytest.mark.asyncio
-    async def test_execute_agent_success(self, executor, mock_agent, sample_agent_input, sample_agent_output):
+    async def test_execute_agent_success(
+        self, executor, mock_agent, sample_agent_input, sample_agent_output
+    ):
         """Test successful agent execution."""
         mock_agent.execute.return_value = sample_agent_output
 
@@ -118,24 +120,28 @@ class TestExecutorExecuteAgent:
         mock_agent.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_execute_agent_with_timeout(self, executor, mock_agent, sample_agent_input, sample_agent_output):
+    async def test_execute_agent_with_timeout(
+        self, executor, mock_agent, sample_agent_input, sample_agent_output
+    ):
         """Test agent execution with timeout."""
+
         async def slow_execute(context):
             await asyncio.sleep(1.0)
             return sample_agent_output
 
         mock_agent.execute.side_effect = slow_execute
 
-        result = await executor.execute_agent(
-            mock_agent, sample_agent_input, timeout=0.1
-        )
+        result = await executor.execute_agent(mock_agent, sample_agent_input, timeout=0.1)
 
         assert result.status == ResponseStatus.ERROR
         assert "timed out" in result.error.lower()
 
     @pytest.mark.asyncio
-    async def test_execute_agent_with_default_timeout(self, executor, mock_agent, sample_agent_input, sample_agent_output):
+    async def test_execute_agent_with_default_timeout(
+        self, executor, mock_agent, sample_agent_input, sample_agent_output
+    ):
         """Test agent execution uses default timeout."""
+
         async def slow_execute(context):
             await asyncio.sleep(10.0)
             return sample_agent_output
@@ -148,12 +154,15 @@ class TestExecutorExecuteAgent:
         assert "timed out" in result.error.lower()
 
     @pytest.mark.asyncio
-    async def test_execute_agent_with_cancellation(self, executor, mock_agent, sample_agent_input, sample_agent_output):
+    async def test_execute_agent_with_cancellation(
+        self, executor, mock_agent, sample_agent_input, sample_agent_output
+    ):
         """Test agent execution handles cancellation (via timeout).
-        
+
         Note: The executor catches CancelledError internally and returns an error response.
         This test verifies that timeout (which raises CancelledError internally) is handled.
         """
+
         async def slow_execute(context):
             await asyncio.sleep(1.0)
             return sample_agent_output
@@ -161,9 +170,7 @@ class TestExecutorExecuteAgent:
         mock_agent.execute.side_effect = slow_execute
 
         # Timeout will cause CancelledError internally, which executor catches
-        result = await executor.execute_agent(
-            mock_agent, sample_agent_input, timeout=0.1
-        )
+        result = await executor.execute_agent(mock_agent, sample_agent_input, timeout=0.1)
 
         # Executor catches timeout (which raises internally) and returns error response
         assert result.status == ResponseStatus.ERROR
@@ -208,7 +215,7 @@ class TestExecutorExecuteAgent:
 
         # The executor catches ValueError and returns an error response
         result = await executor.execute_agent(mock_agent, sample_agent_input)
-        
+
         assert result.status == ResponseStatus.ERROR
         # The error message is: "Agent test_agent execution failed: Agent test_agent returned <class 'str'>, expected AgentOutput"
         # When lowercased, "expected AgentOutput" becomes "expected agentoutput"
@@ -216,7 +223,9 @@ class TestExecutorExecuteAgent:
         assert "expected agentoutput" in error_lower or "expected AgentOutput" in result.error
 
     @pytest.mark.asyncio
-    async def test_execute_agent_adds_metadata(self, executor, mock_agent, sample_agent_input, sample_agent_output):
+    async def test_execute_agent_adds_metadata(
+        self, executor, mock_agent, sample_agent_input, sample_agent_output
+    ):
         """Test execute_agent adds execution metadata."""
         mock_agent.execute.return_value = sample_agent_output
 
@@ -228,7 +237,9 @@ class TestExecutorExecuteAgent:
         assert result.metadata["agent_category"] == "testing"
 
     @pytest.mark.asyncio
-    async def test_execute_agent_with_tracing(self, executor_with_tracing, mock_agent, sample_agent_input, sample_agent_output):
+    async def test_execute_agent_with_tracing(
+        self, executor_with_tracing, mock_agent, sample_agent_input, sample_agent_output
+    ):
         """Test execute_agent with tracing enabled."""
         mock_agent.execute.return_value = sample_agent_output
 
@@ -247,9 +258,7 @@ class TestExecutorExecuteAgent:
             mock_tracer.async_span.return_value = mock_async_cm
             mock_get_tracer.return_value = mock_tracer
 
-            result = await executor_with_tracing.execute_agent(
-                mock_agent, sample_agent_input
-            )
+            result = await executor_with_tracing.execute_agent(mock_agent, sample_agent_input)
 
             assert isinstance(result, AgentOutput)
             mock_tracer.async_span.assert_called_once()
@@ -264,6 +273,7 @@ class TestExecutorExecuteTool:
     @pytest.mark.asyncio
     async def test_execute_tool_success(self, executor, sample_tool_input):
         """Test successful tool execution."""
+
         async def tool_func(param1: str):
             return {"result": f"processed {param1}"}
 
@@ -278,13 +288,12 @@ class TestExecutorExecuteTool:
     @pytest.mark.asyncio
     async def test_execute_tool_with_timeout(self, executor, sample_tool_input):
         """Test tool execution with timeout."""
+
         async def slow_tool_func(param1: str):
             await asyncio.sleep(1.0)
             return {"result": "slow"}
 
-        result = await executor.execute_tool(
-            sample_tool_input, slow_tool_func, timeout=0.1
-        )
+        result = await executor.execute_tool(sample_tool_input, slow_tool_func, timeout=0.1)
 
         assert result.success is False
         assert "timed out" in result.error.lower()
@@ -293,6 +302,7 @@ class TestExecutorExecuteTool:
     @pytest.mark.asyncio
     async def test_execute_tool_with_default_timeout(self, executor, sample_tool_input):
         """Test tool execution uses default timeout."""
+
         async def slow_tool_func(param1: str):
             await asyncio.sleep(10.0)
             return {"result": "slow"}
@@ -305,6 +315,7 @@ class TestExecutorExecuteTool:
     @pytest.mark.asyncio
     async def test_execute_tool_with_exception(self, executor, sample_tool_input):
         """Test tool execution handles exceptions."""
+
         async def failing_tool_func(param1: str):
             raise ValueError("tool error")
 
@@ -317,26 +328,28 @@ class TestExecutorExecuteTool:
     @pytest.mark.asyncio
     async def test_execute_tool_with_cancellation(self, executor, sample_tool_input):
         """Test tool execution handles cancellation (via timeout).
-        
+
         Note: The executor catches CancelledError internally and returns an error response.
         This test verifies that timeout (which raises CancelledError internally) is handled.
         """
+
         async def slow_tool_func(param1: str):
             await asyncio.sleep(1.0)
             return {"result": "slow"}
 
         # Timeout will cause CancelledError internally, which executor catches
-        result = await executor.execute_tool(
-            sample_tool_input, slow_tool_func, timeout=0.1
-        )
+        result = await executor.execute_tool(sample_tool_input, slow_tool_func, timeout=0.1)
 
         # Executor catches timeout (which raises internally) and returns error response
         assert result.success is False
         assert "timed out" in result.error.lower()
 
     @pytest.mark.asyncio
-    async def test_execute_tool_with_metadata(self, executor, sample_tool_input, sample_tool_metadata):
+    async def test_execute_tool_with_metadata(
+        self, executor, sample_tool_input, sample_tool_metadata
+    ):
         """Test tool execution with ToolMetadata."""
+
         async def tool_func(param1: str):
             return {"result": "success"}
 
@@ -350,6 +363,7 @@ class TestExecutorExecuteTool:
     @pytest.mark.asyncio
     async def test_execute_tool_adds_metadata(self, executor, sample_tool_input):
         """Test execute_tool adds execution metadata."""
+
         async def tool_func(param1: str):
             return {"result": "success"}
 
@@ -362,6 +376,7 @@ class TestExecutorExecuteTool:
     @pytest.mark.asyncio
     async def test_execute_tool_with_tracing(self, executor_with_tracing, sample_tool_input):
         """Test execute_tool with tracing enabled."""
+
         async def tool_func(param1: str):
             return {"result": "success"}
 
@@ -391,6 +406,7 @@ class TestExecutorExecuteTool:
     @pytest.mark.asyncio
     async def test_execute_tool_measures_execution_time(self, executor, sample_tool_input):
         """Test execute_tool measures execution time."""
+
         async def tool_func(param1: str):
             await asyncio.sleep(0.1)
             return {"result": "success"}
@@ -405,14 +421,14 @@ class TestExecutorPrivateMethods:
     """Test Executor private methods."""
 
     @pytest.mark.asyncio
-    async def test_execute_with_cancellation_success(self, executor, mock_agent, sample_agent_output):
+    async def test_execute_with_cancellation_success(
+        self, executor, mock_agent, sample_agent_output
+    ):
         """Test _execute_with_cancellation with successful execution."""
         context = AgentContext(query="test")
         mock_agent.execute.return_value = sample_agent_output
 
-        result = await executor._execute_with_cancellation(
-            mock_agent, context, None
-        )
+        result = await executor._execute_with_cancellation(mock_agent, context, None)
 
         assert isinstance(result, AgentOutput)
         mock_agent.execute.assert_called_once_with(context)
@@ -444,6 +460,7 @@ class TestExecutorPrivateMethods:
     @pytest.mark.asyncio
     async def test_execute_tool_with_cancellation_success(self, executor):
         """Test _execute_tool_with_cancellation with successful execution."""
+
         async def tool_func(param1: str):
             return {"result": "success"}
 
@@ -456,6 +473,7 @@ class TestExecutorPrivateMethods:
     @pytest.mark.asyncio
     async def test_execute_tool_with_cancellation_with_exception(self, executor):
         """Test _execute_tool_with_cancellation with exception."""
+
         async def failing_tool_func(param1: str):
             raise ValueError("tool error")
 
@@ -489,4 +507,3 @@ class TestExecutorDefaultInstance:
         executor1 = get_executor()
         executor2 = get_executor()
         assert executor1 is executor2
-

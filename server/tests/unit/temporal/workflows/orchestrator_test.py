@@ -61,12 +61,16 @@ class TestOrchestratorWorkflowRun:
             mock_workflow.info.return_value = mock_workflow_info
             mock_workflow.now.return_value = mock_now
             mock_workflow.logger = MagicMock()
+            # Mock execute_activity to return proper agent execution results
+            # The workflow expects results with "success" and "response" keys
+            # Note: The workflow will also call orchestration agent for consolidation,
+            # so we need 3 responses: agent1, agent2, and orchestration (consolidation)
             mock_workflow.execute_activity = AsyncMock(
                 side_effect=[
                     {
                         "success": True,
                         "response": {
-                            "content": "Response from agent1",
+                            "content": {"summary": "Response from agent1"},
                             "agent_name": "agent1",
                             "agent_category": "test",
                         },
@@ -74,26 +78,53 @@ class TestOrchestratorWorkflowRun:
                     {
                         "success": True,
                         "response": {
-                            "content": "Response from agent2",
+                            "content": {"summary": "Response from agent2"},
                             "agent_name": "agent2",
                             "agent_category": "test",
+                        },
+                    },
+                    {
+                        "success": True,
+                        "response": {
+                            "content": {"summary": "Consolidated response"},
+                            "agent_name": "orchestration",
+                            "agent_category": "orchestration",
                         },
                     },
                 ]
             )
 
-            result = await workflow.run(
-                context=context,
-                agent_plan=agent_plan,
-                execution_mode="sequential",
-            )
+            # Mock internal methods that are called during workflow execution
+            with (
+                patch.object(
+                    workflow, "_evaluate_response_quality", new_callable=AsyncMock
+                ) as mock_eval,
+                patch.object(
+                    workflow, "_save_conversation_history", new_callable=AsyncMock
+                ) as mock_save,
+                patch.object(workflow, "_append_to_history", new_callable=AsyncMock) as mock_append,
+                patch.object(
+                    workflow, "_update_context_with_results", new_callable=AsyncMock
+                ) as mock_update_context,
+            ):
+                # Mock evaluation to return satisfactory=True so workflow completes
+                mock_eval.return_value = {"satisfactory": True, "confidence": 0.9}
+                # Mock update_context to return the context as-is
+                mock_update_context.return_value = context
 
-            assert result["success"] is True
-            assert result["workflow_id"] == "test-workflow-id"
-            assert len(result["agent_responses"]) == 2
-            assert workflow._state.status == WorkflowStatus.COMPLETED
-            assert workflow._state.started_at == mock_now
-            assert workflow._state.completed_at == mock_now
+                result = await workflow.run(
+                    context=context,
+                    agent_plan=agent_plan,
+                    execution_mode="sequential",
+                )
+
+                assert result["success"] is True
+                assert result["workflow_id"] == "test-workflow-id"
+                # agent_responses includes agent1, agent2, and orchestration (for consolidation)
+                assert len(result["agent_responses"]) == 3
+                assert workflow._state.status == WorkflowStatus.COMPLETED
+                assert workflow._state.started_at == mock_now
+                assert workflow._state.completed_at == mock_now
 
     @pytest.mark.asyncio
     async def test_run_with_agent_plan_parallel(self):
@@ -110,12 +141,16 @@ class TestOrchestratorWorkflowRun:
             mock_workflow.info.return_value = mock_workflow_info
             mock_workflow.now.return_value = mock_now
             mock_workflow.logger = MagicMock()
+            # Mock execute_activity to return proper agent execution results
+            # The workflow expects results with "success" and "response" keys
+            # Note: The workflow will also call orchestration agent for consolidation,
+            # so we need 3 responses: agent1, agent2, and orchestration (consolidation)
             mock_workflow.execute_activity = AsyncMock(
                 side_effect=[
                     {
                         "success": True,
                         "response": {
-                            "content": "Response from agent1",
+                            "content": {"summary": "Response from agent1"},
                             "agent_name": "agent1",
                             "agent_category": "test",
                         },
@@ -123,22 +158,49 @@ class TestOrchestratorWorkflowRun:
                     {
                         "success": True,
                         "response": {
-                            "content": "Response from agent2",
+                            "content": {"summary": "Response from agent2"},
                             "agent_name": "agent2",
                             "agent_category": "test",
+                        },
+                    },
+                    {
+                        "success": True,
+                        "response": {
+                            "content": {"summary": "Consolidated response"},
+                            "agent_name": "orchestration",
+                            "agent_category": "orchestration",
                         },
                     },
                 ]
             )
 
-            result = await workflow.run(
-                context=context,
-                agent_plan=agent_plan,
-                execution_mode="parallel",
-            )
+            # Mock internal methods that are called during workflow execution
+            with (
+                patch.object(
+                    workflow, "_evaluate_response_quality", new_callable=AsyncMock
+                ) as mock_eval,
+                patch.object(
+                    workflow, "_save_conversation_history", new_callable=AsyncMock
+                ) as mock_save,
+                patch.object(workflow, "_append_to_history", new_callable=AsyncMock) as mock_append,
+                patch.object(
+                    workflow, "_update_context_with_results", new_callable=AsyncMock
+                ) as mock_update_context,
+            ):
+                # Mock evaluation to return satisfactory=True so workflow completes
+                mock_eval.return_value = {"satisfactory": True, "confidence": 0.9}
+                # Mock update_context to return the context as-is
+                mock_update_context.return_value = context
 
-            assert result["success"] is True
-            assert len(result["agent_responses"]) == 2
+                result = await workflow.run(
+                    context=context,
+                    agent_plan=agent_plan,
+                    execution_mode="parallel",
+                )
+
+                assert result["success"] is True
+                # agent_responses includes agent1, agent2, and orchestration (for consolidation)
+                assert len(result["agent_responses"]) == 3
 
     @pytest.mark.asyncio
     async def test_run_without_agent_plan_determines_plan(self):
@@ -226,11 +288,26 @@ class TestOrchestratorWorkflowRun:
                 }
             )
 
-            result = await workflow.run(context=context_list)
+            # Mock internal methods that are called during workflow execution
+            with (
+                patch.object(
+                    workflow, "_evaluate_response_quality", new_callable=AsyncMock
+                ) as mock_eval,
+                patch.object(
+                    workflow, "_save_conversation_history", new_callable=AsyncMock
+                ) as mock_save,
+                patch.object(workflow, "_append_to_history", new_callable=AsyncMock) as mock_append,
+            ):
+                # Mock evaluation to return satisfactory=True so workflow completes
+                mock_eval.return_value = {"satisfactory": True, "confidence": 0.9}
 
-            assert result["success"] is True
-            assert workflow._state.context == {"query": "What is the weather?"}
-            assert workflow._state.metadata["execution_mode"] == "parallel"
+                result = await workflow.run(context=context_list)
+
+                assert result["success"] is True
+                # Context now includes conversation_history, so check query separately
+                assert workflow._state.context.get("query") == "What is the weather?"
+                assert "conversation_history" in workflow._state.context
+                assert workflow._state.metadata["execution_mode"] == "parallel"
 
     @pytest.mark.asyncio
     async def test_run_invalid_context_raises_error(self):
@@ -345,7 +422,9 @@ class TestOrchestratorWorkflowRun:
             mock_workflow.logger = MagicMock()
             # Make _determine_agent_plan raise an exception to test workflow-level error handling
             with patch.object(
-                workflow, "_determine_agent_plan", side_effect=RuntimeError("Workflow error")
+                workflow,
+                "_determine_agent_plan",
+                side_effect=RuntimeError("Workflow error"),
             ):
 
                 with pytest.raises(RuntimeError, match="Workflow error"):
@@ -383,9 +462,10 @@ class TestOrchestratorWorkflowDetermineAgentPlan:
                 }
             )
 
-            plan = await workflow._determine_agent_plan(context)
+            plan, execution_mode = await workflow._determine_agent_plan(context)
 
             assert plan == ["agent1", "agent2", "agent3"]
+            assert execution_mode is None  # Not in test mock response
             mock_workflow.execute_activity.assert_called_once()
 
     @pytest.mark.asyncio
@@ -403,9 +483,10 @@ class TestOrchestratorWorkflowDetermineAgentPlan:
                 }
             )
 
-            plan = await workflow._determine_agent_plan(context)
+            plan, execution_mode = await workflow._determine_agent_plan(context)
 
             assert plan == []
+            assert execution_mode is None
             mock_workflow.logger.warning.assert_called()
 
     @pytest.mark.asyncio
@@ -428,9 +509,10 @@ class TestOrchestratorWorkflowDetermineAgentPlan:
                 }
             )
 
-            plan = await workflow._determine_agent_plan(context)
+            plan, execution_mode = await workflow._determine_agent_plan(context)
 
             assert plan == []
+            assert execution_mode is None
             mock_workflow.logger.warning.assert_called()
 
 
@@ -510,9 +592,7 @@ class TestOrchestratorWorkflowExecuteSingleAgent:
         with patch("src.temporal.workflows.orchestrator.workflow") as mock_workflow:
             mock_workflow.now.return_value = mock_now
             mock_workflow.logger = MagicMock()
-            mock_workflow.execute_activity = AsyncMock(
-                side_effect=RuntimeError("Activity error")
-            )
+            mock_workflow.execute_activity = AsyncMock(side_effect=RuntimeError("Activity error"))
 
             result = await workflow._execute_single_agent(agent_name, context)
 
@@ -593,9 +673,7 @@ class TestOrchestratorWorkflowExecuteAgentsSequential:
                 ]
             )
 
-            results = await workflow._execute_agents_sequential(
-                agent_plan, initial_context
-            )
+            results = await workflow._execute_agents_sequential(agent_plan, initial_context)
 
             assert len(results) == 3
             assert all(r["success"] for r in results)
@@ -624,9 +702,7 @@ class TestOrchestratorWorkflowExecuteAgentsSequential:
                 }
             )
 
-            results = await workflow._execute_agents_sequential(
-                agent_plan, initial_context
-            )
+            results = await workflow._execute_agents_sequential(agent_plan, initial_context)
 
             # Should stop after checking cancellation
             assert len(results) == 0
@@ -876,9 +952,7 @@ class TestOrchestratorWorkflowSignals:
 
             assert workflow._state.cancellation_requested is True
             assert workflow._state.cancellation_reason == "User requested cancellation"
-            assert (
-                workflow._state.metadata["cancellation_requested_by"] == "user123"
-            )
+            assert workflow._state.metadata["cancellation_requested_by"] == "user123"
             assert "cancellation_timestamp" in workflow._state.metadata
             mock_workflow.logger.info.assert_called_once()
 
@@ -900,4 +974,3 @@ class TestOrchestratorWorkflowSignals:
             assert "user_inputs" in workflow._state.context
             assert len(workflow._state.context["user_inputs"]) == 1
             mock_workflow.logger.info.assert_called_once()
-

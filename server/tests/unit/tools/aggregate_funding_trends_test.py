@@ -14,10 +14,7 @@ import pytest
 
 from src.contracts.tool_io import ToolOutput
 from src.models.funding_rounds import FundingRound, FundingRoundModel
-from src.tools.aggregate_funding_trends import (
-    aggregate_funding_trends,
-    get_tool_metadata,
-)
+from src.tools.aggregate_funding_trends import aggregate_funding_trends, get_tool_metadata
 
 
 @pytest.fixture
@@ -402,7 +399,8 @@ class TestAggregateFundingTrendsCalculations:
             trend_data = result.result["trend_data"]
             # Find Q2 period
             q2_data = next(
-                (d for d in trend_data if "Q2" in d["period"] or "2023-06" in d["period"]), None
+                (d for d in trend_data if "Q2" in d["period"] or "2023-06" in d["period"]),
+                None,
             )
             if q2_data:
                 # Should have velocity change calculated
@@ -606,7 +604,10 @@ class TestAggregateFundingTrendsEdgeCases:
             fundraise_amount_usd=20000000,
         )
 
-        mock_funding_round_model.get.return_value = [round_with_date, round_without_date]
+        mock_funding_round_model.get.return_value = [
+            round_with_date,
+            round_without_date,
+        ]
 
         aggregate_funding_trends_module = sys.modules["src.tools.aggregate_funding_trends"]
         with patch.object(
@@ -808,9 +809,7 @@ class TestAggregateFundingTrendsErrorHandling:
             assert result.metadata["exception_type"] == "ValueError"
 
     @pytest.mark.asyncio
-    async def test_aggregate_funding_trends_invalid_uuid(
-        self, mock_funding_round_model
-    ):
+    async def test_aggregate_funding_trends_invalid_uuid(self, mock_funding_round_model):
         """Test that invalid UUID format raises error."""
         aggregate_funding_trends_module = sys.modules["src.tools.aggregate_funding_trends"]
         with patch.object(
@@ -1051,4 +1050,3 @@ class TestAggregateFundingTrendsMetadata:
             assert "median_round_size_usd" in summary
             assert "total_unique_investors" in summary
             assert "num_periods" in summary
-

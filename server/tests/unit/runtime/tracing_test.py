@@ -154,7 +154,7 @@ class TestTracerContext:
 
     def test_context_isolation(self, tracer_disabled):
         """Test that context is shared via contextvars (not isolated per tracer instance).
-        
+
         Note: Context is stored in a contextvar, so it's shared across all tracer instances
         in the same context. This is by design for context propagation.
         """
@@ -186,9 +186,7 @@ class TestTracerSpan:
         mock_context_manager = MagicMock()
         mock_context_manager.__enter__ = MagicMock(return_value=mock_observation)
         mock_context_manager.__exit__ = MagicMock(return_value=None)
-        mock_langfuse_client.start_as_current_observation.return_value = (
-            mock_context_manager
-        )
+        mock_langfuse_client.start_as_current_observation.return_value = mock_context_manager
 
         with tracer_enabled.span("test_span", trace_id="trace-123") as span:
             assert span == mock_observation
@@ -201,9 +199,7 @@ class TestTracerSpan:
         mock_context_manager = MagicMock()
         mock_context_manager.__enter__ = MagicMock(return_value=mock_observation)
         mock_context_manager.__exit__ = MagicMock(return_value=None)
-        mock_langfuse_client.start_as_current_observation.return_value = (
-            mock_context_manager
-        )
+        mock_langfuse_client.start_as_current_observation.return_value = mock_context_manager
 
         with tracer_enabled.span("test_span") as span:
             pass
@@ -217,9 +213,7 @@ class TestTracerSpan:
         mock_context_manager = MagicMock()
         mock_context_manager.__enter__ = MagicMock(return_value=mock_observation)
         mock_context_manager.__exit__ = MagicMock(return_value=None)
-        mock_langfuse_client.start_as_current_observation.return_value = (
-            mock_context_manager
-        )
+        mock_langfuse_client.start_as_current_observation.return_value = mock_context_manager
 
         metadata = {"key": "value", "number": 42}
         with tracer_enabled.span("test_span", metadata=metadata):
@@ -235,9 +229,7 @@ class TestTracerSpan:
         mock_context_manager = MagicMock()
         mock_context_manager.__enter__ = MagicMock(return_value=mock_observation)
         mock_context_manager.__exit__ = MagicMock(return_value=None)
-        mock_langfuse_client.start_as_current_observation.return_value = (
-            mock_context_manager
-        )
+        mock_langfuse_client.start_as_current_observation.return_value = mock_context_manager
 
         with tracer_enabled.span("test_span", trace_id="trace-123"):
             context = tracer_enabled.get_trace_context()
@@ -247,8 +239,8 @@ class TestTracerSpan:
 
     def test_span_handles_error(self, tracer_enabled, mock_langfuse_client):
         """Test span handles Langfuse errors gracefully."""
-        mock_langfuse_client.start_as_current_observation.side_effect = (
-            AttributeError("Method not found")
+        mock_langfuse_client.start_as_current_observation.side_effect = AttributeError(
+            "Method not found"
         )
 
         with tracer_enabled.span("test_span") as span:
@@ -270,9 +262,7 @@ class TestTracerSpan:
         mock_context_manager = MagicMock()
         mock_context_manager.__enter__ = MagicMock(return_value=mock_observation)
         mock_context_manager.__exit__ = MagicMock(return_value=None)
-        mock_langfuse_client.start_as_current_observation.return_value = (
-            mock_context_manager
-        )
+        mock_langfuse_client.start_as_current_observation.return_value = mock_context_manager
 
         async with tracer_enabled.async_span("test_span", trace_id="trace-123") as span:
             assert span == mock_observation
@@ -290,9 +280,7 @@ class TestTracerSpan:
         mock_context_manager = MagicMock()
         mock_context_manager.__enter__ = MagicMock(return_value=mock_observation)
         mock_context_manager.__exit__ = MagicMock(return_value=None)
-        mock_langfuse_client.start_as_current_observation.return_value = (
-            mock_context_manager
-        )
+        mock_langfuse_client.start_as_current_observation.return_value = mock_context_manager
 
         async with tracer_enabled.async_span("test_span"):
             pass
@@ -310,9 +298,7 @@ class TestTracerSpan:
         mock_context_manager = MagicMock()
         mock_context_manager.__enter__ = MagicMock(return_value=mock_observation)
         mock_context_manager.__exit__ = MagicMock(return_value=None)
-        mock_langfuse_client.start_as_current_observation.return_value = (
-            mock_context_manager
-        )
+        mock_langfuse_client.start_as_current_observation.return_value = mock_context_manager
 
         metadata = {"key": "value"}
         async with tracer_enabled.async_span("test_span", metadata=metadata):
@@ -326,8 +312,8 @@ class TestTracerSpan:
     @pytest.mark.asyncio
     async def test_async_span_handles_error(self, tracer_enabled, mock_langfuse_client):
         """Test async_span handles Langfuse errors gracefully."""
-        mock_langfuse_client.start_as_current_observation.side_effect = (
-            AttributeError("Method not found")
+        mock_langfuse_client.start_as_current_observation.side_effect = AttributeError(
+            "Method not found"
         )
 
         async with tracer_enabled.async_span("test_span") as span:
@@ -380,9 +366,7 @@ class TestTracerLogGeneration:
 
     def test_log_generation_disabled(self, tracer_disabled):
         """Test log_generation when tracing is disabled."""
-        tracer_disabled.log_generation(
-            "test_gen", input_data="input", output_data="output"
-        )
+        tracer_disabled.log_generation("test_gen", input_data="input", output_data="output")
         # Should not raise any errors
 
     def test_log_generation_enabled(self, tracer_enabled, mock_langfuse_client):
@@ -401,9 +385,7 @@ class TestTracerLogGeneration:
         )
 
         mock_langfuse_client.start_generation.assert_called_once()
-        mock_generation.update.assert_called_once_with(
-            input="input", output="output"
-        )
+        mock_generation.update.assert_called_once_with(input="input", output="output")
         mock_generation.end.assert_called_once()
 
     def test_log_generation_uses_context_trace_id(self, tracer_enabled, mock_langfuse_client):
@@ -523,9 +505,7 @@ class TestTracerTraceIDConversion:
         mock_context_manager = MagicMock()
         mock_context_manager.__enter__ = MagicMock(return_value=mock_observation)
         mock_context_manager.__exit__ = MagicMock(return_value=None)
-        mock_langfuse_client.start_as_current_observation.return_value = (
-            mock_context_manager
-        )
+        mock_langfuse_client.start_as_current_observation.return_value = mock_context_manager
 
         # TraceContext is imported from langfuse.types inside the span method
         with patch("langfuse.types.TraceContext") as mock_trace_context:
@@ -547,9 +527,7 @@ class TestTracerTraceIDConversion:
         mock_context_manager = MagicMock()
         mock_context_manager.__enter__ = MagicMock(return_value=mock_observation)
         mock_context_manager.__exit__ = MagicMock(return_value=None)
-        mock_langfuse_client.start_as_current_observation.return_value = (
-            mock_context_manager
-        )
+        mock_langfuse_client.start_as_current_observation.return_value = mock_context_manager
 
         with tracer_enabled.span(
             "test_span",
@@ -558,4 +536,3 @@ class TestTracerTraceIDConversion:
         ) as span:
             context = tracer_enabled.get_trace_context()
             assert context["parent_observation_id"] == "parent-obs-456"
-

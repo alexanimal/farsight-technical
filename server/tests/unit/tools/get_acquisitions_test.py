@@ -125,16 +125,16 @@ class TestGetAcquisitionsBasic:
     """Test basic get_acquisitions functionality."""
 
     @pytest.mark.asyncio
-    async def test_get_acquisitions_no_filters(
-        self, mock_acquisition_model, sample_acquisition
-    ):
+    async def test_get_acquisitions_no_filters(self, mock_acquisition_model, sample_acquisition):
         """Test getting acquisitions with no filters."""
         mock_acquisition_model.get.return_value = [sample_acquisition]
 
         # Patch AcquisitionModel in the module where it's used
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions()
 
@@ -161,7 +161,9 @@ class TestGetAcquisitionsBasic:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions()
 
@@ -171,7 +173,11 @@ class TestGetAcquisitionsBasic:
 
     @pytest.mark.asyncio
     async def test_get_acquisitions_multiple_results(
-        self, mock_acquisition_model, sample_acquisition, sample_acquiree_uuid, sample_acquirer_uuid
+        self,
+        mock_acquisition_model,
+        sample_acquisition,
+        sample_acquiree_uuid,
+        sample_acquirer_uuid,
     ):
         """Test getting multiple acquisitions."""
         acquisition2 = Acquisition(
@@ -189,7 +195,9 @@ class TestGetAcquisitionsBasic:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions()
 
@@ -198,15 +206,15 @@ class TestGetAcquisitionsBasic:
             assert result.metadata["num_results"] == 2
 
     @pytest.mark.asyncio
-    async def test_get_acquisitions_result_format(
-        self, mock_acquisition_model, sample_acquisition
-    ):
+    async def test_get_acquisitions_result_format(self, mock_acquisition_model, sample_acquisition):
         """Test that result contains properly formatted dictionaries."""
         mock_acquisition_model.get.return_value = [sample_acquisition]
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions()
 
@@ -234,7 +242,9 @@ class TestGetAcquisitionsFiltering:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(acquisition_uuid=str(sample_acquisition_uuid))
 
@@ -253,7 +263,9 @@ class TestGetAcquisitionsFiltering:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(acquiree_uuid=str(sample_acquiree_uuid))
 
@@ -271,7 +283,9 @@ class TestGetAcquisitionsFiltering:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(acquirer_uuid=str(sample_acquirer_uuid))
 
@@ -281,15 +295,15 @@ class TestGetAcquisitionsFiltering:
             assert isinstance(call_kwargs["acquirer_uuid"], UUID)
 
     @pytest.mark.asyncio
-    async def test_get_acquisitions_by_type(
-        self, mock_acquisition_model, sample_acquisition
-    ):
+    async def test_get_acquisitions_by_type(self, mock_acquisition_model, sample_acquisition):
         """Test getting acquisitions by type."""
         mock_acquisition_model.get.return_value = [sample_acquisition]
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(acquisition_type="merger")
 
@@ -307,7 +321,9 @@ class TestGetAcquisitionsFiltering:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(acquisition_announce_date=announce_date_str)
 
@@ -317,9 +333,7 @@ class TestGetAcquisitionsFiltering:
             assert isinstance(call_kwargs["acquisition_announce_date"], datetime)
 
     @pytest.mark.asyncio
-    async def test_get_acquisitions_by_date_range(
-        self, mock_acquisition_model, sample_acquisition
-    ):
+    async def test_get_acquisitions_by_date_range(self, mock_acquisition_model, sample_acquisition):
         """Test getting acquisitions by date range."""
         date_from_str = "2023-01-01T00:00:00"
         date_to_str = "2023-12-31T23:59:59"
@@ -327,7 +341,9 @@ class TestGetAcquisitionsFiltering:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(
                 acquisition_announce_date_from=date_from_str,
@@ -348,7 +364,9 @@ class TestGetAcquisitionsFiltering:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(acquisition_price_usd=50000000)
 
@@ -365,7 +383,9 @@ class TestGetAcquisitionsFiltering:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(
                 acquisition_price_usd_min=1000000,
@@ -386,7 +406,9 @@ class TestGetAcquisitionsFiltering:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(terms="Cash and stock")
 
@@ -403,7 +425,9 @@ class TestGetAcquisitionsFiltering:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(terms_ilike="cash")
 
@@ -420,7 +444,9 @@ class TestGetAcquisitionsFiltering:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(acquirer_type="public_company")
 
@@ -437,7 +463,9 @@ class TestGetAcquisitionsFiltering:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(
                 acquisition_type="merger",
@@ -456,15 +484,15 @@ class TestGetAcquisitionsPagination:
     """Test get_acquisitions pagination functionality."""
 
     @pytest.mark.asyncio
-    async def test_get_acquisitions_with_limit(
-        self, mock_acquisition_model, sample_acquisition
-    ):
+    async def test_get_acquisitions_with_limit(self, mock_acquisition_model, sample_acquisition):
         """Test getting acquisitions with limit."""
         mock_acquisition_model.get.return_value = [sample_acquisition]
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(limit=10)
 
@@ -473,15 +501,15 @@ class TestGetAcquisitionsPagination:
             assert call_kwargs["limit"] == 10
 
     @pytest.mark.asyncio
-    async def test_get_acquisitions_with_offset(
-        self, mock_acquisition_model, sample_acquisition
-    ):
+    async def test_get_acquisitions_with_offset(self, mock_acquisition_model, sample_acquisition):
         """Test getting acquisitions with offset."""
         mock_acquisition_model.get.return_value = [sample_acquisition]
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(offset=20)
 
@@ -498,7 +526,9 @@ class TestGetAcquisitionsPagination:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(limit=10, offset=20)
 
@@ -520,7 +550,9 @@ class TestGetAcquisitionsParameterConversion:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             uuid_str = str(sample_acquisition_uuid)
             result = await get_acquisitions(acquisition_uuid=uuid_str)
@@ -539,7 +571,9 @@ class TestGetAcquisitionsParameterConversion:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             date_str = "2023-06-15T12:30:45"
             result = await get_acquisitions(acquisition_announce_date=date_str)
@@ -558,7 +592,9 @@ class TestGetAcquisitionsParameterConversion:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             date_from_str = "2023-01-01T00:00:00"
             date_to_str = "2023-12-31T23:59:59"
@@ -581,7 +617,9 @@ class TestGetAcquisitionsParameterConversion:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(acquisition_uuid=None)
 
@@ -598,7 +636,9 @@ class TestGetAcquisitionsParameterConversion:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(acquisition_announce_date=None)
 
@@ -615,7 +655,9 @@ class TestGetAcquisitionsErrorHandling:
         """Test that invalid UUID strings raise appropriate errors."""
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(acquisition_uuid="invalid-uuid")
 
@@ -630,7 +672,9 @@ class TestGetAcquisitionsErrorHandling:
         """Test that invalid date strings raise appropriate errors."""
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(acquisition_announce_date="invalid-date")
 
@@ -646,7 +690,9 @@ class TestGetAcquisitionsErrorHandling:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions()
 
@@ -663,7 +709,9 @@ class TestGetAcquisitionsErrorHandling:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions()
 
@@ -681,7 +729,9 @@ class TestGetAcquisitionsErrorHandling:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions()
 
@@ -702,7 +752,9 @@ class TestGetAcquisitionsEdgeCases:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions(
                 acquisition_uuid=None,
@@ -735,7 +787,9 @@ class TestGetAcquisitionsEdgeCases:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions()
 
@@ -752,7 +806,9 @@ class TestGetAcquisitionsEdgeCases:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions()
 
@@ -774,7 +830,9 @@ class TestGetAcquisitionsEdgeCases:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             await get_acquisitions()
 
@@ -789,7 +847,9 @@ class TestGetAcquisitionsEdgeCases:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             await get_acquisitions()
             await get_acquisitions()
@@ -805,7 +865,9 @@ class TestGetAcquisitionsEdgeCases:
 
         get_acquisitions_module = sys.modules["src.tools.get_acquisitions"]
         with patch.object(
-            get_acquisitions_module, "AcquisitionModel", return_value=mock_acquisition_model
+            get_acquisitions_module,
+            "AcquisitionModel",
+            return_value=mock_acquisition_model,
         ):
             result = await get_acquisitions()
 
@@ -828,4 +890,3 @@ class TestGetAcquisitionsEdgeCases:
             # Note: model_dump() by default keeps UUIDs as UUID objects, not strings
             # To serialize to strings, would need model_dump(mode="json")
             assert isinstance(result_dict["acquisition_uuid"], UUID)
-

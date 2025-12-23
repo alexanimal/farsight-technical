@@ -51,6 +51,7 @@ class TestToolRegistry:
 
     def test_register_tool_success(self):
         """Test registering a new tool."""
+
         async def test_tool(param1: str) -> str:
             return f"Result: {param1}"
 
@@ -61,11 +62,13 @@ class TestToolRegistry:
         finally:
             # Clean up - remove the test tool
             from src.temporal.activities.tools import _TOOL_REGISTRY
+
             if "test_tool" in _TOOL_REGISTRY:
                 del _TOOL_REGISTRY["test_tool"]
 
     def test_register_tool_overwrite(self):
         """Test that registering a tool overwrites existing registration."""
+
         async def tool1(param: str) -> str:
             return "tool1"
 
@@ -79,6 +82,7 @@ class TestToolRegistry:
             assert get_tool("test_tool") == tool2
         finally:
             from src.temporal.activities.tools import _TOOL_REGISTRY
+
             if "test_tool" in _TOOL_REGISTRY:
                 del _TOOL_REGISTRY["test_tool"]
 
@@ -95,6 +99,7 @@ class TestExecuteTool:
     @pytest.mark.asyncio
     async def test_execute_tool_success_with_tool_output(self):
         """Test successful tool execution with ToolOutput."""
+
         async def mock_tool(param1: str) -> ToolOutput:
             return ToolOutput(
                 success=True,
@@ -108,9 +113,7 @@ class TestExecuteTool:
             register_tool("test_tool", mock_tool)
             with patch("src.temporal.activities.tools.activity") as mock_activity:
                 mock_activity.logger = MagicMock()
-                result = await execute_tool(
-                    "test_tool", {"param1": "value1"}
-                )
+                result = await execute_tool("test_tool", {"param1": "value1"})
                 assert result["success"] is True
                 assert result["result"] == {"data": "result"}
                 assert result["tool_name"] == "test_tool"
@@ -119,12 +122,14 @@ class TestExecuteTool:
                 assert result["metadata"]["key"] == "value"
         finally:
             from src.temporal.activities.tools import _TOOL_REGISTRY
+
             if "test_tool" in _TOOL_REGISTRY:
                 del _TOOL_REGISTRY["test_tool"]
 
     @pytest.mark.asyncio
     async def test_execute_tool_success_with_legacy_format(self):
         """Test successful tool execution with legacy format (raw result)."""
+
         async def mock_tool(param1: str) -> Dict[str, Any]:
             return {"data": "legacy_result"}
 
@@ -132,9 +137,7 @@ class TestExecuteTool:
             register_tool("test_tool", mock_tool)
             with patch("src.temporal.activities.tools.activity") as mock_activity:
                 mock_activity.logger = MagicMock()
-                result = await execute_tool(
-                    "test_tool", {"param1": "value1"}
-                )
+                result = await execute_tool("test_tool", {"param1": "value1"})
                 assert result["success"] is True
                 assert result["result"] == {"data": "legacy_result"}
                 assert result["tool_name"] == "test_tool"
@@ -142,6 +145,7 @@ class TestExecuteTool:
                 assert result["metadata"]["execution_time_ms"] is None
         finally:
             from src.temporal.activities.tools import _TOOL_REGISTRY
+
             if "test_tool" in _TOOL_REGISTRY:
                 del _TOOL_REGISTRY["test_tool"]
 
@@ -161,6 +165,7 @@ class TestExecuteTool:
     @pytest.mark.asyncio
     async def test_execute_tool_not_async(self):
         """Test tool execution when tool is not async."""
+
         def sync_tool(param: str) -> str:
             return "result"
 
@@ -174,12 +179,14 @@ class TestExecuteTool:
                 assert result["tool_name"] == "sync_tool"
         finally:
             from src.temporal.activities.tools import _TOOL_REGISTRY
+
             if "sync_tool" in _TOOL_REGISTRY:
                 del _TOOL_REGISTRY["sync_tool"]
 
     @pytest.mark.asyncio
     async def test_execute_tool_signature_inspection_error(self):
         """Test tool execution when signature inspection fails."""
+
         # Create a tool that will cause inspection to fail
         class BadTool:
             def __call__(self, param: str) -> str:
@@ -190,9 +197,7 @@ class TestExecuteTool:
         try:
             register_tool("bad_tool", bad_tool)
             with patch("src.temporal.activities.tools.inspect") as mock_inspect:
-                mock_inspect.signature = MagicMock(
-                    side_effect=ValueError("Inspection failed")
-                )
+                mock_inspect.signature = MagicMock(side_effect=ValueError("Inspection failed"))
                 mock_inspect.iscoroutinefunction = MagicMock(return_value=False)
                 with patch("src.temporal.activities.tools.activity") as mock_activity:
                     mock_activity.logger = MagicMock()
@@ -202,12 +207,14 @@ class TestExecuteTool:
                     assert result["tool_name"] == "bad_tool"
         finally:
             from src.temporal.activities.tools import _TOOL_REGISTRY
+
             if "bad_tool" in _TOOL_REGISTRY:
                 del _TOOL_REGISTRY["bad_tool"]
 
     @pytest.mark.asyncio
     async def test_execute_tool_execution_exception(self):
         """Test tool execution when tool raises an exception."""
+
         async def failing_tool(param: str) -> str:
             raise ValueError("Tool execution failed")
 
@@ -224,12 +231,14 @@ class TestExecuteTool:
                 mock_activity.logger.error.assert_called_once()
         finally:
             from src.temporal.activities.tools import _TOOL_REGISTRY
+
             if "failing_tool" in _TOOL_REGISTRY:
                 del _TOOL_REGISTRY["failing_tool"]
 
     @pytest.mark.asyncio
     async def test_execute_tool_with_tool_output_failure(self):
         """Test tool execution with ToolOutput indicating failure."""
+
         async def failing_tool(param: str) -> ToolOutput:
             return ToolOutput(
                 success=False,
@@ -250,6 +259,7 @@ class TestExecuteTool:
                 assert result["result"] is None
         finally:
             from src.temporal.activities.tools import _TOOL_REGISTRY
+
             if "failing_tool" in _TOOL_REGISTRY:
                 del _TOOL_REGISTRY["failing_tool"]
 
@@ -268,33 +278,43 @@ class TestExecuteTool:
             register_tool("multi_param_tool", mock_tool)
             # Create a real Signature object to avoid recursion issues with MagicMock
             # when inspect functions are patched
-            real_sig = Signature([
-                Parameter("param1", Parameter.POSITIONAL_OR_KEYWORD),
-                Parameter("param2", Parameter.POSITIONAL_OR_KEYWORD),
-                Parameter("param3", Parameter.POSITIONAL_OR_KEYWORD, default=False),
-            ])
+            real_sig = Signature(
+                [
+                    Parameter("param1", Parameter.POSITIONAL_OR_KEYWORD),
+                    Parameter("param2", Parameter.POSITIONAL_OR_KEYWORD),
+                    Parameter("param3", Parameter.POSITIONAL_OR_KEYWORD, default=False),
+                ]
+            )
             with patch("src.temporal.activities.tools.activity") as mock_activity:
                 mock_activity.logger = MagicMock()
-                with patch("src.temporal.activities.tools.inspect.signature") as mock_sig, \
-                     patch("src.temporal.activities.tools.inspect.iscoroutinefunction") as mock_is_coro:
+                with (
+                    patch("src.temporal.activities.tools.inspect.signature") as mock_sig,
+                    patch(
+                        "src.temporal.activities.tools.inspect.iscoroutinefunction"
+                    ) as mock_is_coro,
+                ):
                     mock_sig.return_value = real_sig
                     mock_is_coro.return_value = True
                     result = await execute_tool(
                         "multi_param_tool",
                         {"param1": "value1", "param2": 42, "param3": True},
                     )
-                    assert result["success"] is True, f"Tool execution failed: {result.get('error')}"
+                    assert (
+                        result["success"] is True
+                    ), f"Tool execution failed: {result.get('error')}"
                     assert result["result"]["param1"] == "value1"
                     assert result["result"]["param2"] == 42
                     assert result["result"]["param3"] is True
         finally:
             from src.temporal.activities.tools import _TOOL_REGISTRY
+
             if "multi_param_tool" in _TOOL_REGISTRY:
                 del _TOOL_REGISTRY["multi_param_tool"]
 
     @pytest.mark.asyncio
     async def test_execute_tool_logging(self):
         """Test that tool execution logs appropriately."""
+
         async def mock_tool(param: str) -> ToolOutput:
             return ToolOutput(
                 success=True,
@@ -314,6 +334,7 @@ class TestExecuteTool:
                 assert "Executing tool" in str(initial_call)
         finally:
             from src.temporal.activities.tools import _TOOL_REGISTRY
+
             if "test_tool" in _TOOL_REGISTRY:
                 del _TOOL_REGISTRY["test_tool"]
 
@@ -324,6 +345,7 @@ class TestExecuteToolWithOptions:
     @pytest.mark.asyncio
     async def test_execute_tool_with_options_success(self):
         """Test execute_tool_with_options with custom options."""
+
         async def mock_tool(param: str) -> ToolOutput:
             return ToolOutput(
                 success=True,
@@ -335,9 +357,7 @@ class TestExecuteToolWithOptions:
             register_tool("test_tool", mock_tool)
             with patch("src.temporal.activities.tools.activity") as mock_activity:
                 mock_activity.logger = MagicMock()
-                with patch(
-                    "src.temporal.activities.tools.execute_tool"
-                ) as mock_execute:
+                with patch("src.temporal.activities.tools.execute_tool") as mock_execute:
                     mock_execute.return_value = {
                         "success": True,
                         "result": {"data": "result"},
@@ -356,12 +376,14 @@ class TestExecuteToolWithOptions:
                     )
         finally:
             from src.temporal.activities.tools import _TOOL_REGISTRY
+
             if "test_tool" in _TOOL_REGISTRY:
                 del _TOOL_REGISTRY["test_tool"]
 
     @pytest.mark.asyncio
     async def test_execute_tool_with_options_no_options(self):
         """Test execute_tool_with_options without custom options."""
+
         async def mock_tool(param: str) -> ToolOutput:
             return ToolOutput(
                 success=True,
@@ -373,13 +395,9 @@ class TestExecuteToolWithOptions:
             register_tool("test_tool", mock_tool)
             with patch("src.temporal.activities.tools.activity") as mock_activity:
                 mock_activity.logger = MagicMock()
-                with patch(
-                    "src.temporal.activities.tools.execute_tool"
-                ) as mock_execute:
+                with patch("src.temporal.activities.tools.execute_tool") as mock_execute:
                     mock_execute.return_value = {"success": True}
-                    result = await execute_tool_with_options(
-                        "test_tool", {"param": "value"}
-                    )
+                    result = await execute_tool_with_options("test_tool", {"param": "value"})
                     assert result["success"] is True
                     # Should not log activity options
                     assert not any(
@@ -388,6 +406,7 @@ class TestExecuteToolWithOptions:
                     )
         finally:
             from src.temporal.activities.tools import _TOOL_REGISTRY
+
             if "test_tool" in _TOOL_REGISTRY:
                 del _TOOL_REGISTRY["test_tool"]
 
@@ -465,9 +484,7 @@ class TestDefaultActivityOptions:
 
     def test_default_activity_options_timeout(self):
         """Test default timeout value."""
-        assert _DEFAULT_ACTIVITY_OPTIONS["start_to_close_timeout"] == timedelta(
-            seconds=300
-        )
+        assert _DEFAULT_ACTIVITY_OPTIONS["start_to_close_timeout"] == timedelta(seconds=300)
 
     def test_default_activity_options_retry_policy(self):
         """Test default retry policy."""
@@ -500,20 +517,28 @@ class TestToolExecutionEdgeCases:
             real_sig = Signature([])  # Empty signature for no-parameter function
             with patch("src.temporal.activities.tools.activity") as mock_activity:
                 mock_activity.logger = MagicMock()
-                with patch("src.temporal.activities.tools.inspect.signature") as mock_sig, \
-                     patch("src.temporal.activities.tools.inspect.iscoroutinefunction") as mock_is_coro:
+                with (
+                    patch("src.temporal.activities.tools.inspect.signature") as mock_sig,
+                    patch(
+                        "src.temporal.activities.tools.inspect.iscoroutinefunction"
+                    ) as mock_is_coro,
+                ):
                     mock_sig.return_value = real_sig
                     mock_is_coro.return_value = True
                     result = await execute_tool("no_param_tool", {})
-                    assert result["success"] is True, f"Tool execution failed: {result.get('error')}"
+                    assert (
+                        result["success"] is True
+                    ), f"Tool execution failed: {result.get('error')}"
         finally:
             from src.temporal.activities.tools import _TOOL_REGISTRY
+
             if "no_param_tool" in _TOOL_REGISTRY:
                 del _TOOL_REGISTRY["no_param_tool"]
 
     @pytest.mark.asyncio
     async def test_execute_tool_with_none_result(self):
         """Test tool execution that returns None."""
+
         async def none_tool(param: str) -> None:
             return None
 
@@ -526,12 +551,14 @@ class TestToolExecutionEdgeCases:
                 assert result["result"] is None
         finally:
             from src.temporal.activities.tools import _TOOL_REGISTRY
+
             if "none_tool" in _TOOL_REGISTRY:
                 del _TOOL_REGISTRY["none_tool"]
 
     @pytest.mark.asyncio
     async def test_execute_tool_with_complex_result(self):
         """Test tool execution with complex result structure."""
+
         async def complex_tool(param: str) -> Dict[str, Any]:
             return {
                 "nested": {"key": "value"},
@@ -549,6 +576,7 @@ class TestToolExecutionEdgeCases:
                 assert result["result"]["list"] == [1, 2, 3]
         finally:
             from src.temporal.activities.tools import _TOOL_REGISTRY
+
             if "complex_tool" in _TOOL_REGISTRY:
                 del _TOOL_REGISTRY["complex_tool"]
 
@@ -568,22 +596,31 @@ class TestToolExecutionEdgeCases:
             register_tool("metadata_tool", mock_tool)
             # Create a real Signature object to avoid recursion issues with MagicMock
             # when inspect functions are patched
-            real_sig = Signature([
-                Parameter("param", Parameter.POSITIONAL_OR_KEYWORD),
-            ])
+            real_sig = Signature(
+                [
+                    Parameter("param", Parameter.POSITIONAL_OR_KEYWORD),
+                ]
+            )
             with patch("src.temporal.activities.tools.activity") as mock_activity:
                 mock_activity.logger = MagicMock()
-                with patch("src.temporal.activities.tools.inspect.signature") as mock_sig, \
-                     patch("src.temporal.activities.tools.inspect.iscoroutinefunction") as mock_is_coro:
+                with (
+                    patch("src.temporal.activities.tools.inspect.signature") as mock_sig,
+                    patch(
+                        "src.temporal.activities.tools.inspect.iscoroutinefunction"
+                    ) as mock_is_coro,
+                ):
                     mock_sig.return_value = real_sig
                     mock_is_coro.return_value = True
                     result = await execute_tool("metadata_tool", {"param": "value"})
-                    assert result["success"] is True, f"Tool execution failed: {result.get('error')}"
+                    assert (
+                        result["success"] is True
+                    ), f"Tool execution failed: {result.get('error')}"
                     assert result["metadata"]["custom_key"] == "custom_value"
                     assert result["metadata"]["count"] == 42
                     assert "execution_time_ms" in result["metadata"]
         finally:
             from src.temporal.activities.tools import _TOOL_REGISTRY
+
             if "metadata_tool" in _TOOL_REGISTRY:
                 del _TOOL_REGISTRY["metadata_tool"]
 
@@ -612,4 +649,3 @@ class TestToolExecutionEdgeCases:
         assert options["retry_policy"].initial_interval == timedelta(seconds=10.0)
         # Should preserve max_attempts from default
         assert options["retry_policy"].maximum_attempts == 3
-

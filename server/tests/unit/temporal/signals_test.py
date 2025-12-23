@@ -331,9 +331,7 @@ class TestConfigurationChangeSignal:
 
     def test_create_minimal(self):
         """Test creating with only required fields."""
-        signal = ConfigurationChangeSignal(
-            config_key="max_retries", config_value=5
-        )
+        signal = ConfigurationChangeSignal(config_key="max_retries", config_value=5)
         assert signal.config_key == "max_retries"
         assert signal.config_value == 5
         assert signal.config_type is None
@@ -358,27 +356,21 @@ class TestConfigurationChangeSignal:
 
     def test_create_with_string_value(self):
         """Test creating with string config_value."""
-        signal = ConfigurationChangeSignal(
-            config_key="api_key", config_value="secret-key-123"
-        )
+        signal = ConfigurationChangeSignal(config_key="api_key", config_value="secret-key-123")
         assert signal.config_key == "api_key"
         assert signal.config_value == "secret-key-123"
 
     def test_create_with_dict_value(self):
         """Test creating with dict config_value."""
         config_dict = {"key1": "value1", "key2": "value2"}
-        signal = ConfigurationChangeSignal(
-            config_key="settings", config_value=config_dict
-        )
+        signal = ConfigurationChangeSignal(config_key="settings", config_value=config_dict)
         assert signal.config_key == "settings"
         assert signal.config_value == config_dict
 
     def test_create_with_list_value(self):
         """Test creating with list config_value."""
         config_list = ["item1", "item2", "item3"]
-        signal = ConfigurationChangeSignal(
-            config_key="allowed_domains", config_value=config_list
-        )
+        signal = ConfigurationChangeSignal(config_key="allowed_domains", config_value=config_list)
         assert signal.config_key == "allowed_domains"
         assert signal.config_value == config_list
 
@@ -390,9 +382,7 @@ class TestConfigurationChangeSignal:
 
     def test_defaults(self):
         """Test that optional fields have correct defaults."""
-        signal = ConfigurationChangeSignal(
-            config_key="test_key", config_value="test_value"
-        )
+        signal = ConfigurationChangeSignal(config_key="test_key", config_value="test_value")
         assert signal.config_type is None
         assert signal.metadata == {}
         assert isinstance(signal.timestamp, datetime)
@@ -402,9 +392,7 @@ class TestConfigurationChangeSignal:
         with patch("src.temporal.signals.datetime") as mock_datetime:
             mock_now = datetime(2024, 1, 1, 12, 0, 0)
             mock_datetime.utcnow.return_value = mock_now
-            signal = ConfigurationChangeSignal(
-                config_key="test", config_value="value"
-            )
+            signal = ConfigurationChangeSignal(config_key="test", config_value="value")
             assert signal.timestamp == mock_now
             mock_datetime.utcnow.assert_called_once()
 
@@ -533,16 +521,12 @@ class TestSignalModelsEdgeCases:
 
     def test_configuration_change_signal_with_boolean_value(self):
         """Test ConfigurationChangeSignal with boolean config_value."""
-        signal = ConfigurationChangeSignal(
-            config_key="enabled", config_value=True
-        )
+        signal = ConfigurationChangeSignal(config_key="enabled", config_value=True)
         assert signal.config_value is True
 
     def test_configuration_change_signal_with_float_value(self):
         """Test ConfigurationChangeSignal with float config_value."""
-        signal = ConfigurationChangeSignal(
-            config_key="threshold", config_value=0.95
-        )
+        signal = ConfigurationChangeSignal(config_key="threshold", config_value=0.95)
         assert signal.config_value == 0.95
 
     def test_metadata_preservation(self):
@@ -552,9 +536,7 @@ class TestSignalModelsEdgeCases:
             "list": [1, 2, 3],
             "string": "test",
         }
-        signal = UserInputSignal(
-            input_text="test", metadata=complex_metadata
-        )
+        signal = UserInputSignal(input_text="test", metadata=complex_metadata)
         assert signal.metadata == complex_metadata
         data = signal.model_dump()
         assert data["metadata"] == complex_metadata
@@ -566,17 +548,13 @@ class TestSignalModelsEdgeCases:
         data = signal.model_dump()
         assert "timestamp" in data
         # Pydantic serializes datetime to ISO format string
-        assert isinstance(data["timestamp"], str) or isinstance(
-            data["timestamp"], datetime
-        )
+        assert isinstance(data["timestamp"], str) or isinstance(data["timestamp"], datetime)
 
     def test_multiple_signals_with_same_timestamp(self):
         """Test creating multiple signals with the same timestamp."""
         custom_timestamp = datetime(2024, 1, 1, 12, 0, 0)
         signal1 = CancellationSignal(timestamp=custom_timestamp)
-        signal2 = UserInputSignal(
-            input_text="test", timestamp=custom_timestamp
-        )
+        signal2 = UserInputSignal(input_text="test", timestamp=custom_timestamp)
         assert signal1.timestamp == signal2.timestamp == custom_timestamp
 
     def test_user_input_signal_with_all_optional_fields(self):
@@ -618,9 +596,6 @@ class TestSignalModelsEdgeCases:
                 },
             },
         }
-        signal = ConfigurationChangeSignal(
-            config_key="nested_config", config_value=nested_dict
-        )
+        signal = ConfigurationChangeSignal(config_key="nested_config", config_value=nested_dict)
         assert signal.config_value == nested_dict
         assert signal.config_value["level1"]["level2"]["level3"] == "value"
-

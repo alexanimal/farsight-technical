@@ -58,9 +58,7 @@ class TestToolParameterSchema:
 
     def test_parameter_defaults(self):
         """Test that optional fields have correct defaults."""
-        param = ToolParameterSchema(
-            name="test", type="integer", description="Test"
-        )
+        param = ToolParameterSchema(name="test", type="integer", description="Test")
         assert param.required is False
         assert param.default is None
         assert param.enum is None
@@ -104,16 +102,17 @@ class TestToolMetadata:
 
     def test_create_metadata_with_all_fields(self):
         """Test creating metadata with all fields."""
-        param1 = ToolParameterSchema(
-            name="input", type="string", description="Input value"
-        )
+        param1 = ToolParameterSchema(name="input", type="string", description="Input value")
         param2 = ToolParameterSchema(
             name="count",
             type="integer",
             description="Count",
             required=True,
         )
-        returns_schema = {"type": "object", "properties": {"result": {"type": "string"}}}
+        returns_schema = {
+            "type": "object",
+            "properties": {"result": {"type": "string"}},
+        }
 
         metadata = ToolMetadata(
             name="complex_tool",
@@ -195,9 +194,7 @@ class TestToolInput:
 
     def test_input_defaults(self):
         """Test that optional fields have correct defaults."""
-        tool_input = ToolInput(
-            tool_name="test", parameters={}
-        )
+        tool_input = ToolInput(tool_name="test", parameters={})
         assert tool_input.metadata == {}
         assert isinstance(tool_input.timestamp, datetime)
 
@@ -288,9 +285,7 @@ class TestToolOutput:
 
     def test_output_defaults(self):
         """Test that optional fields have correct defaults."""
-        tool_output = ToolOutput(
-            tool_name="test", success=True
-        )
+        tool_output = ToolOutput(tool_name="test", success=True)
         assert tool_output.result is None
         assert tool_output.error is None
         assert tool_output.execution_time_ms is None
@@ -607,4 +602,3 @@ class TestToolContractsIntegration:
         assert tool_output.success is True
         assert tool_output.result == result
         assert contract.timeout_seconds == 10.0
-

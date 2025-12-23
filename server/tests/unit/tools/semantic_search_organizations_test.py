@@ -13,14 +13,8 @@ from uuid import UUID, uuid4
 import pytest
 
 from src.contracts.tool_io import ToolOutput
-from src.models.pinecone_organizations import (
-    PineconeOrganization,
-    PineconeOrganizationModel,
-)
-from src.tools.semantic_search_organizations import (
-    get_tool_metadata,
-    semantic_search_organizations,
-)
+from src.models.pinecone_organizations import PineconeOrganization, PineconeOrganizationModel
+from src.tools.semantic_search_organizations import get_tool_metadata, semantic_search_organizations
 
 
 @pytest.fixture
@@ -155,9 +149,7 @@ class TestSemanticSearchOrganizationsBasic:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test basic semantic search with text query."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -181,9 +173,7 @@ class TestSemanticSearchOrganizationsBasic:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test that result has correct structure."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -260,12 +250,13 @@ class TestSemanticSearchOrganizationsFiltering:
 
     @pytest.mark.asyncio
     async def test_semantic_search_organizations_with_org_uuid(
-        self, mock_pinecone_organization_model, sample_pinecone_organization, sample_org_uuid
+        self,
+        mock_pinecone_organization_model,
+        sample_pinecone_organization,
+        sample_org_uuid,
     ):
         """Test filtering by org_uuid."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -288,9 +279,7 @@ class TestSemanticSearchOrganizationsFiltering:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test filtering by name."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -311,9 +300,7 @@ class TestSemanticSearchOrganizationsFiltering:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test filtering by categories_contains."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -334,9 +321,7 @@ class TestSemanticSearchOrganizationsFiltering:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test filtering by org_status."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -357,9 +342,7 @@ class TestSemanticSearchOrganizationsFiltering:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test filtering by funding range."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -383,9 +366,7 @@ class TestSemanticSearchOrganizationsFiltering:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test filtering by founding date range."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -411,9 +392,7 @@ class TestSemanticSearchOrganizationsFiltering:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test filtering by last fundraise date range."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -439,9 +418,7 @@ class TestSemanticSearchOrganizationsFiltering:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test filtering by employee_count."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -462,9 +439,7 @@ class TestSemanticSearchOrganizationsFiltering:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test filtering by org_type."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -472,9 +447,7 @@ class TestSemanticSearchOrganizationsFiltering:
             "PineconeOrganizationModel",
             return_value=mock_pinecone_organization_model,
         ):
-            result = await semantic_search_organizations(
-                text="AI companies", org_type="company"
-            )
+            result = await semantic_search_organizations(text="AI companies", org_type="company")
 
             assert result.success is True
             call_kwargs = mock_pinecone_organization_model.query.call_args[1]
@@ -485,9 +458,7 @@ class TestSemanticSearchOrganizationsFiltering:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test filtering by stage."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -495,9 +466,7 @@ class TestSemanticSearchOrganizationsFiltering:
             "PineconeOrganizationModel",
             return_value=mock_pinecone_organization_model,
         ):
-            result = await semantic_search_organizations(
-                text="AI companies", stage="series_a"
-            )
+            result = await semantic_search_organizations(text="AI companies", stage="series_a")
 
             assert result.success is True
             call_kwargs = mock_pinecone_organization_model.query.call_args[1]
@@ -508,9 +477,7 @@ class TestSemanticSearchOrganizationsFiltering:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test filtering by valuation range."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -537,9 +504,7 @@ class TestSemanticSearchOrganizationsFiltering:
         sample_investor_uuid,
     ):
         """Test filtering by investors_contains."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -561,9 +526,7 @@ class TestSemanticSearchOrganizationsFiltering:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test filtering by general_funding_stage."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -584,9 +547,7 @@ class TestSemanticSearchOrganizationsFiltering:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test filtering by acquisitions range."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -610,9 +571,7 @@ class TestSemanticSearchOrganizationsFiltering:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test filtering by revenue_range."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -633,9 +592,7 @@ class TestSemanticSearchOrganizationsFiltering:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test custom top_k parameter."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -655,9 +612,7 @@ class TestSemanticSearchOrganizationsFiltering:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test custom index_name parameter."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -678,9 +633,7 @@ class TestSemanticSearchOrganizationsFiltering:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test that default top_k is 10."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -707,9 +660,7 @@ class TestSemanticSearchOrganizationsParameterConversion:
         sample_org_uuid,
     ):
         """Test that string UUIDs are converted to UUID objects."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -734,9 +685,7 @@ class TestSemanticSearchOrganizationsParameterConversion:
         sample_investor_uuid,
     ):
         """Test that investors_contains UUID string is converted to UUID object."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -758,9 +707,7 @@ class TestSemanticSearchOrganizationsParameterConversion:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test that date strings are converted to datetime objects."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -788,9 +735,7 @@ class TestSemanticSearchOrganizationsParameterConversion:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test that None UUIDs are not converted."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -810,9 +755,7 @@ class TestSemanticSearchOrganizationsParameterConversion:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test that None dates are not converted."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -835,12 +778,13 @@ class TestSemanticSearchOrganizationsModelDump:
 
     @pytest.mark.asyncio
     async def test_semantic_search_organizations_result_contains_model_dumps(
-        self, mock_pinecone_organization_model, sample_pinecone_organization, sample_org_uuid
+        self,
+        mock_pinecone_organization_model,
+        sample_pinecone_organization,
+        sample_org_uuid,
     ):
         """Test that results contain model_dump() output."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -993,9 +937,7 @@ class TestSemanticSearchOrganizationsMetadata:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test that metadata contains expected information."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -1016,9 +958,7 @@ class TestSemanticSearchOrganizationsMetadata:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test that ToolOutput structure is correct."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -1042,9 +982,7 @@ class TestSemanticSearchOrganizationsMetadata:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test that execution time is properly recorded."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -1063,9 +1001,7 @@ class TestSemanticSearchOrganizationsMetadata:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test that model.initialize() is called."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -1083,9 +1019,7 @@ class TestSemanticSearchOrganizationsMetadata:
         self, mock_pinecone_organization_model, sample_pinecone_organization
     ):
         """Test that model.query() is called with text parameter."""
-        mock_pinecone_organization_model.query.return_value = [
-            sample_pinecone_organization
-        ]
+        mock_pinecone_organization_model.query.return_value = [sample_pinecone_organization]
 
         semantic_search_module = sys.modules["src.tools.semantic_search_organizations"]
         with patch.object(
@@ -1098,4 +1032,3 @@ class TestSemanticSearchOrganizationsMetadata:
             assert result.success is True
             call_kwargs = mock_pinecone_organization_model.query.call_args[1]
             assert call_kwargs["text"] == "AI companies"
-

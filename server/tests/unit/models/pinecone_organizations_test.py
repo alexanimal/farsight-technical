@@ -10,10 +10,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from src.models.pinecone_organizations import (
-    PineconeOrganization,
-    PineconeOrganizationModel,
-)
+from src.models.pinecone_organizations import PineconeOrganization, PineconeOrganizationModel
 
 
 @pytest.fixture
@@ -120,13 +117,16 @@ class TestPineconeOrganizationModelInitialization:
         """Test initialize() when using default clients."""
         mock_pinecone = MagicMock()
         mock_openai = MagicMock()
-        with patch(
-            "src.models.pinecone_organizations.get_pinecone_client",
-            new_callable=AsyncMock,
-        ) as mock_get_pinecone, patch(
-            "src.models.pinecone_organizations.get_openai_client",
-            new_callable=AsyncMock,
-        ) as mock_get_openai:
+        with (
+            patch(
+                "src.models.pinecone_organizations.get_pinecone_client",
+                new_callable=AsyncMock,
+            ) as mock_get_pinecone,
+            patch(
+                "src.models.pinecone_organizations.get_openai_client",
+                new_callable=AsyncMock,
+            ) as mock_get_openai,
+        ):
             mock_get_pinecone.return_value = mock_pinecone
             mock_get_openai.return_value = mock_openai
             model = PineconeOrganizationModel()
@@ -137,17 +137,18 @@ class TestPineconeOrganizationModelInitialization:
             mock_get_openai.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_initialize_with_custom_clients(
-        self, mock_pinecone_client, mock_openai_client
-    ):
+    async def test_initialize_with_custom_clients(self, mock_pinecone_client, mock_openai_client):
         """Test initialize() when using custom clients (should not call getters)."""
-        with patch(
-            "src.models.pinecone_organizations.get_pinecone_client",
-            new_callable=AsyncMock,
-        ) as mock_get_pinecone, patch(
-            "src.models.pinecone_organizations.get_openai_client",
-            new_callable=AsyncMock,
-        ) as mock_get_openai:
+        with (
+            patch(
+                "src.models.pinecone_organizations.get_pinecone_client",
+                new_callable=AsyncMock,
+            ) as mock_get_pinecone,
+            patch(
+                "src.models.pinecone_organizations.get_openai_client",
+                new_callable=AsyncMock,
+            ) as mock_get_openai,
+        ):
             model = PineconeOrganizationModel(
                 pinecone_client=mock_pinecone_client, openai_client=mock_openai_client
             )
@@ -162,13 +163,16 @@ class TestPineconeOrganizationModelInitialization:
         """Test that initialize() can be called multiple times safely."""
         mock_pinecone = MagicMock()
         mock_openai = MagicMock()
-        with patch(
-            "src.models.pinecone_organizations.get_pinecone_client",
-            new_callable=AsyncMock,
-        ) as mock_get_pinecone, patch(
-            "src.models.pinecone_organizations.get_openai_client",
-            new_callable=AsyncMock,
-        ) as mock_get_openai:
+        with (
+            patch(
+                "src.models.pinecone_organizations.get_pinecone_client",
+                new_callable=AsyncMock,
+            ) as mock_get_pinecone,
+            patch(
+                "src.models.pinecone_organizations.get_openai_client",
+                new_callable=AsyncMock,
+            ) as mock_get_openai,
+        ):
             mock_get_pinecone.return_value = mock_pinecone
             mock_get_openai.return_value = mock_openai
             model = PineconeOrganizationModel()
@@ -399,9 +403,7 @@ class TestPineconeOrganizationModelQuery:
 
         date_from = datetime(2020, 1, 1)
         date_to = datetime(2023, 12, 31)
-        await model.query(
-            text="test", founding_date_from=date_from, founding_date_to=date_to
-        )
+        await model.query(text="test", founding_date_from=date_from, founding_date_to=date_to)
 
         call_kwargs = mock_pinecone_client.query.call_args[1]
         metadata_filter = call_kwargs["metadata_filter"]
@@ -524,9 +526,7 @@ class TestPineconeOrganizationModelQuery:
         )
         await model.initialize()
 
-        await model.query(
-            text="test", valuation_usd_min=10000000, valuation_usd_max=100000000
-        )
+        await model.query(text="test", valuation_usd_min=10000000, valuation_usd_max=100000000)
 
         call_kwargs = mock_pinecone_client.query.call_args[1]
         metadata_filter = call_kwargs["metadata_filter"]
@@ -578,9 +578,7 @@ class TestPineconeOrganizationModelQuery:
 
         call_kwargs = mock_pinecone_client.query.call_args[1]
         metadata_filter = call_kwargs["metadata_filter"]
-        assert metadata_filter["general_funding_stage"] == {
-            "$eq": "late_stage_venture"
-        }
+        assert metadata_filter["general_funding_stage"] == {"$eq": "late_stage_venture"}
 
     @pytest.mark.asyncio
     async def test_query_with_acquisitions_range(
@@ -599,9 +597,7 @@ class TestPineconeOrganizationModelQuery:
         )
         await model.initialize()
 
-        await model.query(
-            text="test", num_acquisitions_min=1, num_acquisitions_max=10
-        )
+        await model.query(text="test", num_acquisitions_min=1, num_acquisitions_max=10)
 
         call_kwargs = mock_pinecone_client.query.call_args[1]
         metadata_filter = call_kwargs["metadata_filter"]
@@ -661,9 +657,7 @@ class TestPineconeOrganizationModelQuery:
         metadata_filter = call_kwargs["metadata_filter"]
         assert metadata_filter["org_status"] == {"$eq": "operating"}
         assert metadata_filter["total_funding_usd"]["$gte"] == 1000000
-        assert metadata_filter["general_funding_stage"] == {
-            "$eq": "late_stage_venture"
-        }
+        assert metadata_filter["general_funding_stage"] == {"$eq": "late_stage_venture"}
         assert call_kwargs["top_k"] == 5
 
     @pytest.mark.asyncio
@@ -798,9 +792,10 @@ class TestPineconeOrganizationModelQuery:
         with pytest.raises(Exception) as exc_info:
             await model.query(text="test")
         # Should raise ValidationError from Pydantic
-        assert "validation error" in str(exc_info.value).lower() or "uuid" in str(
-            exc_info.value
-        ).lower()
+        assert (
+            "validation error" in str(exc_info.value).lower()
+            or "uuid" in str(exc_info.value).lower()
+        )
 
     @pytest.mark.asyncio
     async def test_query_result_with_invalid_date(
@@ -834,9 +829,11 @@ class TestPineconeOrganizationModelQuery:
         with pytest.raises(Exception) as exc_info:
             await model.query(text="test")
         # Should raise ValidationError from Pydantic
-        assert "validation error" in str(exc_info.value).lower() or "datetime" in str(
-            exc_info.value
-        ).lower() or "date" in str(exc_info.value).lower()
+        assert (
+            "validation error" in str(exc_info.value).lower()
+            or "datetime" in str(exc_info.value).lower()
+            or "date" in str(exc_info.value).lower()
+        )
 
     @pytest.mark.asyncio
     async def test_query_empty_results(
@@ -924,9 +921,7 @@ class TestPineconeOrganizationModelQuery:
         mock_openai_client,
     ):
         """Test query raises exception when embedding generation fails."""
-        mock_openai_client.create_embedding.side_effect = Exception(
-            "Embedding generation failed"
-        )
+        mock_openai_client.create_embedding.side_effect = Exception("Embedding generation failed")
 
         model = PineconeOrganizationModel(
             pinecone_client=mock_pinecone_client, openai_client=mock_openai_client
@@ -1041,4 +1036,3 @@ class TestPineconeOrganizationModel:
         assert org.name is None
         assert org.categories is None
         assert org.score is None
-

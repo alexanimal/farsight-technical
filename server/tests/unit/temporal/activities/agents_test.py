@@ -54,11 +54,16 @@ class TestExecuteAgent:
             "user_id": "user-1",
         }
 
-        with patch("src.temporal.activities.agents.get_agent") as mock_get_agent, \
-             patch("src.temporal.activities.agents.get_executor", return_value=mock_executor), \
-             patch("src.temporal.activities.agents.activity") as mock_activity:
+        with (
+            patch("src.temporal.activities.agents.get_agent") as mock_get_agent,
+            patch("src.temporal.activities.agents.get_executor", return_value=mock_executor),
+            patch("src.temporal.activities.agents.activity") as mock_activity,
+        ):
             mock_activity.logger = MagicMock()
-            mock_get_agent.return_value = (mock_agent_class, Path("/fake/path/config.yaml"))
+            mock_get_agent.return_value = (
+                mock_agent_class,
+                Path("/fake/path/config.yaml"),
+            )
 
             result = await execute_agent(
                 agent_name="test_agent",
@@ -85,9 +90,14 @@ class TestExecuteAgent:
         """Test agent execution when agent is not found."""
         context_dict = {"query": "What is the weather?"}
 
-        with patch("src.temporal.activities.agents.get_agent", return_value=None), \
-             patch("src.temporal.activities.agents.list_available_agents", return_value=["agent1", "agent2"]), \
-             patch("src.temporal.activities.agents.activity") as mock_activity:
+        with (
+            patch("src.temporal.activities.agents.get_agent", return_value=None),
+            patch(
+                "src.temporal.activities.agents.list_available_agents",
+                return_value=["agent1", "agent2"],
+            ),
+            patch("src.temporal.activities.agents.activity") as mock_activity,
+        ):
             mock_activity.logger = MagicMock()
 
             result = await execute_agent(
@@ -113,10 +123,15 @@ class TestExecuteAgent:
 
         context_dict = {}  # Missing required 'query' field
 
-        with patch("src.temporal.activities.agents.get_agent") as mock_get_agent, \
-             patch("src.temporal.activities.agents.activity") as mock_activity:
+        with (
+            patch("src.temporal.activities.agents.get_agent") as mock_get_agent,
+            patch("src.temporal.activities.agents.activity") as mock_activity,
+        ):
             mock_activity.logger = MagicMock()
-            mock_get_agent.return_value = (mock_agent_class, Path("/fake/path/config.yaml"))
+            mock_get_agent.return_value = (
+                mock_agent_class,
+                Path("/fake/path/config.yaml"),
+            )
 
             # Mock validate_agent_input to raise an exception
             with patch("src.temporal.activities.agents.validate_agent_input") as mock_validate:
@@ -143,10 +158,15 @@ class TestExecuteAgent:
 
         context_dict = {"query": "What is the weather?"}
 
-        with patch("src.temporal.activities.agents.get_agent") as mock_get_agent, \
-             patch("src.temporal.activities.agents.activity") as mock_activity:
+        with (
+            patch("src.temporal.activities.agents.get_agent") as mock_get_agent,
+            patch("src.temporal.activities.agents.activity") as mock_activity,
+        ):
             mock_activity.logger = MagicMock()
-            mock_get_agent.return_value = (mock_agent_class, Path("/fake/path/config.yaml"))
+            mock_get_agent.return_value = (
+                mock_agent_class,
+                Path("/fake/path/config.yaml"),
+            )
 
             result = await execute_agent(
                 agent_name="test_agent",
@@ -175,11 +195,16 @@ class TestExecuteAgent:
 
         context_dict = {"query": "What is the weather?"}
 
-        with patch("src.temporal.activities.agents.get_agent") as mock_get_agent, \
-             patch("src.temporal.activities.agents.get_executor", return_value=mock_executor), \
-             patch("src.temporal.activities.agents.activity") as mock_activity:
+        with (
+            patch("src.temporal.activities.agents.get_agent") as mock_get_agent,
+            patch("src.temporal.activities.agents.get_executor", return_value=mock_executor),
+            patch("src.temporal.activities.agents.activity") as mock_activity,
+        ):
             mock_activity.logger = MagicMock()
-            mock_get_agent.return_value = (mock_agent_class, Path("/fake/path/config.yaml"))
+            mock_get_agent.return_value = (
+                mock_agent_class,
+                Path("/fake/path/config.yaml"),
+            )
 
             result = await execute_agent(
                 agent_name="test_agent",
@@ -216,11 +241,16 @@ class TestExecuteAgent:
 
         context_dict = {"query": "What is the weather?"}
 
-        with patch("src.temporal.activities.agents.get_agent") as mock_get_agent, \
-             patch("src.temporal.activities.agents.get_executor", return_value=mock_executor), \
-             patch("src.temporal.activities.agents.activity") as mock_activity:
+        with (
+            patch("src.temporal.activities.agents.get_agent") as mock_get_agent,
+            patch("src.temporal.activities.agents.get_executor", return_value=mock_executor),
+            patch("src.temporal.activities.agents.activity") as mock_activity,
+        ):
             mock_activity.logger = MagicMock()
-            mock_get_agent.return_value = (mock_agent_class, Path("/fake/path/config.yaml"))
+            mock_get_agent.return_value = (
+                mock_agent_class,
+                Path("/fake/path/config.yaml"),
+            )
 
             result = await execute_agent(
                 agent_name="test_agent",
@@ -264,11 +294,16 @@ class TestExecuteAgent:
             "conversation_history": [{"role": "user", "content": "hi"}],
         }
 
-        with patch("src.temporal.activities.agents.get_agent") as mock_get_agent, \
-             patch("src.temporal.activities.agents.get_executor", return_value=mock_executor), \
-             patch("src.temporal.activities.agents.activity") as mock_activity:
+        with (
+            patch("src.temporal.activities.agents.get_agent") as mock_get_agent,
+            patch("src.temporal.activities.agents.get_executor", return_value=mock_executor),
+            patch("src.temporal.activities.agents.activity") as mock_activity,
+        ):
             mock_activity.logger = MagicMock()
-            mock_get_agent.return_value = (mock_agent_class, Path("/fake/path/config.yaml"))
+            mock_get_agent.return_value = (
+                mock_agent_class,
+                Path("/fake/path/config.yaml"),
+            )
 
             result = await execute_agent(
                 agent_name="test_agent",
@@ -309,11 +344,16 @@ class TestExecuteAgent:
 
         context_dict = {"query": "What is the weather?"}
 
-        with patch("src.temporal.activities.agents.get_agent") as mock_get_agent, \
-             patch("src.temporal.activities.agents.get_executor", return_value=mock_executor), \
-             patch("src.temporal.activities.agents.activity") as mock_activity:
+        with (
+            patch("src.temporal.activities.agents.get_agent") as mock_get_agent,
+            patch("src.temporal.activities.agents.get_executor", return_value=mock_executor),
+            patch("src.temporal.activities.agents.activity") as mock_activity,
+        ):
             mock_activity.logger = MagicMock()
-            mock_get_agent.return_value = (mock_agent_class, Path("/fake/path/config.yaml"))
+            mock_get_agent.return_value = (
+                mock_agent_class,
+                Path("/fake/path/config.yaml"),
+            )
 
             result = await execute_agent(
                 agent_name="test_agent",
@@ -346,11 +386,16 @@ class TestExecuteAgent:
 
         context_dict = {"query": "What is the weather?"}
 
-        with patch("src.temporal.activities.agents.get_agent") as mock_get_agent, \
-             patch("src.temporal.activities.agents.get_executor", return_value=mock_executor), \
-             patch("src.temporal.activities.agents.activity") as mock_activity:
+        with (
+            patch("src.temporal.activities.agents.get_agent") as mock_get_agent,
+            patch("src.temporal.activities.agents.get_executor", return_value=mock_executor),
+            patch("src.temporal.activities.agents.activity") as mock_activity,
+        ):
             mock_activity.logger = MagicMock()
-            mock_get_agent.return_value = (mock_agent_class, Path("/fake/path/config.yaml"))
+            mock_get_agent.return_value = (
+                mock_agent_class,
+                Path("/fake/path/config.yaml"),
+            )
 
             await execute_agent(
                 agent_name="test_agent",
@@ -397,11 +442,16 @@ class TestExecuteAgentWithOptions:
             "retry_policy": RetryPolicy(maximum_attempts=5),
         }
 
-        with patch("src.temporal.activities.agents.get_agent") as mock_get_agent, \
-             patch("src.temporal.activities.agents.get_executor", return_value=mock_executor), \
-             patch("src.temporal.activities.agents.activity") as mock_activity:
+        with (
+            patch("src.temporal.activities.agents.get_agent") as mock_get_agent,
+            patch("src.temporal.activities.agents.get_executor", return_value=mock_executor),
+            patch("src.temporal.activities.agents.activity") as mock_activity,
+        ):
             mock_activity.logger = MagicMock()
-            mock_get_agent.return_value = (mock_agent_class, Path("/fake/path/config.yaml"))
+            mock_get_agent.return_value = (
+                mock_agent_class,
+                Path("/fake/path/config.yaml"),
+            )
 
             result = await execute_agent_with_options(
                 agent_name="test_agent",
@@ -438,11 +488,16 @@ class TestExecuteAgentWithOptions:
 
         context_dict = {"query": "What is the weather?"}
 
-        with patch("src.temporal.activities.agents.get_agent") as mock_get_agent, \
-             patch("src.temporal.activities.agents.get_executor", return_value=mock_executor), \
-             patch("src.temporal.activities.agents.activity") as mock_activity:
+        with (
+            patch("src.temporal.activities.agents.get_agent") as mock_get_agent,
+            patch("src.temporal.activities.agents.get_executor", return_value=mock_executor),
+            patch("src.temporal.activities.agents.activity") as mock_activity,
+        ):
             mock_activity.logger = MagicMock()
-            mock_get_agent.return_value = (mock_agent_class, Path("/fake/path/config.yaml"))
+            mock_get_agent.return_value = (
+                mock_agent_class,
+                Path("/fake/path/config.yaml"),
+            )
 
             result = await execute_agent_with_options(
                 agent_name="test_agent",
@@ -550,4 +605,3 @@ class TestGetActivityOptions:
         # Other should be unchanged
         assert options2["start_to_close_timeout"] == timedelta(seconds=600)
         assert options1["start_to_close_timeout"] == timedelta(seconds=999)
-

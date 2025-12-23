@@ -202,9 +202,7 @@ class TestAgentOutput:
 
     def test_output_defaults(self):
         """Test that optional fields have correct defaults."""
-        agent_output = AgentOutput(
-            content="test", agent_name="agent", agent_category="cat"
-        )
+        agent_output = AgentOutput(content="test", agent_name="agent", agent_category="cat")
         assert agent_output.status == ResponseStatus.SUCCESS
         assert agent_output.tool_calls is None
         assert agent_output.metadata == {}
@@ -448,9 +446,7 @@ class TestAgentMetadata:
 
     def test_metadata_defaults(self):
         """Test that optional fields have correct defaults."""
-        metadata = AgentMetadata(
-            name="test", description="Test", category="test"
-        )
+        metadata = AgentMetadata(name="test", description="Test", category="test")
         assert metadata.version is None
         assert metadata.domain is None
         assert metadata.capabilities == []
@@ -704,4 +700,3 @@ class TestAgentContractsIntegration:
         assert restored_response.agent_name == original_response.agent_name
         assert restored_response.agent_category == original_response.agent_category
         assert restored_response.metadata == original_response.metadata
-

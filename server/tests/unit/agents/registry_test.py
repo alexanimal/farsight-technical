@@ -26,6 +26,7 @@ from src.core.agent_base import AgentBase
 @pytest.fixture
 def sample_agent_class():
     """Create a sample agent class for testing."""
+
     class TestAgent(AgentBase):
         """Test agent class."""
 
@@ -78,9 +79,7 @@ def clear_registry():
 class TestRegisterAgent:
     """Test register_agent function."""
 
-    def test_register_agent_success(
-        self, sample_agent_class, temp_config_file, clear_registry
-    ):
+    def test_register_agent_success(self, sample_agent_class, temp_config_file, clear_registry):
         """Test successful agent registration."""
         register_agent("test_agent", sample_agent_class, temp_config_file)
 
@@ -138,10 +137,9 @@ class TestRegisterAgent:
         _, config_path = _AGENT_REGISTRY["test_agent"]
         assert config_path == config2
 
-    def test_register_agent_not_agent_base_subclass(
-        self, temp_config_file, clear_registry
-    ):
+    def test_register_agent_not_agent_base_subclass(self, temp_config_file, clear_registry):
         """Test that registering a non-AgentBase class raises ValueError."""
+
         class NotAnAgent:
             """Not an agent class."""
 
@@ -163,9 +161,7 @@ class TestRegisterAgent:
         assert "not found" in str(exc_info.value).lower()
         assert "nonexistent.yaml" in str(exc_info.value)
 
-    def test_register_agent_logs_info(
-        self, sample_agent_class, temp_config_file, clear_registry
-    ):
+    def test_register_agent_logs_info(self, sample_agent_class, temp_config_file, clear_registry):
         """Test that registration logs info message."""
         with patch("src.agents.registry.logger") as mock_logger:
             register_agent("test_agent", sample_agent_class, temp_config_file)
@@ -179,9 +175,7 @@ class TestRegisterAgent:
 class TestGetAgent:
     """Test get_agent function."""
 
-    def test_get_agent_success(
-        self, sample_agent_class, temp_config_file, clear_registry
-    ):
+    def test_get_agent_success(self, sample_agent_class, temp_config_file, clear_registry):
         """Test successfully getting a registered agent."""
         register_agent("test_agent", sample_agent_class, temp_config_file)
 
@@ -301,9 +295,7 @@ class TestGetAgentMetadata:
 
         assert result is None
 
-    def test_get_agent_metadata_missing_fields(
-        self, sample_agent_class, tmp_path, clear_registry
-    ):
+    def test_get_agent_metadata_missing_fields(self, sample_agent_class, tmp_path, clear_registry):
         """Test getting metadata when config file has missing fields."""
         # Create minimal config
         minimal_config = tmp_path / "minimal_agent.yaml"
@@ -322,9 +314,7 @@ class TestGetAgentMetadata:
         assert result["category"] == "test"
         assert result["metadata"] == {}  # Default empty dict
 
-    def test_get_agent_metadata_invalid_yaml(
-        self, sample_agent_class, tmp_path, clear_registry
-    ):
+    def test_get_agent_metadata_invalid_yaml(self, sample_agent_class, tmp_path, clear_registry):
         """Test getting metadata when config file has invalid YAML."""
         invalid_config = tmp_path / "invalid_agent.yaml"
         invalid_config.write_text("invalid: yaml: content: [", encoding="utf-8")
@@ -364,9 +354,7 @@ class TestGetAgentMetadata:
                 # Should log warning
                 mock_logger.warning.assert_called_once()
 
-    def test_get_agent_metadata_empty_file(
-        self, sample_agent_class, tmp_path, clear_registry
-    ):
+    def test_get_agent_metadata_empty_file(self, sample_agent_class, tmp_path, clear_registry):
         """Test getting metadata when config file is empty."""
         empty_config = tmp_path / "empty_agent.yaml"
         empty_config.write_text("", encoding="utf-8")
@@ -437,9 +425,7 @@ class TestDiscoverAgents:
 
                     # Should log debug message about skipping
                     debug_calls = [
-                        call[0][0]
-                        for call in mock_logger.debug.call_args_list
-                        if call and call[0]
+                        call[0][0] for call in mock_logger.debug.call_args_list if call and call[0]
                     ]
                     skip_messages = [
                         msg for msg in debug_calls if "already registered" in msg.lower()
@@ -468,9 +454,7 @@ class TestDiscoverAgents:
 
                     # Should log debug messages for import errors
                     debug_calls = [
-                        call[0][0]
-                        for call in mock_logger.debug.call_args_list
-                        if call and call[0]
+                        call[0][0] for call in mock_logger.debug.call_args_list if call and call[0]
                     ]
                     # Should handle errors gracefully without crashing
 
@@ -500,6 +484,7 @@ class TestDiscoverAgents:
 
     def test_discover_agents_config_file_not_found(self, clear_registry, tmp_path):
         """Test discover_agents when config file doesn't exist."""
+
         # Create a mock agent class in module
         class MockAgent(AgentBase):
             pass
@@ -530,6 +515,7 @@ class TestDiscoverAgents:
 
     def test_discover_agents_registration_error(self, clear_registry, tmp_path):
         """Test discover_agents handles registration errors gracefully."""
+
         # Create a mock agent class
         class MockAgent(AgentBase):
             pass
@@ -545,7 +531,8 @@ class TestDiscoverAgents:
             with patch("src.agents.registry.importlib.import_module", return_value=mock_module):
                 with patch("src.agents.registry.Path.exists", return_value=True):
                     with patch(
-                        "src.agents.registry.register_agent", side_effect=Exception("Registration failed")
+                        "src.agents.registry.register_agent",
+                        side_effect=Exception("Registration failed"),
                     ):
                         with patch("src.agents.registry.logger") as mock_logger:
                             discover_agents()
@@ -655,7 +642,10 @@ class TestDiscoverAgents:
         mock_module.__dict__ = {"AcquisitionAgent": sample_agent_class}
 
         # Mock path resolution - patch __file__ directly
-        with patch("src.agents.registry.__file__", str(tmp_path / "src" / "agents" / "registry.py")):
+        with patch(
+            "src.agents.registry.__file__",
+            str(tmp_path / "src" / "agents" / "registry.py"),
+        ):
             with patch("src.agents.registry.importlib.import_module", return_value=mock_module):
                 # Mock dir() and getattr to find the agent class
                 original_dir = dir
@@ -720,7 +710,10 @@ class TestRegistryModuleInitialization:
     def test_module_handles_discovery_failure_gracefully(self, clear_registry):
         """Test that module handles discovery failure on import gracefully."""
         # Mock discover_agents to raise an exception
-        with patch("src.agents.registry.discover_agents", side_effect=Exception("Discovery failed")):
+        with patch(
+            "src.agents.registry.discover_agents",
+            side_effect=Exception("Discovery failed"),
+        ):
             with patch("src.agents.registry.logger") as mock_logger:
                 # Reload module to trigger initialization
                 if "src.agents.registry" in sys.modules:
@@ -728,4 +721,3 @@ class TestRegistryModuleInitialization:
 
                 # Should log warning but not crash
                 # (module-level try/except should catch it)
-

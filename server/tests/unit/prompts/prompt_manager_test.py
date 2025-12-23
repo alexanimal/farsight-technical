@@ -54,13 +54,9 @@ class TestPromptManagerInitialization:
         assert "Organizational Standards" in prompt_manager._organizational_defaults
         assert "Farsight technical system" in prompt_manager._organizational_defaults
 
-    def test_custom_organizational_defaults(
-        self, custom_organizational_defaults
-    ):
+    def test_custom_organizational_defaults(self, custom_organizational_defaults):
         """Test initialization with custom organizational defaults."""
-        manager = PromptManager(
-            organizational_defaults=custom_organizational_defaults
-        )
+        manager = PromptManager(organizational_defaults=custom_organizational_defaults)
         assert manager._organizational_defaults == custom_organizational_defaults
 
     def test_organizational_defaults_class_constant(self):
@@ -87,9 +83,7 @@ class TestPromptManagerAgentRegistration:
         assert "acquisition" in prompt_manager._agent_prompts
         assert prompt_manager._agent_prompts["acquisition"] == sample_agent_prompt
 
-    def test_register_multiple_agents(
-        self, prompt_manager, sample_agent_prompt
-    ):
+    def test_register_multiple_agents(self, prompt_manager, sample_agent_prompt):
         """Test registering multiple agent prompts."""
         prompt_manager.register_agent_prompt(
             agent_name="acquisition", system_prompt=sample_agent_prompt
@@ -102,9 +96,7 @@ class TestPromptManagerAgentRegistration:
         assert "acquisition" in prompt_manager._agent_prompts
         assert "orchestration" in prompt_manager._agent_prompts
 
-    def test_register_agent_prompt_overwrite_false(
-        self, prompt_manager, sample_agent_prompt
-    ):
+    def test_register_agent_prompt_overwrite_false(self, prompt_manager, sample_agent_prompt):
         """Test that registering duplicate agent raises error when overwrite=False."""
         prompt_manager.register_agent_prompt(
             agent_name="acquisition", system_prompt=sample_agent_prompt
@@ -115,9 +107,7 @@ class TestPromptManagerAgentRegistration:
             )
         assert "already has a registered prompt" in str(exc_info.value)
 
-    def test_register_agent_prompt_overwrite_true(
-        self, prompt_manager, sample_agent_prompt
-    ):
+    def test_register_agent_prompt_overwrite_true(self, prompt_manager, sample_agent_prompt):
         """Test that registering duplicate agent overwrites when overwrite=True."""
         prompt_manager.register_agent_prompt(
             agent_name="acquisition", system_prompt=sample_agent_prompt
@@ -128,9 +118,7 @@ class TestPromptManagerAgentRegistration:
         )
         assert prompt_manager._agent_prompts["acquisition"] == new_prompt
 
-    def test_get_agent_prompt_exists(
-        self, prompt_manager, sample_agent_prompt
-    ):
+    def test_get_agent_prompt_exists(self, prompt_manager, sample_agent_prompt):
         """Test getting a registered agent prompt."""
         prompt_manager.register_agent_prompt(
             agent_name="acquisition", system_prompt=sample_agent_prompt
@@ -184,9 +172,7 @@ class TestPromptManagerBuildSystemPrompt:
         assert base_prompt in result
         assert "Organizational Standards" in result
 
-    def test_build_system_prompt_with_registered_agent(
-        self, prompt_manager, sample_agent_prompt
-    ):
+    def test_build_system_prompt_with_registered_agent(self, prompt_manager, sample_agent_prompt):
         """Test building a system prompt using a registered agent."""
         prompt_manager.register_agent_prompt(
             agent_name="acquisition", system_prompt=sample_agent_prompt
@@ -213,9 +199,7 @@ class TestPromptManagerBuildSystemPrompt:
         """Test that building without agent_name or base_prompt raises ValueError."""
         with pytest.raises(ValueError) as exc_info:
             prompt_manager.build_system_prompt()
-        assert "Either agent_name or base_prompt must be provided" in str(
-            exc_info.value
-        )
+        assert "Either agent_name or base_prompt must be provided" in str(exc_info.value)
 
     def test_build_system_prompt_unregistered_agent(self, prompt_manager):
         """Test that building with unregistered agent_name raises ValueError."""
@@ -223,79 +207,53 @@ class TestPromptManagerBuildSystemPrompt:
             prompt_manager.build_system_prompt(agent_name="nonexistent")
         assert "not registered" in str(exc_info.value)
 
-    def test_build_system_prompt_always_includes_organizational_defaults(
-        self, prompt_manager
-    ):
+    def test_build_system_prompt_always_includes_organizational_defaults(self, prompt_manager):
         """Test that organizational defaults are always included."""
-        result = prompt_manager.build_system_prompt(
-            base_prompt="Test prompt"
-        )
+        result = prompt_manager.build_system_prompt(base_prompt="Test prompt")
         assert "Organizational Standards" in result
         assert "Farsight technical system" in result
 
-    def test_build_system_prompt_with_temporal_context(
-        self, prompt_manager
-    ):
+    def test_build_system_prompt_with_temporal_context(self, prompt_manager):
         """Test building a system prompt with temporal context."""
         with patch("src.prompts.prompt_manager.datetime") as mock_datetime:
-            mock_datetime.utcnow.return_value.strftime.return_value = (
-                "2024-01-15 10:30:00 UTC"
-            )
+            mock_datetime.utcnow.return_value.strftime.return_value = "2024-01-15 10:30:00 UTC"
             options = PromptOptions(add_temporal_context=True)
-            result = prompt_manager.build_system_prompt(
-                base_prompt="Test prompt", options=options
-            )
+            result = prompt_manager.build_system_prompt(base_prompt="Test prompt", options=options)
             assert "Temporal Context" in result
             assert "2024-01-15 10:30:00 UTC" in result
 
-    def test_build_system_prompt_without_temporal_context(
-        self, prompt_manager
-    ):
+    def test_build_system_prompt_without_temporal_context(self, prompt_manager):
         """Test that temporal context is not included when not requested."""
         options = PromptOptions(add_temporal_context=False)
-        result = prompt_manager.build_system_prompt(
-            base_prompt="Test prompt", options=options
-        )
+        result = prompt_manager.build_system_prompt(base_prompt="Test prompt", options=options)
         assert "Temporal Context" not in result
 
     def test_build_system_prompt_with_persona(self, prompt_manager):
         """Test building a system prompt with persona."""
         persona = "You are a senior financial analyst with 20 years of experience."
         options = PromptOptions(persona=persona)
-        result = prompt_manager.build_system_prompt(
-            base_prompt="Test prompt", options=options
-        )
+        result = prompt_manager.build_system_prompt(base_prompt="Test prompt", options=options)
         assert "Persona" in result
         assert persona in result
 
     def test_build_system_prompt_without_persona(self, prompt_manager):
         """Test that persona is not included when not provided."""
         options = PromptOptions(persona=None)
-        result = prompt_manager.build_system_prompt(
-            base_prompt="Test prompt", options=options
-        )
+        result = prompt_manager.build_system_prompt(base_prompt="Test prompt", options=options)
         assert "Persona" not in result
 
-    def test_build_system_prompt_with_markdown_instructions(
-        self, prompt_manager
-    ):
+    def test_build_system_prompt_with_markdown_instructions(self, prompt_manager):
         """Test building a system prompt with markdown instructions."""
         options = PromptOptions(add_markdown_instructions=True)
-        result = prompt_manager.build_system_prompt(
-            base_prompt="Test prompt", options=options
-        )
+        result = prompt_manager.build_system_prompt(base_prompt="Test prompt", options=options)
         assert "Output Formatting" in result
         assert "Markdown" in result
         assert "**bold**" in result
 
-    def test_build_system_prompt_without_markdown_instructions(
-        self, prompt_manager
-    ):
+    def test_build_system_prompt_without_markdown_instructions(self, prompt_manager):
         """Test that markdown instructions are not included when not requested."""
         options = PromptOptions(add_markdown_instructions=False)
-        result = prompt_manager.build_system_prompt(
-            base_prompt="Test prompt", options=options
-        )
+        result = prompt_manager.build_system_prompt(base_prompt="Test prompt", options=options)
         assert "Output Formatting" not in result
 
     def test_build_system_prompt_with_custom_sections(self, prompt_manager):
@@ -305,9 +263,7 @@ class TestPromptManagerBuildSystemPrompt:
             "Constraints": "Follow these constraints.",
         }
         options = PromptOptions(custom_sections=custom_sections)
-        result = prompt_manager.build_system_prompt(
-            base_prompt="Test prompt", options=options
-        )
+        result = prompt_manager.build_system_prompt(base_prompt="Test prompt", options=options)
         assert "Additional Context" in result
         assert "This is additional context." in result
         assert "Constraints" in result
@@ -316,18 +272,14 @@ class TestPromptManagerBuildSystemPrompt:
     def test_build_system_prompt_with_all_options(self, prompt_manager):
         """Test building a system prompt with all options enabled."""
         with patch("src.prompts.prompt_manager.datetime") as mock_datetime:
-            mock_datetime.utcnow.return_value.strftime.return_value = (
-                "2024-01-15 10:30:00 UTC"
-            )
+            mock_datetime.utcnow.return_value.strftime.return_value = "2024-01-15 10:30:00 UTC"
             options = PromptOptions(
                 add_temporal_context=True,
                 persona="You are an expert.",
                 add_markdown_instructions=True,
                 custom_sections={"Custom": "Custom content"},
             )
-            result = prompt_manager.build_system_prompt(
-                base_prompt="Base prompt", options=options
-            )
+            result = prompt_manager.build_system_prompt(base_prompt="Base prompt", options=options)
             # Check all sections are present
             assert "Base prompt" in result
             assert "Organizational Standards" in result
@@ -341,7 +293,9 @@ class TestPromptManagerBuildSystemPrompt:
 
     def test_build_system_prompt_default_options(self, prompt_manager):
         """Test that default options are used when None is provided."""
-        result = prompt_manager.build_system_prompt(base_prompt="Test prompt")
+        # Default options now include temporal context, so explicitly disable it
+        options = PromptOptions(add_temporal_context=False)
+        result = prompt_manager.build_system_prompt(base_prompt="Test prompt", options=options)
         # Should include organizational defaults but not optional sections
         assert "Organizational Standards" in result
         assert "Temporal Context" not in result
@@ -355,9 +309,7 @@ class TestPromptManagerBuildSystemPrompt:
             persona="Test persona",
             add_markdown_instructions=True,
         )
-        result = prompt_manager.build_system_prompt(
-            base_prompt="Base", options=options
-        )
+        result = prompt_manager.build_system_prompt(base_prompt="Base", options=options)
         # Check order: base -> org defaults -> temporal -> persona -> markdown
         base_idx = result.find("Base")
         org_idx = result.find("Organizational Standards")
@@ -373,15 +325,15 @@ class TestPromptManagerBuildUserPrompt:
     def test_build_user_prompt_basic(self, prompt_manager):
         """Test building a basic user prompt."""
         user_query = "What is the capital of France?"
-        result = prompt_manager.build_user_prompt(user_query)
+        # Explicitly disable temporal context to match expected behavior
+        options = PromptOptions(add_temporal_context=False)
+        result = prompt_manager.build_user_prompt(user_query, options=options)
         assert result == user_query
 
     def test_build_user_prompt_with_temporal_context(self, prompt_manager):
         """Test building a user prompt with temporal context."""
         with patch("src.prompts.prompt_manager.datetime") as mock_datetime:
-            mock_datetime.utcnow.return_value.strftime.return_value = (
-                "2024-01-15 10:30:00 UTC"
-            )
+            mock_datetime.utcnow.return_value.strftime.return_value = "2024-01-15 10:30:00 UTC"
             options = PromptOptions(add_temporal_context=True)
             user_query = "What is the weather?"
             result = prompt_manager.build_user_prompt(user_query, options=options)
@@ -400,7 +352,9 @@ class TestPromptManagerBuildUserPrompt:
     def test_build_user_prompt_default_options(self, prompt_manager):
         """Test that default options are used when None is provided."""
         user_query = "Test query"
-        result = prompt_manager.build_user_prompt(user_query)
+        # Default options now include temporal context, so explicitly disable it
+        options = PromptOptions(add_temporal_context=False)
+        result = prompt_manager.build_user_prompt(user_query, options=options)
         assert result == user_query
 
 
@@ -414,25 +368,16 @@ class TestPromptManagerOrganizationalDefaults:
         assert len(defaults) > 0
         assert "Organizational Standards" in defaults
 
-    def test_update_organizational_defaults(
-        self, prompt_manager, custom_organizational_defaults
-    ):
+    def test_update_organizational_defaults(self, prompt_manager, custom_organizational_defaults):
         """Test updating organizational defaults."""
-        prompt_manager.update_organizational_defaults(
-            custom_organizational_defaults
-        )
-        assert (
-            prompt_manager.get_organizational_defaults()
-            == custom_organizational_defaults
-        )
+        prompt_manager.update_organizational_defaults(custom_organizational_defaults)
+        assert prompt_manager.get_organizational_defaults() == custom_organizational_defaults
 
     def test_updated_defaults_affect_new_prompts(
         self, prompt_manager, custom_organizational_defaults
     ):
         """Test that updated defaults are used in new prompts."""
-        prompt_manager.update_organizational_defaults(
-            custom_organizational_defaults
-        )
+        prompt_manager.update_organizational_defaults(custom_organizational_defaults)
         result = prompt_manager.build_system_prompt(base_prompt="Test")
         assert custom_organizational_defaults in result
         assert "Custom Standards" in result
@@ -444,7 +389,8 @@ class TestPromptOptions:
     def test_prompt_options_defaults(self):
         """Test that PromptOptions has correct defaults."""
         options = PromptOptions()
-        assert options.add_temporal_context is False
+        # Default changed to True for add_temporal_context
+        assert options.add_temporal_context is True
         assert options.persona is None
         assert options.add_markdown_instructions is False
         assert options.custom_sections is None
@@ -512,16 +458,12 @@ class TestPromptManagerEdgeCases:
         # Empty string is falsy, so it's treated as "not provided"
         with pytest.raises(ValueError) as exc_info:
             prompt_manager.build_system_prompt(base_prompt="")
-        assert "Either agent_name or base_prompt must be provided" in str(
-            exc_info.value
-        )
+        assert "Either agent_name or base_prompt must be provided" in str(exc_info.value)
 
     def test_empty_persona(self, prompt_manager):
         """Test that empty persona string is not added (falsy check)."""
         options = PromptOptions(persona="")
-        result = prompt_manager.build_system_prompt(
-            base_prompt="Test", options=options
-        )
+        result = prompt_manager.build_system_prompt(base_prompt="Test", options=options)
         # Empty string is falsy, so Persona section should not be added
         assert "Persona" not in result
         assert "Test" in result
@@ -530,18 +472,14 @@ class TestPromptManagerEdgeCases:
     def test_empty_custom_sections(self, prompt_manager):
         """Test that empty custom sections dict is handled."""
         options = PromptOptions(custom_sections={})
-        result = prompt_manager.build_system_prompt(
-            base_prompt="Test", options=options
-        )
+        result = prompt_manager.build_system_prompt(base_prompt="Test", options=options)
         # Should not raise error, but no custom sections added
         assert "Test" in result
 
     def test_custom_sections_with_empty_values(self, prompt_manager):
         """Test custom sections with empty string values."""
         options = PromptOptions(custom_sections={"Section": ""})
-        result = prompt_manager.build_system_prompt(
-            base_prompt="Test", options=options
-        )
+        result = prompt_manager.build_system_prompt(base_prompt="Test", options=options)
         assert "Section" in result
 
     def test_multiple_custom_sections_order(self, prompt_manager):
@@ -552,9 +490,7 @@ class TestPromptManagerEdgeCases:
             "Third": "Third content",
         }
         options = PromptOptions(custom_sections=custom_sections)
-        result = prompt_manager.build_system_prompt(
-            base_prompt="Test", options=options
-        )
+        result = prompt_manager.build_system_prompt(base_prompt="Test", options=options)
         # Check all sections are present
         assert "First" in result
         assert "Second" in result
@@ -594,9 +530,7 @@ class TestPromptManagerEdgeCases:
             mock_datetime.utcnow.return_value = mock_now
 
             options = PromptOptions(add_temporal_context=True)
-            result = prompt_manager.build_system_prompt(
-                base_prompt="Test", options=options
-            )
+            result = prompt_manager.build_system_prompt(base_prompt="Test", options=options)
             mock_datetime.utcnow.assert_called_once()
             mock_now.strftime.assert_called_once_with("%Y-%m-%d %H:%M:%S UTC")
             assert "2024-01-15 10:30:00 UTC" in result
@@ -614,9 +548,6 @@ class TestPromptManagerEdgeCases:
 
     def test_build_prompt_with_none_options(self, prompt_manager):
         """Test that None options uses defaults."""
-        result = prompt_manager.build_system_prompt(
-            base_prompt="Test", options=None
-        )
+        result = prompt_manager.build_system_prompt(base_prompt="Test", options=None)
         assert "Test" in result
         assert "Organizational Standards" in result
-

@@ -76,9 +76,7 @@ class TestAgentConfig:
 
     def test_agent_config_defaults(self):
         """Test AgentConfig default values."""
-        config = AgentConfig(
-            name="test", description="test", category="test"
-        )
+        config = AgentConfig(name="test", description="test", category="test")
         assert config.tools == []
         assert config.metadata == {}
 
@@ -100,12 +98,13 @@ class TestAgentBaseInitialization:
             AgentBase(config_path=nonexistent_file)
         assert "not found" in str(exc_info.value).lower()
 
-    def test_init_without_config_path_auto_discovery(
-        self, temp_config_file, sample_config_data
-    ):
+    def test_init_without_config_path_auto_discovery(self, temp_config_file, sample_config_data):
         """Test initialization without config path (auto-discovery)."""
         # Patch __file__ to point to the directory containing our temp config file
-        with patch("src.core.agent_base.__file__", str(temp_config_file.parent / "agent_base.py")):
+        with patch(
+            "src.core.agent_base.__file__",
+            str(temp_config_file.parent / "agent_base.py"),
+        ):
             # The config.yaml should be in the same directory
             agent = AgentBase(config_path=None)
             assert agent.config.name == sample_config_data["name"]
@@ -151,16 +150,14 @@ class TestAgentBaseLoadConfig:
 
         with pytest.raises(ValueError) as exc_info:
             AgentBase(config_path=invalid_file)
-        assert "invalid yaml" in str(exc_info.value).lower() or "yaml" in str(
-            exc_info.value
-        ).lower()
+        assert (
+            "invalid yaml" in str(exc_info.value).lower() or "yaml" in str(exc_info.value).lower()
+        )
 
     def test_load_config_missing_required_field(self, tmp_path):
         """Test loading YAML with missing required field."""
         incomplete_file = tmp_path / "incomplete.yaml"
-        incomplete_file.write_text(
-            "description: test\ndescription: test", encoding="utf-8"
-        )
+        incomplete_file.write_text("description: test\ndescription: test", encoding="utf-8")
 
         with pytest.raises(ValueError):
             AgentBase(config_path=incomplete_file)
@@ -256,4 +253,3 @@ class TestAgentBaseMethods:
         assert "AgentBase" in repr_str
         assert "test_agent" in repr_str
         assert "testing" in repr_str
-

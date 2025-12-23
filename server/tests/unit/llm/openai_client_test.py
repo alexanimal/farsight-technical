@@ -8,11 +8,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from openai import AsyncOpenAI
-from openai.types.chat import (ChatCompletion, ChatCompletionChunk,
-                               ChatCompletionMessage)
+from openai.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage
 
-from src.llm.openai_client import (OpenAIClient, close_default_client,
-                                   get_client)
+from src.llm.openai_client import OpenAIClient, close_default_client, get_client
 
 
 @pytest.fixture
@@ -109,9 +107,7 @@ class TestOpenAIClientInitialization:
         """Test initialization with both custom API key and base URL."""
         with patch("src.llm.openai_client.settings") as mock_settings:
             mock_settings.openai_api_key = "default-key"
-            client = OpenAIClient(
-                api_key="custom-key", base_url="https://api.custom.com"
-            )
+            client = OpenAIClient(api_key="custom-key", base_url="https://api.custom.com")
             assert client._api_key == "custom-key"
             assert client._base_url == "https://api.custom.com"
 
@@ -142,9 +138,7 @@ class TestOpenAIClientInitialize:
                 assert client._client == mock_openai_client
 
     @pytest.mark.asyncio
-    async def test_initialize_with_custom_api_key(
-        self, mock_openai_client, monkeypatch
-    ):
+    async def test_initialize_with_custom_api_key(self, mock_openai_client, monkeypatch):
         """Test initialization with custom API key."""
         with patch("src.llm.openai_client.settings") as mock_settings:
             mock_settings.openai_api_key = "default-key"
@@ -172,9 +166,7 @@ class TestOpenAIClientInitialize:
                 )
 
     @pytest.mark.asyncio
-    async def test_initialize_already_initialized(
-        self, mock_openai_client, monkeypatch
-    ):
+    async def test_initialize_already_initialized(self, mock_openai_client, monkeypatch):
         """Test that re-initialization is skipped with warning."""
         with patch("src.llm.openai_client.settings") as mock_settings:
             mock_settings.openai_api_key = "test-key"
@@ -302,9 +294,7 @@ class TestOpenAIClientContextManager:
                     assert isinstance(client, OpenAIClient)
 
     @pytest.mark.asyncio
-    async def test_context_manager_with_exception(
-        self, mock_openai_client, monkeypatch
-    ):
+    async def test_context_manager_with_exception(self, mock_openai_client, monkeypatch):
         """Test context manager properly closes client even on exception."""
         with patch("src.llm.openai_client.settings") as mock_settings:
             mock_settings.openai_api_key = "test-key"
@@ -361,17 +351,13 @@ class TestOpenAIClientChatCompletion:
 
             with patch("src.llm.openai_client.AsyncOpenAI") as mock_openai_class:
                 mock_openai_class.return_value = mock_openai_client
-                mock_openai_client.chat.completions.create.return_value = (
-                    mock_chat_completion
-                )
+                mock_openai_client.chat.completions.create.return_value = mock_chat_completion
 
                 client = OpenAIClient()
                 await client.initialize()
 
                 messages = [{"role": "user", "content": "Hello!"}]
-                response = await client.chat_completion(
-                    messages=messages, model="gpt-4"
-                )
+                response = await client.chat_completion(messages=messages, model="gpt-4")
 
                 assert response == mock_chat_completion
                 mock_openai_client.chat.completions.create.assert_called_once()
@@ -389,17 +375,13 @@ class TestOpenAIClientChatCompletion:
 
             with patch("src.llm.openai_client.AsyncOpenAI") as mock_openai_class:
                 mock_openai_class.return_value = mock_openai_client
-                mock_openai_client.chat.completions.create.return_value = (
-                    mock_chat_completion
-                )
+                mock_openai_client.chat.completions.create.return_value = mock_chat_completion
 
                 client = OpenAIClient()
                 await client.initialize()
 
                 messages = [{"role": "user", "content": "Hello!"}]
-                await client.chat_completion(
-                    messages=messages, model="gpt-4", temperature=0.7
-                )
+                await client.chat_completion(messages=messages, model="gpt-4", temperature=0.7)
 
                 call_args = mock_openai_client.chat.completions.create.call_args[1]
                 assert call_args["temperature"] == 0.7
@@ -414,17 +396,13 @@ class TestOpenAIClientChatCompletion:
 
             with patch("src.llm.openai_client.AsyncOpenAI") as mock_openai_class:
                 mock_openai_class.return_value = mock_openai_client
-                mock_openai_client.chat.completions.create.return_value = (
-                    mock_chat_completion
-                )
+                mock_openai_client.chat.completions.create.return_value = mock_chat_completion
 
                 client = OpenAIClient()
                 await client.initialize()
 
                 messages = [{"role": "user", "content": "Hello!"}]
-                await client.chat_completion(
-                    messages=messages, model="gpt-4", max_tokens=100
-                )
+                await client.chat_completion(messages=messages, model="gpt-4", max_tokens=100)
 
                 call_args = mock_openai_client.chat.completions.create.call_args[1]
                 assert call_args["max_tokens"] == 100
@@ -444,9 +422,7 @@ class TestOpenAIClientChatCompletion:
                 async def stream_generator():
                     yield mock_chat_completion_chunk
 
-                mock_openai_client.chat.completions.create.return_value = (
-                    stream_generator()
-                )
+                mock_openai_client.chat.completions.create.return_value = stream_generator()
 
                 client = OpenAIClient()
                 await client.initialize()
@@ -471,9 +447,7 @@ class TestOpenAIClientChatCompletion:
 
             with patch("src.llm.openai_client.AsyncOpenAI") as mock_openai_class:
                 mock_openai_class.return_value = mock_openai_client
-                mock_openai_client.chat.completions.create.return_value = (
-                    mock_chat_completion
-                )
+                mock_openai_client.chat.completions.create.return_value = mock_chat_completion
 
                 client = OpenAIClient()
                 await client.initialize()
@@ -488,9 +462,7 @@ class TestOpenAIClientChatCompletion:
                         },
                     }
                 ]
-                await client.chat_completion(
-                    messages=messages, model="gpt-4", tools=tools
-                )
+                await client.chat_completion(messages=messages, model="gpt-4", tools=tools)
 
                 call_args = mock_openai_client.chat.completions.create.call_args[1]
                 assert call_args["tools"] == tools
@@ -505,9 +477,7 @@ class TestOpenAIClientChatCompletion:
 
             with patch("src.llm.openai_client.AsyncOpenAI") as mock_openai_class:
                 mock_openai_class.return_value = mock_openai_client
-                mock_openai_client.chat.completions.create.return_value = (
-                    mock_chat_completion
-                )
+                mock_openai_client.chat.completions.create.return_value = mock_chat_completion
 
                 client = OpenAIClient()
                 await client.initialize()
@@ -518,9 +488,13 @@ class TestOpenAIClientChatCompletion:
                 )
 
                 call_args = mock_openai_client.chat.completions.create.call_args[1]
-                assert "tools" in call_args
-                assert any(
-                    tool.get("type") == "web_search" for tool in call_args["tools"]
+                # enable_web_search is now ignored - OpenAI API doesn't support web_search tool type
+                # The parameter is logged as a warning but not added to the request
+                # So tools should not be in call_args unless explicitly provided via tools parameter
+                # The test should verify that web_search is NOT added
+                # Since no tools are provided, tools should not be in call_args
+                assert "tools" not in call_args or not any(
+                    tool.get("type") == "web_search" for tool in call_args.get("tools", [])
                 )
 
     @pytest.mark.asyncio
@@ -533,9 +507,7 @@ class TestOpenAIClientChatCompletion:
 
             with patch("src.llm.openai_client.AsyncOpenAI") as mock_openai_class:
                 mock_openai_class.return_value = mock_openai_client
-                mock_openai_client.chat.completions.create.return_value = (
-                    mock_chat_completion
-                )
+                mock_openai_client.chat.completions.create.return_value = mock_chat_completion
 
                 client = OpenAIClient()
                 await client.initialize()
@@ -560,9 +532,7 @@ class TestOpenAIClientChatCompletion:
 
             with patch("src.llm.openai_client.AsyncOpenAI") as mock_openai_class:
                 mock_openai_class.return_value = mock_openai_client
-                mock_openai_client.chat.completions.create.return_value = (
-                    mock_chat_completion
-                )
+                mock_openai_client.chat.completions.create.return_value = mock_chat_completion
 
                 client = OpenAIClient()
                 await client.initialize()
@@ -586,9 +556,7 @@ class TestOpenAIClientChatCompletion:
 
             with patch("src.llm.openai_client.AsyncOpenAI") as mock_openai_class:
                 mock_openai_class.return_value = mock_openai_client
-                mock_openai_client.chat.completions.create.return_value = (
-                    mock_chat_completion
-                )
+                mock_openai_client.chat.completions.create.return_value = mock_chat_completion
 
                 client = OpenAIClient()
                 await client.initialize()
@@ -623,9 +591,7 @@ class TestOpenAIClientChatCompletion:
 
             with patch("src.llm.openai_client.AsyncOpenAI") as mock_openai_class:
                 mock_openai_class.return_value = mock_openai_client
-                mock_openai_client.chat.completions.create.side_effect = Exception(
-                    "API error"
-                )
+                mock_openai_client.chat.completions.create.side_effect = Exception("API error")
 
                 client = OpenAIClient()
                 await client.initialize()
@@ -645,9 +611,7 @@ class TestOpenAIClientChatCompletion:
 
             with patch("src.llm.openai_client.AsyncOpenAI") as mock_openai_class:
                 mock_openai_class.return_value = mock_openai_client
-                mock_openai_client.chat.completions.create.return_value = (
-                    mock_chat_completion
-                )
+                mock_openai_client.chat.completions.create.return_value = mock_chat_completion
 
                 client = OpenAIClient()
                 await client.initialize()
@@ -673,9 +637,7 @@ class TestOpenAIClientIsInitialized:
     """Test OpenAIClient.is_initialized() method."""
 
     @pytest.mark.asyncio
-    async def test_is_initialized_true_when_initialized(
-        self, mock_openai_client, monkeypatch
-    ):
+    async def test_is_initialized_true_when_initialized(self, mock_openai_client, monkeypatch):
         """Test is_initialized returns True when client is initialized."""
         with patch("src.llm.openai_client.settings") as mock_settings:
             mock_settings.openai_api_key = "test-key"
@@ -689,9 +651,7 @@ class TestOpenAIClientIsInitialized:
                 assert client.is_initialized()
 
     @pytest.mark.asyncio
-    async def test_is_initialized_false_after_close(
-        self, mock_openai_client, monkeypatch
-    ):
+    async def test_is_initialized_false_after_close(self, mock_openai_client, monkeypatch):
         """Test is_initialized returns False after close."""
         with patch("src.llm.openai_client.settings") as mock_settings:
             mock_settings.openai_api_key = "test-key"
@@ -729,9 +689,7 @@ class TestOpenAIClientSingleton:
                 assert client.is_initialized()
 
     @pytest.mark.asyncio
-    async def test_get_client_returns_existing_instance(
-        self, mock_openai_client, monkeypatch
-    ):
+    async def test_get_client_returns_existing_instance(self, mock_openai_client, monkeypatch):
         """Test get_client returns existing instance on subsequent calls."""
         with patch("src.llm.openai_client.settings") as mock_settings:
             mock_settings.openai_api_key = "test-key"

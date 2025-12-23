@@ -9,11 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.core.agent_response import (
-    AgentInsight,
-    AgentResponse,
-    ResponseStatus,
-)
+from src.core.agent_response import AgentInsight, AgentResponse, ResponseStatus
 
 
 @pytest.fixture
@@ -116,9 +112,7 @@ class TestAgentResponseCreation:
 
     def test_create_with_default_status(self):
         """Test that status defaults to SUCCESS."""
-        response = AgentResponse(
-            content="test", agent_name="agent", agent_category="test"
-        )
+        response = AgentResponse(content="test", agent_name="agent", agent_category="test")
         assert response.status == ResponseStatus.SUCCESS
 
     def test_create_with_custom_status(self):
@@ -158,9 +152,7 @@ class TestAgentResponseCreation:
         with patch("src.core.agent_response.datetime") as mock_datetime:
             mock_now = datetime(2023, 1, 1, 12, 0, 0)
             mock_datetime.utcnow.return_value = mock_now
-            response = AgentResponse(
-                content="test", agent_name="agent", agent_category="test"
-            )
+            response = AgentResponse(content="test", agent_name="agent", agent_category="test")
             assert response.timestamp == mock_now
 
     def test_create_missing_required_fields(self):
@@ -174,9 +166,7 @@ class TestAgentResponseToolCalls:
 
     def test_add_tool_call(self):
         """Test adding a tool call."""
-        response = AgentResponse(
-            content="test", agent_name="agent", agent_category="test"
-        )
+        response = AgentResponse(content="test", agent_name="agent", agent_category="test")
         response.add_tool_call("get_organizations", {"query": "AI"}, result=[1, 2, 3])
         assert response.tool_calls is not None
         assert len(response.tool_calls) == 1
@@ -186,18 +176,14 @@ class TestAgentResponseToolCalls:
 
     def test_add_tool_call_without_result(self):
         """Test adding a tool call without result."""
-        response = AgentResponse(
-            content="test", agent_name="agent", agent_category="test"
-        )
+        response = AgentResponse(content="test", agent_name="agent", agent_category="test")
         response.add_tool_call("get_organizations", {"query": "AI"})
         assert len(response.tool_calls) == 1
         assert "result" not in response.tool_calls[0]
 
     def test_add_multiple_tool_calls(self):
         """Test adding multiple tool calls."""
-        response = AgentResponse(
-            content="test", agent_name="agent", agent_category="test"
-        )
+        response = AgentResponse(content="test", agent_name="agent", agent_category="test")
         response.add_tool_call("tool1", {"param1": "value1"})
         response.add_tool_call("tool2", {"param2": "value2"}, result="result2")
         assert len(response.tool_calls) == 2
@@ -222,43 +208,33 @@ class TestAgentResponseMetadata:
 
     def test_add_metadata(self):
         """Test adding metadata."""
-        response = AgentResponse(
-            content="test", agent_name="agent", agent_category="test"
-        )
+        response = AgentResponse(content="test", agent_name="agent", agent_category="test")
         response.add_metadata("key1", "value1")
         assert response.metadata["key1"] == "value1"
 
     def test_add_metadata_overwrite(self):
         """Test overwriting existing metadata value."""
-        response = AgentResponse(
-            content="test", agent_name="agent", agent_category="test"
-        )
+        response = AgentResponse(content="test", agent_name="agent", agent_category="test")
         response.add_metadata("key1", "value1")
         response.add_metadata("key1", "value2")
         assert response.metadata["key1"] == "value2"
 
     def test_get_metadata_existing(self):
         """Test retrieving existing metadata value."""
-        response = AgentResponse(
-            content="test", agent_name="agent", agent_category="test"
-        )
+        response = AgentResponse(content="test", agent_name="agent", agent_category="test")
         response.add_metadata("key1", "value1")
         result = response.get_metadata("key1")
         assert result == "value1"
 
     def test_get_metadata_missing(self):
         """Test retrieving missing metadata value with default."""
-        response = AgentResponse(
-            content="test", agent_name="agent", agent_category="test"
-        )
+        response = AgentResponse(content="test", agent_name="agent", agent_category="test")
         result = response.get_metadata("missing_key")
         assert result is None
 
     def test_get_metadata_with_default(self):
         """Test retrieving missing metadata value with custom default."""
-        response = AgentResponse(
-            content="test", agent_name="agent", agent_category="test"
-        )
+        response = AgentResponse(content="test", agent_name="agent", agent_category="test")
         result = response.get_metadata("missing_key", default="default_value")
         assert result == "default_value"
 
@@ -268,12 +244,8 @@ class TestAgentResponseNestedResponses:
 
     def test_add_nested_response(self):
         """Test adding a nested response."""
-        parent = AgentResponse(
-            content="parent", agent_name="parent_agent", agent_category="test"
-        )
-        child = AgentResponse(
-            content="child", agent_name="child_agent", agent_category="test"
-        )
+        parent = AgentResponse(content="parent", agent_name="parent_agent", agent_category="test")
+        child = AgentResponse(content="child", agent_name="child_agent", agent_category="test")
         parent.add_nested_response(child)
         assert parent.nested_responses is not None
         assert len(parent.nested_responses) == 1
@@ -281,15 +253,9 @@ class TestAgentResponseNestedResponses:
 
     def test_add_multiple_nested_responses(self):
         """Test adding multiple nested responses."""
-        parent = AgentResponse(
-            content="parent", agent_name="parent_agent", agent_category="test"
-        )
-        child1 = AgentResponse(
-            content="child1", agent_name="child1", agent_category="test"
-        )
-        child2 = AgentResponse(
-            content="child2", agent_name="child2", agent_category="test"
-        )
+        parent = AgentResponse(content="parent", agent_name="parent_agent", agent_category="test")
+        child1 = AgentResponse(content="child1", agent_name="child1", agent_category="test")
+        child2 = AgentResponse(content="child2", agent_name="child2", agent_category="test")
         parent.add_nested_response(child1)
         parent.add_nested_response(child2)
         assert len(parent.nested_responses) == 2
@@ -302,9 +268,7 @@ class TestAgentResponseNestedResponses:
             agent_category="test",
             nested_responses=None,
         )
-        child = AgentResponse(
-            content="child", agent_name="child_agent", agent_category="test"
-        )
+        child = AgentResponse(content="child", agent_name="child_agent", agent_category="test")
         parent.add_nested_response(child)
         assert parent.nested_responses is not None
         assert len(parent.nested_responses) == 1
@@ -315,22 +279,18 @@ class TestAgentResponseStatus:
 
     def test_set_error(self):
         """Test set_error() method."""
-        response = AgentResponse(
-            content="test", agent_name="agent", agent_category="test"
-        )
+        response = AgentResponse(content="test", agent_name="agent", agent_category="test")
         response.set_error("Something went wrong")
         assert response.status == ResponseStatus.ERROR
         assert response.error == "Something went wrong"
 
     def test_set_error_overwrites_content(self):
         """Test that set_error doesn't change content field.
-        
+
         Note: The content field is not automatically changed by set_error,
         but error responses typically have empty string content.
         """
-        response = AgentResponse(
-            content="test", agent_name="agent", agent_category="test"
-        )
+        response = AgentResponse(content="test", agent_name="agent", agent_category="test")
         original_content = response.content
         response.set_error("Error occurred")
         # Content is not automatically changed by set_error
@@ -339,27 +299,21 @@ class TestAgentResponseStatus:
 
     def test_is_success(self):
         """Test is_success() method."""
-        response = AgentResponse(
-            content="test", agent_name="agent", agent_category="test"
-        )
+        response = AgentResponse(content="test", agent_name="agent", agent_category="test")
         assert response.is_success() is True
         response.status = ResponseStatus.PARTIAL
         assert response.is_success() is False
 
     def test_is_error(self):
         """Test is_error() method."""
-        response = AgentResponse(
-            content="test", agent_name="agent", agent_category="test"
-        )
+        response = AgentResponse(content="test", agent_name="agent", agent_category="test")
         assert response.is_error() is False
         response.set_error("Error message")
         assert response.is_error() is True
 
     def test_status_enum_values(self):
         """Test all status enum values."""
-        response = AgentResponse(
-            content="test", agent_name="agent", agent_category="test"
-        )
+        response = AgentResponse(content="test", agent_name="agent", agent_category="test")
         response.status = ResponseStatus.SUCCESS
         assert response.is_success() is True
         assert response.is_error() is False
@@ -382,9 +336,7 @@ class TestAgentResponseModelDump:
 
     def test_model_dump_basic(self):
         """Test basic model_dump() functionality."""
-        response = AgentResponse(
-            content="test", agent_name="agent", agent_category="test"
-        )
+        response = AgentResponse(content="test", agent_name="agent", agent_category="test")
         data = response.model_dump()
         assert data["content"] == "test"
         assert data["agent_name"] == "agent"
@@ -393,17 +345,15 @@ class TestAgentResponseModelDump:
     def test_model_dump_timestamp_serialization(self):
         """Test that timestamp is serialized as ISO format string."""
         # Create response and verify timestamp is datetime object
-        response = AgentResponse(
-            content="test", agent_name="agent", agent_category="test"
-        )
+        response = AgentResponse(content="test", agent_name="agent", agent_category="test")
         assert isinstance(response.timestamp, datetime)
         original_timestamp = response.timestamp
-        
+
         # Call model_dump and verify timestamp is serialized to ISO string
         data = response.model_dump()
         assert isinstance(data["timestamp"], str)
         assert data["timestamp"] == original_timestamp.isoformat()
-        
+
         # Verify internal timestamp is still a datetime object
         assert isinstance(response.timestamp, datetime)
         assert response.timestamp == original_timestamp
@@ -421,9 +371,7 @@ class TestAgentResponseModelDump:
 
     def test_model_dump_preserves_datetime_object_internally(self):
         """Test that model_dump doesn't modify internal timestamp."""
-        response = AgentResponse(
-            content="test", agent_name="agent", agent_category="test"
-        )
+        response = AgentResponse(content="test", agent_name="agent", agent_category="test")
         original_timestamp = response.timestamp
         data = response.model_dump()
         # Internal timestamp should still be datetime object
@@ -498,11 +446,8 @@ class TestAgentResponseClassMethods:
         response1 = AgentResponse.create_error(
             error_message="Error", agent_name="agent", agent_category="test"
         )
-        response2 = AgentResponse(
-            content="", agent_name="agent", agent_category="test"
-        )
+        response2 = AgentResponse(content="", agent_name="agent", agent_category="test")
         response2.set_error("Error")
         assert response1.status == response2.status
         assert response1.error == response2.error
         assert response1.content == response2.content
-

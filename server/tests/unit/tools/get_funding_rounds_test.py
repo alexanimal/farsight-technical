@@ -134,7 +134,9 @@ class TestGetFundingRoundsBasic:
         # Patch FundingRoundModel in the module where it's used
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds()
 
@@ -161,7 +163,9 @@ class TestGetFundingRoundsBasic:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds()
 
@@ -190,7 +194,9 @@ class TestGetFundingRoundsBasic:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds()
 
@@ -207,7 +213,9 @@ class TestGetFundingRoundsBasic:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds()
 
@@ -233,7 +241,9 @@ class TestGetFundingRoundsFiltering:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(funding_round_uuid=str(sample_funding_round_uuid))
 
@@ -252,7 +262,9 @@ class TestGetFundingRoundsFiltering:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(org_uuid=str(sample_org_uuid))
 
@@ -270,7 +282,9 @@ class TestGetFundingRoundsFiltering:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(general_funding_stage="Series A")
 
@@ -287,7 +301,9 @@ class TestGetFundingRoundsFiltering:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(stage="Series A")
 
@@ -304,7 +320,9 @@ class TestGetFundingRoundsFiltering:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(investors_contains="Sequoia Capital")
 
@@ -321,7 +339,9 @@ class TestGetFundingRoundsFiltering:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(lead_investors_contains="Sequoia Capital")
 
@@ -338,7 +358,9 @@ class TestGetFundingRoundsFiltering:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(fundraise_amount_usd=10000000)
 
@@ -355,7 +377,9 @@ class TestGetFundingRoundsFiltering:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(
                 fundraise_amount_usd_min=1000000,
@@ -376,7 +400,9 @@ class TestGetFundingRoundsFiltering:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(valuation_usd=50000000)
 
@@ -393,7 +419,9 @@ class TestGetFundingRoundsFiltering:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(
                 valuation_usd_min=10000000,
@@ -414,7 +442,9 @@ class TestGetFundingRoundsFiltering:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(
                 general_funding_stage="Series A",
@@ -442,7 +472,9 @@ class TestGetFundingRoundsDateFiltering:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(investment_date=date_str)
 
@@ -462,7 +494,9 @@ class TestGetFundingRoundsDateFiltering:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(
                 investment_date_from=date_from_str,
@@ -487,7 +521,9 @@ class TestGetFundingRoundsPagination:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(limit=10)
 
@@ -504,7 +540,9 @@ class TestGetFundingRoundsPagination:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(offset=20)
 
@@ -521,7 +559,9 @@ class TestGetFundingRoundsPagination:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(limit=10, offset=20)
 
@@ -543,7 +583,9 @@ class TestGetFundingRoundsParameterConversion:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             uuid_str = str(sample_funding_round_uuid)
             result = await get_funding_rounds(funding_round_uuid=uuid_str)
@@ -562,7 +604,9 @@ class TestGetFundingRoundsParameterConversion:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             uuid_str = str(sample_org_uuid)
             result = await get_funding_rounds(org_uuid=uuid_str)
@@ -581,7 +625,9 @@ class TestGetFundingRoundsParameterConversion:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             date_str = "2023-06-15T12:30:45"
             result = await get_funding_rounds(investment_date=date_str)
@@ -600,7 +646,9 @@ class TestGetFundingRoundsParameterConversion:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             date_from_str = "2023-01-01T00:00:00"
             date_to_str = "2023-12-31T23:59:59"
@@ -623,7 +671,9 @@ class TestGetFundingRoundsParameterConversion:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(funding_round_uuid=None)
 
@@ -640,7 +690,9 @@ class TestGetFundingRoundsParameterConversion:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(investment_date=None)
 
@@ -657,7 +709,9 @@ class TestGetFundingRoundsErrorHandling:
         """Test that invalid UUID strings raise appropriate errors."""
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(funding_round_uuid="invalid-uuid")
 
@@ -672,7 +726,9 @@ class TestGetFundingRoundsErrorHandling:
         """Test that invalid date strings raise appropriate errors."""
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds(investment_date="invalid-date")
 
@@ -688,7 +744,9 @@ class TestGetFundingRoundsErrorHandling:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds()
 
@@ -705,7 +763,9 @@ class TestGetFundingRoundsErrorHandling:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds()
 
@@ -723,7 +783,9 @@ class TestGetFundingRoundsErrorHandling:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds()
 
@@ -744,7 +806,9 @@ class TestGetFundingRoundsEdgeCases:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds()
 
@@ -761,7 +825,9 @@ class TestGetFundingRoundsEdgeCases:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds()
 
@@ -783,7 +849,9 @@ class TestGetFundingRoundsEdgeCases:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             await get_funding_rounds()
 
@@ -798,7 +866,9 @@ class TestGetFundingRoundsEdgeCases:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             await get_funding_rounds()
             await get_funding_rounds()
@@ -814,7 +884,9 @@ class TestGetFundingRoundsEdgeCases:
 
         get_funding_rounds_module = sys.modules["src.tools.get_funding_rounds"]
         with patch.object(
-            get_funding_rounds_module, "FundingRoundModel", return_value=mock_funding_round_model
+            get_funding_rounds_module,
+            "FundingRoundModel",
+            return_value=mock_funding_round_model,
         ):
             result = await get_funding_rounds()
 
@@ -835,4 +907,3 @@ class TestGetFundingRoundsEdgeCases:
             # Note: model_dump() by default keeps UUIDs as UUID objects, not strings
             # To serialize to strings, would need model_dump(mode="json")
             assert isinstance(result_dict["funding_round_uuid"], UUID)
-
