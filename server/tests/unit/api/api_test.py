@@ -28,9 +28,13 @@ class TestLifespan:
     async def test_lifespan_startup_success(self, mock_app):
         """Test successful lifespan startup."""
         mock_client = MagicMock()
+        # Mock Redis client to succeed
+        mock_redis_client = MagicMock()
+        mock_get_redis_client = AsyncMock(return_value=mock_redis_client)
 
         with (
             patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.api.get_redis_client", mock_get_redis_client),
             patch("src.api.api.logger") as mock_logger,
         ):
             mock_get_client.return_value = mock_client
@@ -49,9 +53,13 @@ class TestLifespan:
         """Test lifespan startup handles client initialization failure gracefully."""
         error_message = "Connection failed"
         mock_get_client = AsyncMock(side_effect=Exception(error_message))
+        # Mock Redis client to succeed so it doesn't interfere with this test
+        mock_redis_client = MagicMock()
+        mock_get_redis_client = AsyncMock(return_value=mock_redis_client)
 
         with (
             patch("src.api.api.get_client", mock_get_client),
+            patch("src.api.api.get_redis_client", mock_get_redis_client),
             patch("src.api.api.logger") as mock_logger,
         ):
             # Should not raise exception
@@ -68,10 +76,16 @@ class TestLifespan:
     async def test_lifespan_shutdown_success(self, mock_app):
         """Test successful lifespan shutdown."""
         mock_client = MagicMock()
+        # Mock Redis client to succeed
+        mock_redis_client = MagicMock()
+        mock_get_redis_client = AsyncMock(return_value=mock_redis_client)
+        mock_close_redis_client = AsyncMock()
 
         with (
             patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.api.get_redis_client", mock_get_redis_client),
             patch("src.api.api.close_client", new_callable=AsyncMock) as mock_close_client,
+            patch("src.api.api.close_redis_client", mock_close_redis_client),
             patch("src.api.api.logger") as mock_logger,
         ):
             mock_get_client.return_value = mock_client
@@ -81,6 +95,7 @@ class TestLifespan:
 
             # Verify shutdown behavior
             mock_close_client.assert_called_once()
+            mock_close_redis_client.assert_called_once()
             # Check that shutdown messages were logged
             log_messages = [call[0][0] for call in mock_logger.info.call_args_list]
             assert any("Shutting down API server" in msg for msg in log_messages)
@@ -91,10 +106,16 @@ class TestLifespan:
         """Test lifespan shutdown handles close failure gracefully."""
         error_message = "Close failed"
         mock_client = MagicMock()
+        # Mock Redis client to succeed
+        mock_redis_client = MagicMock()
+        mock_get_redis_client = AsyncMock(return_value=mock_redis_client)
+        mock_close_redis_client = AsyncMock()
 
         with (
             patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.api.get_redis_client", mock_get_redis_client),
             patch("src.api.api.close_client", new_callable=AsyncMock) as mock_close_client,
+            patch("src.api.api.close_redis_client", mock_close_redis_client),
             patch("src.api.api.logger") as mock_logger,
         ):
             mock_get_client.return_value = mock_client
@@ -115,11 +136,17 @@ class TestLifespan:
     async def test_lifespan_yields_control(self, mock_app):
         """Test that lifespan yields control during context."""
         mock_client = MagicMock()
+        # Mock Redis client to succeed
+        mock_redis_client = MagicMock()
+        mock_get_redis_client = AsyncMock(return_value=mock_redis_client)
+        mock_close_redis_client = AsyncMock()
         control_yielded = False
 
         with (
             patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.api.get_redis_client", mock_get_redis_client),
             patch("src.api.api.close_client", new_callable=AsyncMock) as mock_close_client,
+            patch("src.api.api.close_redis_client", mock_close_redis_client),
         ):
             mock_get_client.return_value = mock_client
 
@@ -136,10 +163,16 @@ class TestLifespan:
     async def test_lifespan_with_exception_during_context(self, mock_app):
         """Test that lifespan handles exceptions during context gracefully."""
         mock_client = MagicMock()
+        # Mock Redis client to succeed
+        mock_redis_client = MagicMock()
+        mock_get_redis_client = AsyncMock(return_value=mock_redis_client)
+        mock_close_redis_client = AsyncMock()
 
         with (
             patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.api.get_redis_client", mock_get_redis_client),
             patch("src.api.api.close_client", new_callable=AsyncMock) as mock_close_client,
+            patch("src.api.api.close_redis_client", mock_close_redis_client),
             patch("src.api.api.logger") as mock_logger,
         ):
             mock_get_client.return_value = mock_client
@@ -355,8 +388,13 @@ class TestLifespanEdgeCases:
     @pytest.mark.asyncio
     async def test_lifespan_startup_multiple_exceptions(self, mock_app):
         """Test lifespan handles multiple exceptions during startup."""
+        # Mock Redis client to succeed so it doesn't interfere with this test
+        mock_redis_client = MagicMock()
+        mock_get_redis_client = AsyncMock(return_value=mock_redis_client)
+
         with (
             patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.api.get_redis_client", mock_get_redis_client),
             patch("src.api.api.logger") as mock_logger,
         ):
             # First call fails, but lifespan should continue
@@ -372,10 +410,16 @@ class TestLifespanEdgeCases:
     async def test_lifespan_shutdown_multiple_exceptions(self, mock_app):
         """Test lifespan handles multiple exceptions during shutdown."""
         mock_client = MagicMock()
+        # Mock Redis client to succeed
+        mock_redis_client = MagicMock()
+        mock_get_redis_client = AsyncMock(return_value=mock_redis_client)
+        mock_close_redis_client = AsyncMock()
 
         with (
             patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.api.get_redis_client", mock_get_redis_client),
             patch("src.api.api.close_client", new_callable=AsyncMock) as mock_close_client,
+            patch("src.api.api.close_redis_client", mock_close_redis_client),
             patch("src.api.api.logger") as mock_logger,
         ):
             mock_get_client.return_value = mock_client
@@ -396,10 +440,16 @@ class TestLifespanEdgeCases:
         """Test lifespan behavior with None app (edge case)."""
         # This shouldn't happen in practice, but test for robustness
         mock_client = MagicMock()
+        # Mock Redis client to succeed
+        mock_redis_client = MagicMock()
+        mock_get_redis_client = AsyncMock(return_value=mock_redis_client)
+        mock_close_redis_client = AsyncMock()
 
         with (
             patch("src.api.api.get_client", new_callable=AsyncMock) as mock_get_client,
+            patch("src.api.api.get_redis_client", mock_get_redis_client),
             patch("src.api.api.close_client", new_callable=AsyncMock) as mock_close_client,
+            patch("src.api.api.close_redis_client", mock_close_redis_client),
         ):
             mock_get_client.return_value = mock_client
 
