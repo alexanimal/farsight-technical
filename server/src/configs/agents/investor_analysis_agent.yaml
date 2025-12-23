@@ -1,0 +1,107 @@
+name: investor_analysis
+description: "Agent specialized in analyzing investor portfolio performance, exit patterns, sector concentration, and benchmarking against market averages. Analyzes investor track records, investment patterns, and provides insights for due diligence and benchmarking."
+category: investor_analysis
+tools:
+  - name: find_investor_portfolio
+    description: Find all companies that an investor has funded by searching funding rounds
+    parameters:
+      - name: investor_name
+        type: string
+        description: Name of investor to search for (supports partial matching)
+      - name: time_period_start
+        type: string
+        description: Start date for filtering investments (ISO format)
+      - name: time_period_end
+        type: string
+        description: End date for filtering investments (ISO format)
+      - name: include_lead_only
+        type: boolean
+        description: If true, only include rounds where investor was a lead investor
+  - name: calculate_portfolio_metrics
+    description: Calculate portfolio performance metrics including exit rates, ROI, and time to exit
+    parameters:
+      - name: portfolio_companies
+        type: array
+        description: List of portfolio companies from find_investor_portfolio
+      - name: time_period_start
+        type: string
+        description: Start date for analysis period (ISO format)
+      - name: time_period_end
+        type: string
+        description: End date for analysis period (ISO format)
+      - name: include_exits_only
+        type: boolean
+        description: If true, only analyze companies that have exited
+  - name: analyze_sector_concentration
+    description: Analyze sector concentration in a portfolio by categorizing companies
+    parameters:
+      - name: portfolio_companies
+        type: array
+        description: List of portfolio companies from find_investor_portfolio
+      - name: sectors
+        type: array
+        description: List of sector names to categorize companies into (optional)
+      - name: use_category_groups
+        type: boolean
+        description: If true, use category_groups for matching
+      - name: case_sensitive
+        type: boolean
+        description: Whether sector matching should be case-sensitive
+  - name: identify_investment_patterns
+    description: Identify investment patterns including preferred stages, sector focus, and investment velocity
+    parameters:
+      - name: portfolio_companies
+        type: array
+        description: List of portfolio companies from find_investor_portfolio
+      - name: time_period_start
+        type: string
+        description: Start date for analysis period (ISO format)
+      - name: time_period_end
+        type: string
+        description: End date for analysis period (ISO format)
+  - name: compare_to_market_benchmarks
+    description: Compare portfolio performance metrics to market averages calculated from all companies/investments
+    parameters:
+      - name: portfolio_metrics
+        type: object
+        description: Portfolio metrics from calculate_portfolio_metrics
+      - name: time_period_start
+        type: string
+        description: Start date for market benchmark calculation (ISO format)
+      - name: time_period_end
+        type: string
+        description: End date for market benchmark calculation (ISO format)
+metadata:
+  keywords:
+    - investor
+    - portfolio
+    - vc
+    - venture capital
+    - investor performance
+    - portfolio analysis
+    - exit rate
+    - roi
+    - investor track record
+    - sector concentration
+    - investment patterns
+    - benchmark
+    - market comparison
+    - portfolio metrics
+    - investor analysis
+    - due diligence
+    - investor evaluation
+  use_cases:
+    - "Analyze [Investor Name]'s portfolio performance"
+    - "What's the exit rate for [Investor Name]?"
+    - "Show me sector concentration for [Investor Name]"
+    - "Compare [Investor Name]'s performance to market averages"
+    - "What are [Investor Name]'s investment patterns?"
+    - "Analyze [Investor Name]'s ROI and exit metrics"
+    - "What sectors does [Investor Name] focus on?"
+    - "How does [Investor Name] compare to the market?"
+  data_sources:
+    - fundingrounds table (for finding investor's investments)
+    - organizations table (for portfolio company details)
+    - acquisitions table (for exit data)
+    - organizations table categories/category_groups (for sector analysis)
+
