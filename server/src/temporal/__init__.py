@@ -69,9 +69,15 @@ def __getattr__(name: str):
 # For backwards compatibility, try to import directly but catch errors
 # This allows the module to work when not in workflow validation context
 try:
-    from .client import (DEFAULT_TASK_QUEUE, DEFAULT_TEMPORAL_ADDRESS,
-                         DEFAULT_TEMPORAL_NAMESPACE, TemporalClient,
-                         close_client, get_client, set_client)
+    from .client import (
+        DEFAULT_TASK_QUEUE,
+        DEFAULT_TEMPORAL_ADDRESS,
+        DEFAULT_TEMPORAL_NAMESPACE,
+        TemporalClient,
+        close_client,
+        get_client,
+        set_client,
+    )
 except Exception:
     # If import fails (e.g., during workflow validation), the symbols
     # will be available via __getattr__ when actually needed (by API layer)
@@ -81,16 +87,30 @@ except Exception:
 # Do NOT import here to avoid sys.modules warning when running as module
 
 # Queries (for API layer to query workflows)
-from .queries import (QUERY_AGENT_STATUS, QUERY_PROGRESS, QUERY_STATE,
-                      QUERY_STATUS, AgentExecutionStatus,
-                      AgentStatusQueryResult, WorkflowProgressQueryResult,
-                      WorkflowStateQueryResult, WorkflowStatus,
-                      WorkflowStatusQueryResult)
+from .queries import (
+    QUERY_AGENT_STATUS,
+    QUERY_PROGRESS,
+    QUERY_STATE,
+    QUERY_STATUS,
+    AgentExecutionStatus,
+    AgentStatusQueryResult,
+    WorkflowProgressQueryResult,
+    WorkflowStateQueryResult,
+    WorkflowStatus,
+    WorkflowStatusQueryResult,
+)
+
 # Signals (for API layer to send signals)
-from .signals import (SIGNAL_CANCELLATION, SIGNAL_CONFIGURATION_CHANGE,
-                      SIGNAL_STATUS_UPDATE, SIGNAL_USER_INPUT,
-                      CancellationSignal, ConfigurationChangeSignal,
-                      StatusUpdateSignal, UserInputSignal)
+from .signals import (
+    SIGNAL_CANCELLATION,
+    SIGNAL_CONFIGURATION_CHANGE,
+    SIGNAL_STATUS_UPDATE,
+    SIGNAL_USER_INPUT,
+    CancellationSignal,
+    ConfigurationChangeSignal,
+    StatusUpdateSignal,
+    UserInputSignal,
+)
 
 # Submodules (for worker registration, not for API layer)
 # DO NOT import at module level - this triggers the import chain during workflow validation

@@ -23,14 +23,24 @@ from temporalio.common import RetryPolicy
 
 from src.core.agent_context import AgentContext
 from src.core.agent_response import AgentResponse, ResponseStatus
-from src.temporal.queries import (QUERY_AGENT_STATUS, QUERY_PROGRESS,
-                                  QUERY_STATE, QUERY_STATUS,
-                                  AgentExecutionStatus, AgentStatusQueryResult,
-                                  WorkflowProgressQueryResult,
-                                  WorkflowStateQueryResult, WorkflowStatus,
-                                  WorkflowStatusQueryResult)
-from src.temporal.signals import (SIGNAL_CANCELLATION, SIGNAL_USER_INPUT,
-                                  CancellationSignal, UserInputSignal)
+from src.temporal.queries import (
+    QUERY_AGENT_STATUS,
+    QUERY_PROGRESS,
+    QUERY_STATE,
+    QUERY_STATUS,
+    AgentExecutionStatus,
+    AgentStatusQueryResult,
+    WorkflowProgressQueryResult,
+    WorkflowStateQueryResult,
+    WorkflowStatus,
+    WorkflowStatusQueryResult,
+)
+from src.temporal.signals import (
+    SIGNAL_CANCELLATION,
+    SIGNAL_USER_INPUT,
+    CancellationSignal,
+    UserInputSignal,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +82,9 @@ class WorkflowState:
     user_inputs: List[Dict[str, Any]] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
     current_iteration: int = 0  # Track current iteration number
-    evaluation_results: List[Dict[str, Any]] = field(default_factory=list)  # Store evaluation results
+    evaluation_results: List[Dict[str, Any]] = field(
+        default_factory=list
+    )  # Store evaluation results
 
 
 @workflow.defn(name="orchestrator")
@@ -152,11 +164,13 @@ class OrchestratorWorkflow:
         # Append user query to conversation history
         user_query = context.get("query", "")
         if user_query:
-            conversation_history.append({
-                "role": "user",
-                "content": user_query,
-                "timestamp": workflow.now().isoformat() + "Z",
-            })
+            conversation_history.append(
+                {
+                    "role": "user",
+                    "content": user_query,
+                    "timestamp": workflow.now().isoformat() + "Z",
+                }
+            )
             context["conversation_history"] = conversation_history
 
         workflow.logger.info(
@@ -185,18 +199,20 @@ class OrchestratorWorkflow:
                         if plan_execution_mode:
                             execution_mode = plan_execution_mode
                             self._state.metadata["execution_mode"] = execution_mode
-                            workflow.logger.info(f"Using execution_mode from orchestration plan: {execution_mode}")
+                            workflow.logger.info(
+                                f"Using execution_mode from orchestration plan: {execution_mode}"
+                            )
                 else:
                     # Subsequent iterations: evaluate and decide if replanning is needed
                     # Preserve original execution_mode when replanning
                     original_execution_mode = execution_mode
                     evaluation, replan = await self._evaluate_and_replan(context)
-                    
+
                     if evaluation:
                         self._state.evaluation_results.append(evaluation)
                         satisfactory = evaluation.get("satisfactory", False)
                         confidence = evaluation.get("confidence", 0.0)
-                        
+
                         workflow.logger.info(
                             f"Previous iteration evaluation: "
                             f"satisfactory={satisfactory}, confidence={confidence}"
@@ -212,7 +228,7 @@ class OrchestratorWorkflow:
                         elif satisfactory:
                             workflow.logger.info("Answer is satisfactory, exiting loop")
                             break
-                    
+
                     # Only replan if not satisfactory and replan is available
                     if not satisfactory and replan:
                         agent_plan = replan.get("agents", [])
@@ -233,7 +249,9 @@ class OrchestratorWorkflow:
                         )
                     elif not satisfactory:
                         # Evaluation says not satisfactory but no replan available, exit
-                        workflow.logger.warning("Answer not satisfactory but no replan available, exiting loop")
+                        workflow.logger.warning(
+                            "Answer not satisfactory but no replan available, exiting loop"
+                        )
                         break
                     else:
                         # Satisfactory, no need to replan
@@ -262,10 +280,10 @@ class OrchestratorWorkflow:
                 if iteration < MAX_ITERATIONS - 1:
                     evaluation = await self._evaluate_response_quality(context, results)
                     self._state.evaluation_results.append(evaluation)
-                    
+
                     satisfactory = evaluation.get("satisfactory", False)
                     confidence = evaluation.get("confidence", 0.0)
-                    
+
                     workflow.logger.info(
                         f"Iteration {iteration + 1} evaluation: "
                         f"satisfactory={satisfactory}, confidence={confidence}"
@@ -285,7 +303,9 @@ class OrchestratorWorkflow:
                 iteration += 1
 
             # After loop: consolidate final response
-            workflow.logger.info(f"Completed {iteration} iteration(s), consolidating final response")
+            workflow.logger.info(
+                f"Completed {iteration} iteration(s), consolidating final response"
+            )
 
             # Consolidate agent responses into final answer
             if self._state.agent_responses:
@@ -321,10 +341,8 @@ class OrchestratorWorkflow:
                         if consolidation_result.get("success"):
                             consolidated_response = consolidation_result.get("response", {})
                             final_response = consolidated_response
-                            workflow.logger.info(
-                                "Successfully consolidated agent responses"
-                            )
-                            
+                            workflow.logger.info("Successfully consolidated agent responses")
+
                             # Append consolidated response to conversation history
                             await self._append_to_history("assistant", consolidated_response)
                         else:
@@ -337,9 +355,7 @@ class OrchestratorWorkflow:
                             if final_response:
                                 await self._append_to_history("assistant", final_response)
                     except Exception as e:
-                        workflow.logger.error(
-                            f"Error during consolidation: {e}", exc_info=True
-                        )
+                        workflow.logger.error(f"Error during consolidation: {e}", exc_info=True)
                         # Fallback to last agent response
                         final_response = self._state.agent_responses[-1]
                         # Append fallback response to history
@@ -411,7 +427,9 @@ class OrchestratorWorkflow:
             # Save conversation history after workflow completion
             await self._save_conversation_history()
 
-    async def _determine_agent_plan(self, context: Dict[str, Any]) -> Tuple[List[str], Optional[str]]:
+    async def _determine_agent_plan(
+        self, context: Dict[str, Any]
+    ) -> Tuple[List[str], Optional[str]]:
         """Determine which agents to execute using orchestration agent.
 
         Args:
@@ -436,7 +454,7 @@ class OrchestratorWorkflow:
         response = result.get("response", {})
         metadata = response.get("metadata", {})
         execution_plan = metadata.get("execution_plan", {})
-        
+
         if isinstance(execution_plan, dict) and "agents" in execution_plan:
             agent_plan = execution_plan["agents"]
             # Extract execution_mode from the plan
@@ -465,11 +483,10 @@ class OrchestratorWorkflow:
         """
         # Get all agent responses from all iterations
         all_responses = self._state.agent_responses.copy()
-        
+
         # Filter out orchestration agent responses (planning/evaluation)
         specialized_responses = [
-            resp for resp in all_responses
-            if resp.get("agent_category") != "orchestration"
+            resp for resp in all_responses if resp.get("agent_category") != "orchestration"
         ]
 
         if not specialized_responses:
@@ -536,11 +553,10 @@ class OrchestratorWorkflow:
         """
         # Get all agent responses from all iterations
         all_responses = self._state.agent_responses.copy()
-        
+
         # Filter out orchestration agent responses
         specialized_responses = [
-            resp for resp in all_responses
-            if resp.get("agent_category") != "orchestration"
+            resp for resp in all_responses if resp.get("agent_category") != "orchestration"
         ]
 
         if not specialized_responses:
@@ -796,9 +812,7 @@ class OrchestratorWorkflow:
         # Execute all agents in parallel using asyncio.gather
         # Note: In Temporal workflows, we use workflow.execute_activity
         # which handles parallelism correctly
-        tasks = [
-            self._execute_single_agent(agent_name, context) for agent_name in agent_plan
-        ]
+        tasks = [self._execute_single_agent(agent_name, context) for agent_name in agent_plan]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -829,9 +843,7 @@ class OrchestratorWorkflow:
 
         return processed_results
 
-    async def _enrich_query_with_context(
-        self, context: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def _enrich_query_with_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Enrich query with context and extract metadata.
 
         Note: context is a Dict[str, Any] in the workflow, not AgentContext.
@@ -881,7 +893,9 @@ class OrchestratorWorkflow:
                 "metadata": {
                     **context.get("metadata", {}),
                     "extracted_entities": metadata_dict,
-                    "original_query": enrichment_data.get("original_query", context.get("query", "")),
+                    "original_query": enrichment_data.get(
+                        "original_query", context.get("query", "")
+                    ),
                 },
             }
 
@@ -919,7 +933,7 @@ class OrchestratorWorkflow:
         return WorkflowStatusQueryResult(
             workflow_id=workflow_id,
             status=self._state.status,
-            started_at=self._state.started_at,
+            started_at=self._state.started_at or workflow.now(),
             completed_at=self._state.completed_at,
             error=self._state.error,
             metadata=self._state.metadata,
@@ -987,9 +1001,15 @@ class OrchestratorWorkflow:
                 current_step = f"Executing {running_agent.agent_name}"
 
         # Include iteration information
-        iteration_number = self._state.current_iteration + 1 if self._state.current_iteration > 0 else None
+        iteration_number = (
+            self._state.current_iteration + 1 if self._state.current_iteration > 0 else None
+        )
         if iteration_number:
-            current_step = f"Iteration {iteration_number}/{MAX_ITERATIONS}: {current_step}" if current_step else f"Iteration {iteration_number}/{MAX_ITERATIONS}"
+            current_step = (
+                f"Iteration {iteration_number}/{MAX_ITERATIONS}: {current_step}"
+                if current_step
+                else f"Iteration {iteration_number}/{MAX_ITERATIONS}"
+            )
 
         return WorkflowProgressQueryResult(
             workflow_id=workflow_id,
@@ -1086,11 +1106,13 @@ class OrchestratorWorkflow:
         else:
             content_str = str(content)
 
-        conversation_history.append({
-            "role": role,
-            "content": content_str,
-            "timestamp": workflow.now().isoformat() + "Z",
-        })
+        conversation_history.append(
+            {
+                "role": role,
+                "content": content_str,
+                "timestamp": workflow.now().isoformat() + "Z",
+            }
+        )
         self._state.context["conversation_history"] = conversation_history
 
     async def _save_conversation_history(self) -> None:
@@ -1147,9 +1169,7 @@ class OrchestratorWorkflow:
         Args:
             signal: Cancellation signal.
         """
-        workflow.logger.info(
-            f"Cancellation requested: {signal.reason} by {signal.requested_by}"
-        )
+        workflow.logger.info(f"Cancellation requested: {signal.reason} by {signal.requested_by}")
         self._state.cancellation_requested = True
         self._state.cancellation_reason = signal.reason or "User requested cancellation"
         self._state.metadata["cancellation_requested_by"] = signal.requested_by
@@ -1172,10 +1192,10 @@ class OrchestratorWorkflow:
 
         # Append user input to conversation history
         await self._append_to_history("user", signal.input_text)
-        
+
         # Update context query with new user input
         self._state.context["query"] = signal.input_text
-        
+
         # Enrich query after updating
         enriched = await self._enrich_query_with_context(self._state.context)
         self._state.context.update(enriched)

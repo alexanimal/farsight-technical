@@ -20,21 +20,15 @@ from typing import Any, Dict, List, Optional, Type
 from temporalio import activity
 from temporalio.common import RetryPolicy
 
+# Import agent registry from agents module (no Temporal dependency)
+# This ensures agents can use the same registry without importing Temporal
+from src.agents.registry import discover_agents, get_agent, list_available_agents, register_agent
 from src.contracts.agent_io import AgentOutput, validate_agent_input
 from src.core.agent_base import AgentBase
 from src.core.agent_context import AgentContext
 from src.core.agent_response import AgentResponse
 from src.db import get_redis_client
 from src.runtime.executor import Executor, get_executor
-
-# Import agent registry from agents module (no Temporal dependency)
-# This ensures agents can use the same registry without importing Temporal
-from src.agents.registry import (
-    discover_agents,
-    get_agent,
-    list_available_agents,
-    register_agent,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -103,8 +97,7 @@ async def execute_agent(
     agent_info = get_agent(agent_name)
     if agent_info is None:
         error_msg = (
-            f"Agent '{agent_name}' not found. "
-            f"Available agents: {list_available_agents()}"
+            f"Agent '{agent_name}' not found. " f"Available agents: {list_available_agents()}"
         )
         activity.logger.error(error_msg)
         return {
@@ -358,9 +351,7 @@ def get_activity_options(
     if max_retries is not None or initial_retry_interval is not None:
         existing_policy_raw = options.get("retry_policy")
         existing_policy: Optional[RetryPolicy] = (
-            existing_policy_raw
-            if isinstance(existing_policy_raw, RetryPolicy)
-            else None
+            existing_policy_raw if isinstance(existing_policy_raw, RetryPolicy) else None
         )
         if existing_policy is not None:
             # Create a new RetryPolicy with updated values
@@ -373,9 +364,7 @@ def get_activity_options(
                 backoff_coefficient=existing_policy.backoff_coefficient,
                 maximum_interval=existing_policy.maximum_interval,
                 maximum_attempts=(
-                    max_retries
-                    if max_retries is not None
-                    else existing_policy.maximum_attempts
+                    max_retries if max_retries is not None else existing_policy.maximum_attempts
                 ),
             )
         else:

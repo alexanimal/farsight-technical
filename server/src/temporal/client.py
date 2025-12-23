@@ -20,14 +20,22 @@ from temporalio.client import Client
 
 # Note: AgentContext is not imported here to avoid workflow determinism issues
 # The client methods accept Dict[str, Any] for context, not AgentContext objects
-from src.temporal.queries import (QUERY_AGENT_STATUS, QUERY_PROGRESS,
-                                  QUERY_STATE, QUERY_STATUS,
-                                  AgentStatusQueryResult,
-                                  WorkflowProgressQueryResult,
-                                  WorkflowStateQueryResult,
-                                  WorkflowStatusQueryResult)
-from src.temporal.signals import (SIGNAL_CANCELLATION, SIGNAL_USER_INPUT,
-                                  CancellationSignal, UserInputSignal)
+from src.temporal.queries import (
+    QUERY_AGENT_STATUS,
+    QUERY_PROGRESS,
+    QUERY_STATE,
+    QUERY_STATUS,
+    AgentStatusQueryResult,
+    WorkflowProgressQueryResult,
+    WorkflowStateQueryResult,
+    WorkflowStatusQueryResult,
+)
+from src.temporal.signals import (
+    SIGNAL_CANCELLATION,
+    SIGNAL_USER_INPUT,
+    CancellationSignal,
+    UserInputSignal,
+)
 
 # Import workflow lazily to avoid pulling in AgentContext during workflow validation
 # The workflow is only needed when actually starting a workflow
@@ -163,7 +171,7 @@ class TemporalClient:
             # Temporal requires an 'id' parameter - generate one if not provided
             if workflow_id is None:
                 workflow_id = f"workflow-{uuid.uuid4().hex[:12]}"
-            
+
             # Build kwargs for start_workflow
             workflow_kwargs: Dict[str, Any] = {
                 "id": workflow_id,
@@ -270,9 +278,7 @@ class TemporalClient:
             logger.error(f"Failed to send user input signal: {e}", exc_info=True)
             raise
 
-    async def query_workflow_status(
-        self, workflow_id: str
-    ) -> WorkflowStatusQueryResult:
+    async def query_workflow_status(self, workflow_id: str) -> WorkflowStatusQueryResult:
         """Query the status of a workflow.
 
         Args:
@@ -305,9 +311,7 @@ class TemporalClient:
             logger.error(f"Failed to query workflow status: {e}", exc_info=True)
             raise
 
-    async def query_workflow_progress(
-        self, workflow_id: str
-    ) -> WorkflowProgressQueryResult:
+    async def query_workflow_progress(self, workflow_id: str) -> WorkflowProgressQueryResult:
         """Query the progress of a workflow.
 
         Args:
@@ -373,9 +377,7 @@ class TemporalClient:
             logger.error(f"Failed to query workflow state: {e}", exc_info=True)
             raise
 
-    async def query_agent_status(
-        self, workflow_id: str, agent_name: str
-    ) -> AgentStatusQueryResult:
+    async def query_agent_status(self, workflow_id: str, agent_name: str) -> AgentStatusQueryResult:
         """Query the status of a specific agent in a workflow.
 
         Args:

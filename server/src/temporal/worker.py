@@ -17,9 +17,12 @@ from temporalio.client import Client
 from temporalio.worker import Worker
 
 from src.temporal.activities import agents, tools
-from src.temporal.client import (DEFAULT_TASK_QUEUE, DEFAULT_TEMPORAL_ADDRESS,
-                                 DEFAULT_TEMPORAL_NAMESPACE)
-from src.temporal.workflows import OrchestratorWorkflow
+from src.temporal.client import (
+    DEFAULT_TASK_QUEUE,
+    DEFAULT_TEMPORAL_ADDRESS,
+    DEFAULT_TEMPORAL_NAMESPACE,
+)
+from src.temporal.workflows import OrchestratorWorkflow, PipelineWorkflow
 
 logger = logging.getLogger(__name__)
 
@@ -87,9 +90,7 @@ async def run_worker(
         logger.info("Worker initialized, starting to poll task queue...")
         logger.info(f"  - Task queue: {task_queue}")
         logger.info(f"  - Max concurrent activities: {max_concurrent_activities}")
-        logger.info(
-            f"  - Max concurrent workflow tasks: {max_concurrent_workflow_tasks}"
-        )
+        logger.info(f"  - Max concurrent workflow tasks: {max_concurrent_workflow_tasks}")
 
         # Run worker (this blocks until interrupted)
         await _worker.run()
@@ -113,20 +114,20 @@ def _get_workflows() -> List[type]:
     Returns:
         List of workflow classes.
     """
-    workflows = [OrchestratorWorkflow]
+    workflows = [
+        OrchestratorWorkflow,
+        PipelineWorkflow,
+    ]
 
     # Optionally include other workflows if they exist
     # These are optional and may not be implemented yet
     try:
-        from src.temporal.workflows import pipeline, swarm
+        from src.temporal.workflows import swarm
 
         # Only add if they have workflow definitions
-        # For now, we'll just register orchestrator
-        # Uncomment when other workflows are implemented:
+        # Uncomment when swarm workflow is implemented:
         # if hasattr(swarm, 'SwarmWorkflow'):
         #     workflows.append(swarm.SwarmWorkflow)
-        # if hasattr(pipeline, 'PipelineWorkflow'):
-        #     workflows.append(pipeline.PipelineWorkflow)
     except ImportError:
         # Other workflows not implemented yet, that's fine
         pass
@@ -181,6 +182,7 @@ async def main() -> None:
     # Configuration can come from environment variables or defaults
     # For production, these should be set via environment variables
     import os
+
     temporal_address = os.getenv("TEMPORAL_ADDRESS", DEFAULT_TEMPORAL_ADDRESS)
     temporal_namespace = os.getenv("TEMPORAL_NAMESPACE", DEFAULT_TEMPORAL_NAMESPACE)
     task_queue = os.getenv("TEMPORAL_TASK_QUEUE", DEFAULT_TASK_QUEUE)

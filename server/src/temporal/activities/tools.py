@@ -17,20 +17,42 @@ from temporalio import activity
 from temporalio.common import RetryPolicy
 
 from src.contracts.tool_io import ToolOutput
-from src.tools import (generate_llm_response, get_acquisitions,
-                       get_funding_rounds, get_organizations,
-                       semantic_search_organizations)
+from src.tools import (
+    aggregate_funding_trends,
+    analyze_sector_concentration,
+    calculate_funding_velocity,
+    calculate_portfolio_metrics,
+    compare_to_market_benchmarks,
+    find_investor_portfolio,
+    generate_llm_response,
+    get_acquisitions,
+    get_funding_rounds,
+    get_organizations,
+    identify_funding_patterns,
+    identify_investment_patterns,
+    semantic_search_organizations,
+    web_search,
+)
 
 logger = logging.getLogger(__name__)
 
 # Tool registry mapping tool names to their callable functions
 # This allows dynamic tool resolution
 _TOOL_REGISTRY: Dict[str, Callable] = {
+    "aggregate_funding_trends": aggregate_funding_trends,
+    "analyze_sector_concentration": analyze_sector_concentration,
+    "calculate_funding_velocity": calculate_funding_velocity,
+    "calculate_portfolio_metrics": calculate_portfolio_metrics,
+    "compare_to_market_benchmarks": compare_to_market_benchmarks,
+    "find_investor_portfolio": find_investor_portfolio,
     "generate_llm_response": generate_llm_response,
     "get_acquisitions": get_acquisitions,
     "get_funding_rounds": get_funding_rounds,
     "get_organizations": get_organizations,
+    "identify_funding_patterns": identify_funding_patterns,
+    "identify_investment_patterns": identify_investment_patterns,
     "semantic_search_organizations": semantic_search_organizations,
+    "web_search": web_search,
 }
 
 
@@ -116,16 +138,12 @@ async def execute_tool(
         ValueError: If tool is not found or parameters are invalid.
         Exception: If tool execution fails after retries.
     """
-    activity.logger.info(
-        f"Executing tool: {tool_name} with parameters: {tool_parameters}"
-    )
+    activity.logger.info(f"Executing tool: {tool_name} with parameters: {tool_parameters}")
 
     # Resolve tool
     tool_func = get_tool(tool_name)
     if tool_func is None:
-        error_msg = (
-            f"Tool '{tool_name}' not found. Available tools: {list_available_tools()}"
-        )
+        error_msg = f"Tool '{tool_name}' not found. Available tools: {list_available_tools()}"
         activity.logger.error(error_msg)
         return {
             "success": False,
@@ -185,9 +203,7 @@ async def execute_tool(
             }
         else:
             # Handle legacy tools that return raw results
-            activity.logger.info(
-                f"Tool '{tool_name}' executed successfully (legacy format)"
-            )
+            activity.logger.info(f"Tool '{tool_name}' executed successfully (legacy format)")
             return {
                 "success": True,
                 "result": tool_output,
@@ -267,9 +283,7 @@ def get_activity_options(
     if max_retries is not None or initial_retry_interval is not None:
         existing_policy_raw = options.get("retry_policy")
         existing_policy: Optional[RetryPolicy] = (
-            existing_policy_raw
-            if isinstance(existing_policy_raw, RetryPolicy)
-            else None
+            existing_policy_raw if isinstance(existing_policy_raw, RetryPolicy) else None
         )
         if existing_policy is not None:
             # Create a new RetryPolicy with updated values
@@ -282,9 +296,7 @@ def get_activity_options(
                 backoff_coefficient=existing_policy.backoff_coefficient,
                 maximum_interval=existing_policy.maximum_interval,
                 maximum_attempts=(
-                    max_retries
-                    if max_retries is not None
-                    else existing_policy.maximum_attempts
+                    max_retries if max_retries is not None else existing_policy.maximum_attempts
                 ),
             )
         else:
