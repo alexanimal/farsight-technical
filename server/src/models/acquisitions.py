@@ -6,7 +6,7 @@ This module provides a Pydantic model and query methods for the acquisitions tab
 import json
 import logging
 from datetime import datetime
-from typing import Any, Literal, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -26,22 +26,14 @@ class Acquisition(BaseModel):
     proper type validation.
     """
 
-    acquisition_uuid: UUID = Field(
-        ..., description="Primary key UUID for the acquisition"
-    )
-    acquiree_uuid: Optional[UUID] = Field(
-        None, description="UUID of the company being acquired"
-    )
-    acquirer_uuid: Optional[UUID] = Field(
-        None, description="UUID of the acquiring company"
-    )
+    acquisition_uuid: UUID = Field(..., description="Primary key UUID for the acquisition")
+    acquiree_uuid: Optional[UUID] = Field(None, description="UUID of the company being acquired")
+    acquirer_uuid: Optional[UUID] = Field(None, description="UUID of the acquiring company")
     acquisition_type: Optional[str] = Field(None, description="Type of acquisition")
     acquisition_announce_date: Optional[datetime] = Field(
         None, description="Date the acquisition was announced"
     )
-    acquisition_price_usd: Optional[int] = Field(
-        None, description="Acquisition price in USD"
-    )
+    acquisition_price_usd: Optional[int] = Field(None, description="Acquisition price in USD")
     terms: Optional[str] = Field(None, description="Terms of the acquisition")
     acquirer_type: Optional[str] = Field(None, description="Type of acquirer")
 
@@ -50,12 +42,12 @@ class Acquisition(BaseModel):
 
 class AcquisitionWithOrganizations(Acquisition):
     """Acquisition model with nested organization details.
-    
+
     This extends Acquisition to include full organization objects for:
     - acquiree_organization: The organization being acquired (from acquiree_uuid)
     - acquirer_organization: The organization doing the acquiring (from acquirer_uuid)
     """
-    
+
     acquiree_organization: Optional["Organization"] = Field(
         None, description="Organization being acquired"
     )
@@ -186,9 +178,7 @@ class AcquisitionModel:
             ```
         """
         if self._client is None:
-            raise RuntimeError(
-                "PostgresClient not initialized. Call initialize() first."
-            )
+            raise RuntimeError("PostgresClient not initialized. Call initialize() first.")
 
         # Build WHERE clause dynamically
         # Use table alias 'a' when include_organizations is True, otherwise no alias
@@ -276,7 +266,7 @@ class AcquisitionModel:
             """
         else:
             query = "SELECT * FROM acquisitions"
-        
+
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
@@ -284,27 +274,25 @@ class AcquisitionModel:
         # Default to acquisition_announce_date DESC if not specified
         order_by_field_name = order_by if order_by is not None else "acquisition_announce_date"
         order_direction_value = order_direction if order_direction is not None else "desc"
-        
+
         # Validate order_by field
         allowed_order_fields = {"acquisition_announce_date", "acquisition_price_usd"}
         if order_by_field_name not in allowed_order_fields:
             raise ValueError(
                 f"order_by must be one of {allowed_order_fields}, got: {order_by_field_name}"
             )
-        
+
         # Validate order_direction
         if order_direction_value not in {"asc", "desc"}:
             raise ValueError(
                 f"order_direction must be 'asc' or 'desc', got: {order_direction_value}"
             )
-        
+
         # Apply table prefix if needed
         order_by_field = (
-            f"{table_prefix}{order_by_field_name}"
-            if include_organizations
-            else order_by_field_name
+            f"{table_prefix}{order_by_field_name}" if include_organizations else order_by_field_name
         )
-        
+
         # Use NULLS LAST for descending, NULLS FIRST for ascending (standard SQL behavior)
         nulls_clause = "NULLS LAST" if order_direction_value == "desc" else "NULLS FIRST"
         query += f" ORDER BY {order_by_field} {order_direction_value.upper()} {nulls_clause}"
@@ -321,18 +309,18 @@ class AcquisitionModel:
         # Execute query
         try:
             records = await self._client.query(query, *params)
-            
+
             if include_organizations:
                 # Import Organization here to avoid circular imports
                 from src.models.organizations import Organization
-                
+
                 acquisitions_with_orgs = []
                 for record in records:
                     record_dict = dict(record)
                     # Extract organization data (JSON strings from PostgreSQL)
-                    acquiree_org_data_raw = record_dict.pop('acquiree_organization', None)
-                    acquirer_org_data_raw = record_dict.pop('acquirer_organization', None)
-                    
+                    acquiree_org_data_raw = record_dict.pop("acquiree_organization", None)
+                    acquirer_org_data_raw = record_dict.pop("acquirer_organization", None)
+
                     # Parse JSON strings if they exist
                     acquiree_org_data = None
                     if acquiree_org_data_raw is not None:
@@ -340,17 +328,17 @@ class AcquisitionModel:
                             acquiree_org_data = json.loads(acquiree_org_data_raw)
                         else:
                             acquiree_org_data = acquiree_org_data_raw
-                    
+
                     acquirer_org_data = None
                     if acquirer_org_data_raw is not None:
                         if isinstance(acquirer_org_data_raw, str):
                             acquirer_org_data = json.loads(acquirer_org_data_raw)
                         else:
                             acquirer_org_data = acquirer_org_data_raw
-                    
+
                     # Create Acquisition from base fields
                     acquisition = Acquisition(**record_dict)
-                    
+
                     # Create nested organization objects
                     acquiree_organization = (
                         Organization(**acquiree_org_data) if acquiree_org_data else None
@@ -358,7 +346,7 @@ class AcquisitionModel:
                     acquirer_organization = (
                         Organization(**acquirer_org_data) if acquirer_org_data else None
                     )
-                    
+
                     # Create AcquisitionWithOrganizations
                     acquisition_with_orgs = AcquisitionWithOrganizations(
                         **acquisition.model_dump(),
@@ -366,8 +354,10 @@ class AcquisitionModel:
                         acquirer_organization=acquirer_organization,
                     )
                     acquisitions_with_orgs.append(acquisition_with_orgs)
-                
-                logger.debug(f"Retrieved {len(acquisitions_with_orgs)} acquisition(s) with organizations")
+
+                logger.debug(
+                    f"Retrieved {len(acquisitions_with_orgs)} acquisition(s) with organizations"
+                )
                 return acquisitions_with_orgs
             else:
                 acquisitions = [Acquisition(**dict(record)) for record in records]
@@ -421,9 +411,7 @@ class AcquisitionModel:
             Number of acquisitions matching the filters.
         """
         if self._client is None:
-            raise RuntimeError(
-                "PostgresClient not initialized. Call initialize() first."
-            )
+            raise RuntimeError("PostgresClient not initialized. Call initialize() first.")
 
         # Build WHERE clause (reuse same logic as get)
         conditions: list[str] = []

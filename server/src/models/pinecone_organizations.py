@@ -33,12 +33,8 @@ class PineconeOrganization(BaseModel):
         None,
         description="Organization status: operating, closed, was_acquired, or ipo",
     )
-    total_funding_usd: Optional[float] = Field(
-        None, description="Total amount of funding raised"
-    )
-    founding_date: Optional[datetime] = Field(
-        None, description="Date the company was founded"
-    )
+    total_funding_usd: Optional[float] = Field(None, description="Total amount of funding raised")
+    founding_date: Optional[datetime] = Field(None, description="Date the company was founded")
     last_fundraise_date: Optional[datetime] = Field(
         None, description="Date of the company's last fundraise"
     )
@@ -46,9 +42,7 @@ class PineconeOrganization(BaseModel):
         None,
         description="Employee count range: 1-10, 11-50, 51-100, 101-250, 251-500, 501-1000, 1001-5000, 5001-10000, 10000+",
     )
-    org_type: Optional[str] = Field(
-        None, description="Organization type: investor or company"
-    )
+    org_type: Optional[str] = Field(None, description="Organization type: investor or company")
     stage: Optional[str] = Field(
         None,
         description="Funding stage: series_a, series_b, seed, etc.",
@@ -68,9 +62,7 @@ class PineconeOrganization(BaseModel):
         None,
         description="Revenue range: <1M, 1M-10M, 10M-50M, 50M-100M, 100M-500M, 500M-1B, 1B-10B, 10B+",
     )
-    score: Optional[float] = Field(
-        None, description="Similarity score from Pinecone query"
-    )
+    score: Optional[float] = Field(None, description="Similarity score from Pinecone query")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -221,9 +213,7 @@ class PineconeOrganizationModel:
             ```
         """
         if self._pinecone_client is None:
-            raise RuntimeError(
-                "PineconeClient not initialized. Call initialize() first."
-            )
+            raise RuntimeError("PineconeClient not initialized. Call initialize() first.")
         if self._openai_client is None:
             raise RuntimeError("OpenAIClient not initialized. Call initialize() first.")
 
@@ -346,9 +336,7 @@ class PineconeOrganizationModel:
                 for date_field in ["founding_date", "last_fundraise_date"]:
                     if date_field in metadata and isinstance(metadata[date_field], str):
                         try:
-                            metadata[date_field] = datetime.fromisoformat(
-                                metadata[date_field]
-                            )
+                            metadata[date_field] = datetime.fromisoformat(metadata[date_field])
                         except (ValueError, TypeError):
                             pass
 
@@ -357,9 +345,7 @@ class PineconeOrganizationModel:
 
                 organizations.append(PineconeOrganization(**metadata))
 
-            logger.debug(
-                f"Retrieved {len(organizations)} organization(s) from Pinecone"
-            )
+            logger.debug(f"Retrieved {len(organizations)} organization(s) from Pinecone")
             return organizations
         except Exception as e:
             logger.error(f"Failed to query Pinecone: {e}")

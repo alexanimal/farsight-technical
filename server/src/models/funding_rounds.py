@@ -6,7 +6,7 @@ This module provides a Pydantic model and query methods for the fundingrounds ta
 import json
 import logging
 from datetime import datetime
-from typing import Any, Literal, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 from uuid import UUID
 
 if TYPE_CHECKING:
@@ -26,26 +26,16 @@ class FundingRound(BaseModel):
     proper type validation.
     """
 
-    funding_round_uuid: UUID = Field(
-        ..., description="Primary key UUID for the funding round"
-    )
-    investment_date: Optional[datetime] = Field(
-        None, description="Date of the investment"
-    )
-    org_uuid: Optional[UUID] = Field(
-        None, description="UUID of the organization receiving funding"
-    )
+    funding_round_uuid: UUID = Field(..., description="Primary key UUID for the funding round")
+    investment_date: Optional[datetime] = Field(None, description="Date of the investment")
+    org_uuid: Optional[UUID] = Field(None, description="UUID of the organization receiving funding")
     general_funding_stage: Optional[str] = Field(
         None, description="General funding stage (e.g., Series A, Seed)"
     )
     stage: Optional[str] = Field(None, description="Specific funding stage")
     investors: Optional[list[str]] = Field(None, description="List of investor names")
-    lead_investors: Optional[list[str]] = Field(
-        None, description="List of lead investor names"
-    )
-    fundraise_amount_usd: Optional[int] = Field(
-        None, description="Total fundraise amount in USD"
-    )
+    lead_investors: Optional[list[str]] = Field(None, description="List of lead investor names")
+    fundraise_amount_usd: Optional[int] = Field(None, description="Total fundraise amount in USD")
     valuation_usd: Optional[int] = Field(None, description="Company valuation in USD")
 
     model_config = ConfigDict(from_attributes=True)
@@ -53,13 +43,13 @@ class FundingRound(BaseModel):
 
 class FundingRoundWithOrganizations(FundingRound):
     """FundingRound model with nested organization details.
-    
+
     This extends FundingRound to include full organization objects for:
     - organization: The organization receiving funding (from org_uuid)
     - investors_organizations: List of investor organizations (from investors array)
     - lead_investors_organizations: List of lead investor organizations (from lead_investors array)
     """
-    
+
     organization: Optional["Organization"] = Field(
         None, description="Organization receiving funding"
     )
@@ -138,7 +128,9 @@ class FundingRoundModel:
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         include_organizations: bool = False,
-        order_by: Optional[Literal["investment_date", "fundraise_amount_usd", "valuation_usd"]] = None,
+        order_by: Optional[
+            Literal["investment_date", "fundraise_amount_usd", "valuation_usd"]
+        ] = None,
         order_direction: Optional[Literal["asc", "desc"]] = None,
     ) -> Union[list[FundingRound], list["FundingRoundWithOrganizations"]]:
         """Get funding rounds matching the specified filters.
@@ -224,9 +216,7 @@ class FundingRoundModel:
             ```
         """
         if self._client is None:
-            raise RuntimeError(
-                "PostgresClient not initialized. Call initialize() first."
-            )
+            raise RuntimeError("PostgresClient not initialized. Call initialize() first.")
 
         # Determine if we need table alias (for joins or include_organizations)
         needs_alias = (
@@ -392,7 +382,7 @@ class FundingRoundModel:
         else:
             # No alias needed - simple query
             query = "SELECT * FROM fundingrounds"
-        
+
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
@@ -400,27 +390,31 @@ class FundingRoundModel:
         # Default to investment_date DESC if not specified
         order_by_field_name = order_by if order_by is not None else "investment_date"
         order_direction_value = order_direction if order_direction is not None else "desc"
-        
+
         # Validate order_by field
-        allowed_order_fields = {"investment_date", "fundraise_amount_usd", "valuation_usd"}
+        allowed_order_fields = {
+            "investment_date",
+            "fundraise_amount_usd",
+            "valuation_usd",
+        }
         if order_by_field_name not in allowed_order_fields:
             raise ValueError(
                 f"order_by must be one of {allowed_order_fields}, got: {order_by_field_name}"
             )
-        
+
         # Validate order_direction
         if order_direction_value not in {"asc", "desc"}:
             raise ValueError(
                 f"order_direction must be 'asc' or 'desc', got: {order_direction_value}"
             )
-        
+
         # Apply table prefix if needed
         order_by_field = (
             f"{table_prefix}{order_by_field_name}"
             if needs_alias or include_organizations
             else order_by_field_name
         )
-        
+
         # Use NULLS LAST for descending, NULLS FIRST for ascending (standard SQL behavior)
         nulls_clause = "NULLS LAST" if order_direction_value == "desc" else "NULLS FIRST"
         query += f" ORDER BY {order_by_field} {order_direction_value.upper()} {nulls_clause}"
@@ -437,19 +431,21 @@ class FundingRoundModel:
         # Execute query
         try:
             records = await self._client.query(query, *params)
-            
+
             if include_organizations:
                 # Import Organization here to avoid circular imports
                 from src.models.organizations import Organization
-                
+
                 funding_rounds_with_orgs = []
                 for record in records:
                     record_dict = dict(record)
                     # Extract organization data (JSON strings from PostgreSQL)
-                    org_data_raw = record_dict.pop('organization', None)
-                    investors_orgs_data_raw = record_dict.pop('investors_organizations', None)
-                    lead_investors_orgs_data_raw = record_dict.pop('lead_investors_organizations', None)
-                    
+                    org_data_raw = record_dict.pop("organization", None)
+                    investors_orgs_data_raw = record_dict.pop("investors_organizations", None)
+                    lead_investors_orgs_data_raw = record_dict.pop(
+                        "lead_investors_organizations", None
+                    )
+
                     # Parse JSON strings if they exist
                     org_data = None
                     if org_data_raw is not None:
@@ -457,7 +453,7 @@ class FundingRoundModel:
                             org_data = json.loads(org_data_raw)
                         else:
                             org_data = org_data_raw
-                    
+
                     investors_orgs_data = []
                     if investors_orgs_data_raw is not None:
                         if isinstance(investors_orgs_data_raw, str):
@@ -466,7 +462,7 @@ class FundingRoundModel:
                             investors_orgs_data = investors_orgs_data_raw
                         else:
                             investors_orgs_data = []
-                    
+
                     lead_investors_orgs_data = []
                     if lead_investors_orgs_data_raw is not None:
                         if isinstance(lead_investors_orgs_data_raw, str):
@@ -475,21 +471,23 @@ class FundingRoundModel:
                             lead_investors_orgs_data = lead_investors_orgs_data_raw
                         else:
                             lead_investors_orgs_data = []
-                    
+
                     # Create FundingRound from base fields
                     funding_round = FundingRound(**record_dict)
-                    
+
                     # Create nested organization objects
                     organization = Organization(**org_data) if org_data else None
                     investors_organizations = [
-                        Organization(**inv_org) for inv_org in investors_orgs_data
+                        Organization(**inv_org)
+                        for inv_org in investors_orgs_data
                         if inv_org is not None
                     ]
                     lead_investors_organizations = [
-                        Organization(**lead_inv_org) for lead_inv_org in lead_investors_orgs_data
+                        Organization(**lead_inv_org)
+                        for lead_inv_org in lead_investors_orgs_data
                         if lead_inv_org is not None
                     ]
-                    
+
                     # Create FundingRoundWithOrganizations
                     funding_round_with_orgs = FundingRoundWithOrganizations(
                         **funding_round.model_dump(),
@@ -498,8 +496,10 @@ class FundingRoundModel:
                         lead_investors_organizations=lead_investors_organizations,
                     )
                     funding_rounds_with_orgs.append(funding_round_with_orgs)
-                
-                logger.debug(f"Retrieved {len(funding_rounds_with_orgs)} funding round(s) with organizations")
+
+                logger.debug(
+                    f"Retrieved {len(funding_rounds_with_orgs)} funding round(s) with organizations"
+                )
                 return funding_rounds_with_orgs
             else:
                 funding_rounds = [FundingRound(**dict(record)) for record in records]
@@ -510,7 +510,7 @@ class FundingRoundModel:
             raise
 
     async def get_by_uuid(
-        self, 
+        self,
         funding_round_uuid: UUID,
         include_organizations: bool = False,
     ) -> Union[Optional[FundingRound], Optional["FundingRoundWithOrganizations"]]:
@@ -524,7 +524,7 @@ class FundingRoundModel:
             FundingRound or FundingRoundWithOrganizations object if found, None otherwise.
         """
         results = await self.get(
-            funding_round_uuid=funding_round_uuid, 
+            funding_round_uuid=funding_round_uuid,
             limit=1,
             include_organizations=include_organizations,
         )
@@ -559,9 +559,7 @@ class FundingRoundModel:
             Number of funding rounds matching the filters.
         """
         if self._client is None:
-            raise RuntimeError(
-                "PostgresClient not initialized. Call initialize() first."
-            )
+            raise RuntimeError("PostgresClient not initialized. Call initialize() first.")
 
         # Determine if we need table alias (for joins)
         needs_alias = (
@@ -673,7 +671,7 @@ class FundingRoundModel:
                 query += " JOIN organizations org ON fr.org_uuid = org.org_uuid"
         else:
             query = "SELECT COUNT(*) FROM fundingrounds"
-        
+
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 

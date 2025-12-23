@@ -25,19 +25,11 @@ class Organization(BaseModel):
     org_uuid: UUID = Field(..., description="Primary key UUID for the organization")
     cb_url: Optional[str] = Field(None, description="Crunchbase URL")
     categories: Optional[list[str]] = Field(None, description="List of category tags")
-    category_groups: Optional[list[str]] = Field(
-        None, description="List of category group tags"
-    )
-    closed_on: Optional[datetime] = Field(
-        None, description="Date the organization closed"
-    )
-    closed_on_precision: Optional[str] = Field(
-        None, description="Precision of closed_on date"
-    )
+    category_groups: Optional[list[str]] = Field(None, description="List of category group tags")
+    closed_on: Optional[datetime] = Field(None, description="Date the organization closed")
+    closed_on_precision: Optional[str] = Field(None, description="Precision of closed_on date")
     company_profit_type: Optional[str] = Field(None, description="Company profit type")
-    created_at: Optional[datetime] = Field(
-        None, description="Record creation timestamp"
-    )
+    created_at: Optional[datetime] = Field(None, description="Record creation timestamp")
     raw_description: Optional[str] = Field(None, description="Raw company description")
     web_scrape: Optional[str] = Field(None, description="Web scraped content")
     rewritten_description: Optional[str] = Field(
@@ -46,39 +38,23 @@ class Organization(BaseModel):
     total_funding_native: Optional[int] = Field(
         None, description="Total funding in native currency"
     )
-    total_funding_currency: Optional[str] = Field(
-        None, description="Currency for total funding"
-    )
+    total_funding_currency: Optional[str] = Field(None, description="Currency for total funding")
     total_funding_usd: Optional[int] = Field(None, description="Total funding in USD")
-    exited_on: Optional[datetime] = Field(
-        None, description="Date the organization exited"
-    )
-    exited_on_precision: Optional[str] = Field(
-        None, description="Precision of exited_on date"
-    )
-    founding_date: Optional[datetime] = Field(
-        None, description="Organization founding date"
-    )
-    founding_date_precision: Optional[str] = Field(
-        None, description="Precision of founding_date"
-    )
-    general_funding_stage: Optional[str] = Field(
-        None, description="General funding stage"
-    )
+    exited_on: Optional[datetime] = Field(None, description="Date the organization exited")
+    exited_on_precision: Optional[str] = Field(None, description="Precision of exited_on date")
+    founding_date: Optional[datetime] = Field(None, description="Organization founding date")
+    founding_date_precision: Optional[str] = Field(None, description="Precision of founding_date")
+    general_funding_stage: Optional[str] = Field(None, description="General funding stage")
     logo_url: Optional[str] = Field(None, description="URL to organization logo")
     ipo_status: Optional[str] = Field(None, description="IPO status")
-    last_fundraise_date: Optional[datetime] = Field(
-        None, description="Date of last fundraise"
-    )
+    last_fundraise_date: Optional[datetime] = Field(None, description="Date of last fundraise")
     last_funding_total_native: Optional[int] = Field(
         None, description="Last funding total in native currency"
     )
     last_funding_total_currency: Optional[str] = Field(
         None, description="Currency for last funding"
     )
-    last_funding_total_usd: Optional[int] = Field(
-        None, description="Last funding total in USD"
-    )
+    last_funding_total_usd: Optional[int] = Field(None, description="Last funding total in USD")
     stage: Optional[str] = Field(None, description="Current stage")
     org_type: Optional[str] = Field(None, description="Organization type")
     city: Optional[str] = Field(None, description="City location")
@@ -88,12 +64,8 @@ class Organization(BaseModel):
     name: Optional[str] = Field(None, description="Organization name")
     num_acquisitions: Optional[int] = Field(None, description="Number of acquisitions")
     employee_count: Optional[str] = Field(None, description="Employee count range")
-    num_funding_rounds: Optional[int] = Field(
-        None, description="Number of funding rounds"
-    )
-    num_investments: Optional[int] = Field(
-        None, description="Number of investments made"
-    )
+    num_funding_rounds: Optional[int] = Field(None, description="Number of funding rounds")
+    num_investments: Optional[int] = Field(None, description="Number of investments made")
     num_portfolio_organizations: Optional[int] = Field(
         None, description="Number of portfolio organizations"
     )
@@ -101,15 +73,9 @@ class Organization(BaseModel):
     cb_rank: Optional[int] = Field(None, description="Crunchbase rank")
     revenue_range: Optional[str] = Field(None, description="Revenue range")
     org_status: Optional[str] = Field(None, description="Organization status")
-    updated_at: Optional[datetime] = Field(
-        None, description="Record last update timestamp"
-    )
-    valuation_native: Optional[int] = Field(
-        None, description="Valuation in native currency"
-    )
-    valuation_currency: Optional[str] = Field(
-        None, description="Currency for valuation"
-    )
+    updated_at: Optional[datetime] = Field(None, description="Record last update timestamp")
+    valuation_native: Optional[int] = Field(None, description="Valuation in native currency")
+    valuation_currency: Optional[str] = Field(None, description="Currency for valuation")
     valuation_usd: Optional[int] = Field(None, description="Valuation in USD")
     valuation_date: Optional[datetime] = Field(None, description="Date of valuation")
     org_domain: Optional[str] = Field(None, description="Organization domain/website")
@@ -349,9 +315,7 @@ class OrganizationModel:
             ```
         """
         if self._client is None:
-            raise RuntimeError(
-                "PostgresClient not initialized. Call initialize() first."
-            )
+            raise RuntimeError("PostgresClient not initialized. Call initialize() first.")
 
         # Build WHERE clause dynamically
         conditions: list[str] = []
@@ -791,9 +755,7 @@ class OrganizationModel:
             Number of organizations matching the filters.
         """
         if self._client is None:
-            raise RuntimeError(
-                "PostgresClient not initialized. Call initialize() first."
-            )
+            raise RuntimeError("PostgresClient not initialized. Call initialize() first.")
 
         # Build WHERE clause with common filters
         conditions: list[str] = []
