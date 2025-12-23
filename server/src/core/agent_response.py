@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 class AgentInsight(BaseModel):
     """Structured insight output from an agent.
-    
+
     This represents domain-interpreted insights that answer the user's query,
     rather than raw data dumps. Agents should generate insights that provide
     reasoning, patterns, trends, and human-meaningful summaries.

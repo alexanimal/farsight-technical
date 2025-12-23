@@ -99,7 +99,9 @@ class AgentContext(BaseModel):
         """
         return self.metadata.get(key, default)
 
-    def add_to_history(self, role: str, content: str, timestamp: Optional[str] = None) -> None:
+    def add_to_history(
+        self, role: str, content: str, timestamp: Optional[str] = None
+    ) -> None:
         """Add a message to the conversation history.
 
         Args:
@@ -109,15 +111,17 @@ class AgentContext(BaseModel):
         """
         if self.conversation_history is None:
             self.conversation_history = []
-        
+
         if timestamp is None:
             timestamp = datetime.utcnow().isoformat() + "Z"
-        
-        self.conversation_history.append({
-            "role": role,
-            "content": content,
-            "timestamp": timestamp,
-        })
+
+        self.conversation_history.append(
+            {
+                "role": role,
+                "content": content,
+                "timestamp": timestamp,
+            }
+        )
 
     def get_conversation_history_for_llm(
         self, max_messages: Optional[int] = 50
