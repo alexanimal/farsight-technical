@@ -27,30 +27,30 @@ from src.config import settings
 logger = logging.getLogger(__name__)
 
 # Context variable for trace context propagation
-_trace_context: contextvars.ContextVar[Optional[Dict[str, Any]]] = (
-    contextvars.ContextVar("trace_context", default=None)
+_trace_context: contextvars.ContextVar[Optional[Dict[str, Any]]] = contextvars.ContextVar(
+    "trace_context", default=None
 )
 
 
 def _convert_to_langfuse_trace_id(trace_id: str) -> str:
     """Convert a trace ID to Langfuse format (32 lowercase hex chars, no dashes).
-    
+
     Langfuse expects trace IDs to be exactly 32 lowercase hexadecimal characters
     without dashes. UUIDs have dashes, so we remove them.
-    
+
     Args:
         trace_id: Trace ID in any format (UUID, hex string, etc.)
-        
+
     Returns:
         Trace ID in Langfuse format (32 lowercase hex chars, no dashes)
     """
     # Remove dashes and convert to lowercase
     cleaned = trace_id.replace("-", "").lower()
-    
+
     # If it's already 32 chars, return it
     if len(cleaned) == 32:
         return cleaned
-    
+
     # If it's a UUID (36 chars with dashes removed = 32), return it
     # Otherwise, pad or truncate to 32 chars (though this shouldn't happen with UUIDs)
     if len(cleaned) > 32:
@@ -58,7 +58,7 @@ def _convert_to_langfuse_trace_id(trace_id: str) -> str:
     elif len(cleaned) < 32:
         # Pad with zeros if needed (shouldn't happen with UUIDs)
         return cleaned.ljust(32, "0")
-    
+
     return cleaned
 
 
@@ -164,23 +164,26 @@ class Tracer:
             current_context = self.get_trace_context() or {}
             current_context["trace_id"] = trace_id
             self.set_trace_context(current_context)
-        
+
         # Prepare trace_context for Langfuse if we have a trace_id
         trace_context = None
         if trace_id:
             try:
                 from langfuse.types import TraceContext
+
                 # Convert UUID to Langfuse format (32 hex chars, no dashes)
                 langfuse_trace_id = _convert_to_langfuse_trace_id(trace_id)
-                trace_context = TraceContext(trace_id=langfuse_trace_id)
+                trace_context = TraceContext(trace_id=langfuse_trace_id, parent_span_id=None)
             except (ImportError, AttributeError):
                 # Fallback: Langfuse will use its internal context management
                 pass
             except Exception as e:
                 # Log but don't fail if trace context creation fails
-                logger.debug(f"Could not create TraceContext: {e}, using internal context management")
+                logger.debug(
+                    f"Could not create TraceContext: {e}, using internal context management"
+                )
                 trace_context = None
-        
+
         try:
             # Use start_as_current_observation() which replaces deprecated start_as_current_span()
             # Parent relationships are handled automatically through Langfuse's current span context
@@ -195,9 +198,7 @@ class Tracer:
                 context = {
                     "trace_id": trace_id,
                     "span_name": name,
-                    "observation_id": (
-                        observation.id if hasattr(observation, "id") else None
-                    ),
+                    "observation_id": (observation.id if hasattr(observation, "id") else None),
                 }
                 if parent_observation_id:
                     context["parent_observation_id"] = parent_observation_id
@@ -248,23 +249,26 @@ class Tracer:
             current_context = self.get_trace_context() or {}
             current_context["trace_id"] = trace_id
             self.set_trace_context(current_context)
-        
+
         # Prepare trace_context for Langfuse if we have a trace_id
         trace_context = None
         if trace_id:
             try:
                 from langfuse.types import TraceContext
+
                 # Convert UUID to Langfuse format (32 hex chars, no dashes)
                 langfuse_trace_id = _convert_to_langfuse_trace_id(trace_id)
-                trace_context = TraceContext(trace_id=langfuse_trace_id)
+                trace_context = TraceContext(trace_id=langfuse_trace_id, parent_span_id=None)
             except (ImportError, AttributeError):
                 # Fallback: Langfuse will use its internal context management
                 pass
             except Exception as e:
                 # Log but don't fail if trace context creation fails
-                logger.debug(f"Could not create TraceContext: {e}, using internal context management")
+                logger.debug(
+                    f"Could not create TraceContext: {e}, using internal context management"
+                )
                 trace_context = None
-        
+
         try:
             # Use start_as_current_observation() which replaces deprecated start_as_current_span()
             # Parent relationships are handled automatically through Langfuse's current span context
@@ -276,10 +280,10 @@ class Tracer:
                 metadata=metadata or {},
                 trace_context=trace_context,
             )
-            
+
             # Enter the sync context manager (this is safe to do in async code as it's lightweight)
             observation = sync_cm.__enter__()
-            
+
             exc_type = None
             exc_val = None
             exc_tb = None
@@ -288,9 +292,7 @@ class Tracer:
                 context = {
                     "trace_id": trace_id,
                     "span_name": name,
-                    "observation_id": (
-                        observation.id if hasattr(observation, "id") else None
-                    ),
+                    "observation_id": (observation.id if hasattr(observation, "id") else None),
                 }
                 if parent_observation_id:
                     context["parent_observation_id"] = parent_observation_id
@@ -354,15 +356,16 @@ class Tracer:
         try:
             # Langfuse v3 API - use create_event() method
             # trace_id is managed through Langfuse context, not passed as parameter
+            # Note: parent_observation_id is not a valid parameter for create_event
+            event_metadata = metadata or {}
+            if parent_observation_id:
+                event_metadata["parent_observation_id"] = parent_observation_id
             self.client.create_event(
                 name=name,
-                parent_observation_id=parent_observation_id,
-                metadata=metadata or {},
+                metadata=event_metadata,
             )
         except (AttributeError, TypeError) as e:
-            logger.warning(
-                f"Langfuse create_event() not available: {e}, event not logged: {name}"
-            )
+            logger.warning(f"Langfuse create_event() not available: {e}, event not logged: {name}")
         except Exception as e:
             logger.warning(f"Error logging event {name}: {e}")
 
@@ -408,10 +411,13 @@ class Tracer:
             # Langfuse v3 API - use start_generation() method
             # trace_id is managed through Langfuse context, not passed as parameter
             # Note: start_generation() returns a generation object that needs to be ended
+            # Note: parent_observation_id is not a valid parameter for start_generation
+            generation_metadata = metadata or {}
+            if parent_observation_id:
+                generation_metadata["parent_observation_id"] = parent_observation_id
             generation = self.client.start_generation(
                 name=name,
-                parent_observation_id=parent_observation_id,
-                metadata=metadata or {},
+                metadata=generation_metadata,
             )
             # Set input and output on the generation object
             if hasattr(generation, "update"):

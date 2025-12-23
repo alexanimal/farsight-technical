@@ -8,8 +8,15 @@ This module provides the execution substrate of the system:
 
 from .async_manager import AsyncManager, get_async_manager, set_async_manager
 from .executor import Executor, get_executor, set_executor
-from .tracing import (Tracer, create_correlation_id, create_trace_id,
-                      get_trace_context, get_tracer, log_event, set_tracer)
+from .tracing import (
+    Tracer,
+    create_correlation_id,
+    create_trace_id,
+    get_trace_context,
+    get_tracer,
+    log_event,
+    set_tracer,
+)
 
 __all__ = [
     # Executor

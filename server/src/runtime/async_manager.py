@@ -117,9 +117,7 @@ class AsyncManager:
                     task.cancel()
             # Wait for cancellation to complete
             await asyncio.gather(*tasks, return_exceptions=True)
-            raise TimeoutError(
-                f"Parallel execution timed out after {timeout}s"
-            ) from None
+            raise TimeoutError(f"Parallel execution timed out after {timeout}s") from None
 
         except asyncio.CancelledError:
             # Cancel all remaining tasks
@@ -235,9 +233,7 @@ class AsyncManager:
                     )
                 else:
                     # No more retries
-                    logger.error(
-                        f"Operation failed after {max_retries + 1} attempts: {e}"
-                    )
+                    logger.error(f"Operation failed after {max_retries + 1} attempts: {e}")
                     raise
 
         # This should never be reached, but satisfy type checker

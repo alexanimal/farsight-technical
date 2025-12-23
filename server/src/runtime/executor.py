@@ -12,10 +12,19 @@ import logging
 import time
 from typing import Any, Awaitable, Callable, Dict, Optional, TypeVar
 
-from src.contracts.agent_io import (AgentInput, AgentOutput,
-                                    create_agent_output, validate_agent_input)
-from src.contracts.tool_io import (ToolInput, ToolMetadata, ToolOutput,
-                                   create_tool_output, validate_tool_input)
+from src.contracts.agent_io import (
+    AgentInput,
+    AgentOutput,
+    create_agent_output,
+    validate_agent_input,
+)
+from src.contracts.tool_io import (
+    ToolInput,
+    ToolMetadata,
+    ToolOutput,
+    create_tool_output,
+    validate_tool_input,
+)
 from src.core.agent_base import AgentBase
 from src.core.agent_context import AgentContext
 from src.core.agent_response import ResponseStatus
@@ -103,12 +112,8 @@ class Executor:
         # Get or create trace context
         tracer = get_tracer()
         trace_context = tracer.get_trace_context()
-        trace_id = (
-            trace_context.get("trace_id") if trace_context else tracer.create_trace_id()
-        )
-        parent_observation_id = (
-            trace_context.get("observation_id") if trace_context else None
-        )
+        trace_id = trace_context.get("trace_id") if trace_context else tracer.create_trace_id()
+        parent_observation_id = trace_context.get("observation_id") if trace_context else None
 
         try:
             # Wrap execution with tracing if enabled
@@ -135,13 +140,17 @@ class Executor:
                     if span is not None and hasattr(span, "update"):
                         try:
                             # Convert agent_input to dict for Langfuse
-                            input_dict = agent_input.model_dump() if hasattr(agent_input, "model_dump") else {
-                                "query": agent_context.query,
-                                "conversation_id": agent_context.conversation_id,
-                                "user_id": agent_context.user_id,
-                                "metadata": agent_context.metadata,
-                                "shared_data": agent_context.shared_data,
-                            }
+                            input_dict = (
+                                agent_input.model_dump()
+                                if hasattr(agent_input, "model_dump")
+                                else {
+                                    "query": agent_context.query,
+                                    "conversation_id": agent_context.conversation_id,
+                                    "user_id": agent_context.user_id,
+                                    "metadata": agent_context.metadata,
+                                    "shared_data": agent_context.shared_data,
+                                }
+                            )
                             span.update(input=input_dict)
                         except Exception as e:
                             logger.debug(f"Failed to update span input: {e}")
@@ -170,13 +179,27 @@ class Executor:
                         if span is not None and hasattr(span, "update"):
                             try:
                                 # Convert AgentOutput to dict for Langfuse
-                                output_dict = output.model_dump() if hasattr(output, "model_dump") else {
-                                    "content": str(output.content) if hasattr(output, "content") else "",
-                                    "status": output.status.value if hasattr(output.status, "value") else str(output.status),
-                                    "agent_name": output.agent_name,
-                                    "agent_category": output.agent_category,
-                                    "error": output.error if hasattr(output, "error") else None,
-                                }
+                                output_dict = (
+                                    output.model_dump()
+                                    if hasattr(output, "model_dump")
+                                    else {
+                                        "content": (
+                                            str(output.content)
+                                            if hasattr(output, "content")
+                                            else ""
+                                        ),
+                                        "status": (
+                                            output.status.value
+                                            if hasattr(output.status, "value")
+                                            else str(output.status)
+                                        ),
+                                        "agent_name": output.agent_name,
+                                        "agent_category": output.agent_category,
+                                        "error": (
+                                            output.error if hasattr(output, "error") else None
+                                        ),
+                                    }
+                                )
                                 span.update(output=output_dict)
                             except Exception as e:
                                 logger.debug(f"Failed to update span output: {e}")
@@ -206,9 +229,7 @@ class Executor:
                 # Execute without tracing
                 if timeout is not None:
                     output = await asyncio.wait_for(
-                        self._execute_with_cancellation(
-                            agent, agent_context, cancellation_token
-                        ),
+                        self._execute_with_cancellation(agent, agent_context, cancellation_token),
                         timeout=timeout,
                     )
                 else:
@@ -362,12 +383,8 @@ class Executor:
         # Get or create trace context
         tracer = get_tracer()
         trace_context = tracer.get_trace_context()
-        trace_id = (
-            trace_context.get("trace_id") if trace_context else tracer.create_trace_id()
-        )
-        parent_observation_id = (
-            trace_context.get("observation_id") if trace_context else None
-        )
+        trace_id = trace_context.get("trace_id") if trace_context else tracer.create_trace_id()
+        parent_observation_id = trace_context.get("observation_id") if trace_context else None
 
         # Track execution time for ToolOutput
         start_time = time.time()
@@ -390,7 +407,12 @@ class Executor:
                     # Set input on the observation
                     if span is not None and hasattr(span, "update"):
                         try:
-                            span.update(input={"tool_name": tool_name, "parameters": tool_params})
+                            span.update(
+                                input={
+                                    "tool_name": tool_name,
+                                    "parameters": tool_params,
+                                }
+                            )
                         except Exception as e:
                             logger.debug(f"Failed to update span input: {e}")
 
@@ -582,9 +604,7 @@ class Executor:
         # Execute the agent's execute method
         # Type check: agents must implement async execute method
         if not hasattr(agent, "execute"):
-            raise ValueError(
-                f"Agent {agent.name} does not implement required execute method"
-            )
+            raise ValueError(f"Agent {agent.name} does not implement required execute method")
         execute_method = getattr(agent, "execute")
         if not callable(execute_method):
             raise ValueError(f"Agent {agent.name} execute is not callable")
