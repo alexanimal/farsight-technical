@@ -13,13 +13,8 @@ from fastapi import FastAPI
 from src.api.middleware import setup_cors, setup_error_handlers
 from src.api.routers import tasks
 from src.db import close_redis_client, get_redis_client
-from src.temporal import (
-    DEFAULT_TASK_QUEUE,
-    DEFAULT_TEMPORAL_ADDRESS,
-    DEFAULT_TEMPORAL_NAMESPACE,
-    close_client,
-    get_client,
-)
+from src.temporal import (DEFAULT_TASK_QUEUE, DEFAULT_TEMPORAL_ADDRESS,
+                          DEFAULT_TEMPORAL_NAMESPACE, close_client, get_client)
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +36,7 @@ async def lifespan(app: FastAPI):
         temporal_address = os.getenv("TEMPORAL_ADDRESS", DEFAULT_TEMPORAL_ADDRESS)
         temporal_namespace = os.getenv("TEMPORAL_NAMESPACE", DEFAULT_TEMPORAL_NAMESPACE)
         task_queue = os.getenv("TEMPORAL_TASK_QUEUE", DEFAULT_TASK_QUEUE)
-        
+
         await get_client(
             temporal_address=temporal_address,
             temporal_namespace=temporal_namespace,
@@ -127,12 +122,15 @@ async def health():
 # For production, use: uvicorn src.api.api:app --host 0.0.0.0 --port 8000
 if __name__ == "__main__":
     import sys
-    import uvicorn
-    
     # Suppress the harmless RuntimeWarning about module import
     import warnings
-    warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*found in sys.modules.*")
-    
+
+    import uvicorn
+
+    warnings.filterwarnings(
+        "ignore", category=RuntimeWarning, message=".*found in sys.modules.*"
+    )
+
     uvicorn.run(
         "src.api.api:app",
         host="0.0.0.0",

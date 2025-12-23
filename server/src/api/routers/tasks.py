@@ -63,7 +63,9 @@ async def _load_conversation_history(
     try:
         redis_client = await get_redis_client()
         history = await redis_client.get_conversation_history(conversation_id)
-        logger.debug(f"Loaded {len(history)} messages from conversation {conversation_id}")
+        logger.debug(
+            f"Loaded {len(history)} messages from conversation {conversation_id}"
+        )
         return history
     except Exception as e:
         logger.warning(
@@ -88,7 +90,9 @@ async def _check_existing_workflow(
     """
     try:
         redis_client = await get_redis_client()
-        workflow_id = await redis_client.get_workflow_id_for_conversation(conversation_id)
+        workflow_id = await redis_client.get_workflow_id_for_conversation(
+            conversation_id
+        )
 
         if not workflow_id:
             return None
@@ -234,7 +238,9 @@ async def create_task(
         conversation_id = await _get_or_create_conversation_id(request.conversation_id)
 
         # Check for existing running workflow
-        existing_workflow = await _check_existing_workflow(conversation_id, temporal_client)
+        existing_workflow = await _check_existing_workflow(
+            conversation_id, temporal_client
+        )
 
         if existing_workflow:
             # Workflow is running, send signal instead
@@ -290,7 +296,9 @@ async def create_task(
         # Store workflow_id mapping in Redis
         try:
             redis_client = await get_redis_client()
-            await redis_client.set_workflow_id_for_conversation(conversation_id, workflow_id)
+            await redis_client.set_workflow_id_for_conversation(
+                conversation_id, workflow_id
+            )
         except Exception as e:
             logger.warning(
                 f"Failed to store workflow mapping for {conversation_id}: {e}. "
