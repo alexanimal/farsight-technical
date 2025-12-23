@@ -64,6 +64,24 @@ services:
       timeout: 5s
       retries: 5
 
+  # Redis for conversation history
+  redis:
+    image: redis:7-alpine
+    container_name: farsight-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   # API Server
   server:
     build:
@@ -92,8 +110,16 @@ services:
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
       - LANGFUSE_BASE_URL=${LANGFUSE_BASE_URL:-https://us.cloud.langfuse.com}
+      # Redis connection
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_DB=${REDIS_DB:-0}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_MAX_CONNECTIONS=${REDIS_MAX_CONNECTIONS:-10}
     depends_on:
       temporal:
+        condition: service_started
+      redis:
         condition: service_started
     networks:
       - app-network
@@ -134,10 +160,18 @@ services:
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
       - LANGFUSE_BASE_URL=${LANGFUSE_BASE_URL:-https://us.cloud.langfuse.com}
+      # Redis connection
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_DB=${REDIS_DB:-0}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_MAX_CONNECTIONS=${REDIS_MAX_CONNECTIONS:-10}
     depends_on:
       temporal:
         condition: service_started
       server:
+        condition: service_started
+      redis:
         condition: service_started
     networks:
       - app-network
@@ -171,6 +205,7 @@ services:
 
 volumes:
   temporal-postgresql-data:
+  redis-data:
 
 networks:
   app-network:
