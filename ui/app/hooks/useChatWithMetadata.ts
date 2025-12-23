@@ -16,6 +16,11 @@ export const useChatWithMetadata = () => {
     addMessage,
     setLoading,
     isLoading,
+    conversationId,
+    setConversationId,
+    generateNewConversationId,
+    userId,
+    generateNewUserId,
   } = useChatStore();
 
   // Get streaming utilities from our custom hook
@@ -36,6 +41,17 @@ export const useChatWithMetadata = () => {
   const settings = useSettingsStore();
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentTaskIdRef = useRef<string | null>(null);
+  const currentIterationRef = useRef<number | null>(null);
+
+  // Initialize conversation_id and userId on mount if not set
+  useEffect(() => {
+    if (!conversationId) {
+      generateNewConversationId();
+    }
+    if (!userId) {
+      generateNewUserId();
+    }
+  }, [conversationId, generateNewConversationId, userId, generateNewUserId]);
 
   // Debug effect to monitor changes in streaming metadata
   useEffect(() => {
@@ -56,17 +72,25 @@ export const useChatWithMetadata = () => {
   const sendUserMessage = useCallback(async (content: string) => {
     if (!content.trim()) return;
 
+    // Ensure conversation_id exists
+    let activeConversationId = conversationId;
+    if (!activeConversationId) {
+      activeConversationId = generateNewConversationId();
+    }
+
     // Create user message
     const userMessage: ChatMessage = {
       role: 'user',
       content,
       id: uuidv4(),
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      conversation_id: activeConversationId
     };
 
     addMessage(userMessage);
     setLoading(true);
     resetStreaming();
+    currentIterationRef.current = null;
 
     try {
       // Create abort controller for cancellation
@@ -78,6 +102,8 @@ export const useChatWithMetadata = () => {
       // Note: execution_mode is not passed - let the orchestration agent decide
       const taskResponse = await createTask({
         query: content,
+        conversation_id: activeConversationId,
+        user_id: userId || undefined,
         metadata: {
           model: settings.model,
           num_results: settings.numRecords || 50,
@@ -122,8 +148,14 @@ export const useChatWithMetadata = () => {
               case 'progress':
                 if (event.progress_percentage !== undefined) {
                   lastProgress = event.progress_percentage;
-                  statusMessage = `Processing... ${event.progress_percentage}% (${event.completed_agents || 0}/${event.total_agents || 0} agents completed)`;
+                  const iterationInfo = event.iteration_number 
+                    ? ` (Iteration ${event.iteration_number}/3)` 
+                    : '';
+                  statusMessage = `Processing... ${event.progress_percentage}% (${event.completed_agents || 0}/${event.total_agents || 0} agents completed)${iterationInfo}`;
                   updateStreamingContent(statusMessage);
+                  if (event.iteration_number) {
+                    currentIterationRef.current = event.iteration_number;
+                  }
                 }
                 break;
 
@@ -157,10 +189,16 @@ export const useChatWithMetadata = () => {
           // Extract the final response content
           const finalResponse = extractFinalResponse(finalState);
           
+          // Extract iteration info from state
+          const iterationsCompleted = finalState.state?.metadata?.iterations_completed;
+          const iterationNumber = finalState.progress?.iteration_number || iterationsCompleted;
+          
           console.log('Extracted final response:', {
             contentLength: finalResponse.content.length,
             hasSources: Array.isArray(finalResponse.sources) && finalResponse.sources.length > 0,
-            sourcesCount: finalResponse.sources?.length || 0
+            sourcesCount: finalResponse.sources?.length || 0,
+            iterationsCompleted,
+            iterationNumber
           });
 
           // Update streaming content with the final response
@@ -171,9 +209,14 @@ export const useChatWithMetadata = () => {
             setStreamingSources(finalResponse.sources);
           }
 
-          // Store metadata
-          if (finalResponse.metadata) {
-            setStreamingMetadata(finalResponse.metadata);
+          // Store metadata with iteration info
+          const metadataWithIteration = {
+            ...finalResponse.metadata,
+            iteration_number: iterationNumber,
+            iterations_completed: iterationsCompleted
+          };
+          if (finalResponse.metadata || iterationNumber) {
+            setStreamingMetadata(metadataWithIteration);
           }
 
           // Finalize the message
@@ -181,7 +224,7 @@ export const useChatWithMetadata = () => {
             content: finalResponse.content,
             isComplete: true,
             sources: finalResponse.sources,
-            metadata: finalResponse.metadata
+            metadata: metadataWithIteration
           });
 
         } catch (streamError: any) {
@@ -221,13 +264,23 @@ export const useChatWithMetadata = () => {
               const finalState = await getTaskState(taskResponse.task_id, true, true);
               const finalResponse = extractFinalResponse(finalState);
               
+              // Extract iteration info
+              const iterationsCompleted = finalState.state?.metadata?.iterations_completed;
+              const iterationNumber = finalState.progress?.iteration_number || iterationsCompleted;
+              
               addMessage({
                 role: 'assistant',
                 content: finalResponse.content,
                 id: uuidv4(),
                 timestamp: Date.now(),
                 sources: finalResponse.sources,
-                alternativeViewpoint: undefined
+                alternativeViewpoint: undefined,
+                conversation_id: activeConversationId,
+                iteration_number: iterationNumber,
+                metadata: {
+                  ...finalResponse.metadata,
+                  iterations_completed: iterationsCompleted
+                }
               });
             }
           } catch (error) {

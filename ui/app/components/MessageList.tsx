@@ -12,7 +12,8 @@ export const MessageList: React.FC = () => {
   const {
     streamingSources,
     streamingAlternativeViewpoint,
-    isStreamComplete
+    isStreamComplete,
+    streamingMetadata
   } = useChatWithMetadata()
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -76,6 +77,8 @@ export const MessageList: React.FC = () => {
             timestamp={message.timestamp}
             sources={message.sources || []}
             alternativeViewpoint={message.alternativeViewpoint || null}
+            iteration_number={message.iteration_number}
+            metadata={message.metadata}
           />
         ))}
 
@@ -87,6 +90,8 @@ export const MessageList: React.FC = () => {
             isStreaming={true}
             sources={isStreamComplete ? streamingSources : []}
             alternativeViewpoint={isStreamComplete ? streamingAlternativeViewpoint : null}
+            iteration_number={streamingMetadata?.iteration_number}
+            metadata={streamingMetadata}
           />
         )}
       </div>

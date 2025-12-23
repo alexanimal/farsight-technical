@@ -11,10 +11,14 @@ import { useChatWithMetadata } from '../hooks/useChatWithMetadata';
  * Includes header, message list, and input area
  */
 const Chat: React.FC = () => {
-  const { isLoading, clearMessages } = useChatStore();
+  const { isLoading, clearMessages, conversationId, setConversationId, generateNewConversationId } = useChatStore();
   const settings = useSettingsStore();
-  const { messages } = useChatWithMetadata();
+  const { messages, streamingMetadata } = useChatWithMetadata();
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Extract iteration info from streaming metadata
+  const currentIteration = streamingMetadata?.iteration_number;
+  const iterationsCompleted = streamingMetadata?.iterations_completed;
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -35,9 +39,26 @@ const Chat: React.FC = () => {
         <div className="max-w-4xl mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              {isLoading ? 'Processing...' : 'Ready'}
+              {isLoading 
+                ? (currentIteration 
+                    ? `Processing... (Iteration ${currentIteration}/3)`
+                    : 'Processing...')
+                : 'Ready'}
             </span>
             {isLoading && <LoadingIndicator size="small" />}
+
+            <button
+              onClick={() => {
+                if (window.confirm('Are you sure you want to start a new conversation? This will clear all messages.')) {
+                  clearMessages();
+                  generateNewConversationId();
+                }
+              }}
+              className="text-sm px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
+              aria-label="Start new conversation"
+            >
+              New Conversation
+            </button>
 
             <button
               onClick={() => {

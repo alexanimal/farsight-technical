@@ -13,6 +13,8 @@ interface MessageItemProps {
   isStreaming?: boolean
   sources?: string[]
   alternativeViewpoint?: string | null
+  iteration_number?: number
+  metadata?: Record<string, any>
 }
 
 // Interface for code component props in ReactMarkdown
@@ -34,7 +36,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   timestamp,
   isStreaming = false,
   sources = [],
-  alternativeViewpoint = null
+  alternativeViewpoint = null,
+  iteration_number,
+  metadata
 }) => {
   const [isCopied, copyToClipboard] = useCopyToClipboard();
 
@@ -141,7 +145,20 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bouncing-dot" style={{ animationDelay: '300ms' }}></div>
                 <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bouncing-dot" style={{ animationDelay: '600ms' }}></div>
               </div>
-              <span>Generating response</span>
+              <span>
+                {iteration_number 
+                  ? `Generating response (Iteration ${iteration_number}/3)`
+                  : 'Generating response'}
+              </span>
+            </div>
+          )}
+
+          {/* Iteration indicator for completed messages */}
+          {!isStreaming && iteration_number && (
+            <div className="flex items-center mb-2 text-gray-500 dark:text-gray-400 text-xs">
+              <span className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                Iteration {iteration_number}/3
+              </span>
             </div>
           )}
 

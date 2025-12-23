@@ -11,7 +11,8 @@ export function useStreamingMessage() {
     setStreamingMessage,
     addMessage,
     finalizeStreamingMessage: originalFinalize,
-    getStreamingMessage
+    getStreamingMessage,
+    conversationId
   } = useChatStore();
 
   // Local state for tracking metadata received during streaming
@@ -148,14 +149,25 @@ export function useStreamingMessage() {
       hasMetadata: !!(dataToUse?.metadata || pendingMetadata)
     });
 
+    // Extract iteration info from metadata
+    const metadataToUse = dataToUse?.metadata || pendingMetadata;
+    const iterationNumber = metadataToUse?.iteration_number;
+    const iterationsCompleted = metadataToUse?.iterations_completed;
+
     // Add the message to the chat with metadata
     addMessage({
       id: uuidv4(),
       role: 'assistant',
       content: messageContent,
       timestamp: Date.now(),
-      sources: sourcesToUse,
-      alternativeViewpoint: altViewpointToUse
+      sources: sourcesToUse.length > 0 ? sourcesToUse : undefined,
+      alternativeViewpoint: altViewpointToUse || undefined,
+      conversation_id: conversationId || undefined,
+      iteration_number: iterationNumber,
+      metadata: metadataToUse ? {
+        ...metadataToUse,
+        iterations_completed: iterationsCompleted
+      } : undefined
     });
 
     // Clear streaming state
@@ -167,7 +179,8 @@ export function useStreamingMessage() {
     pendingAlternativeViewpoint,
     setStreamingMessage,
     getStreamingMessage,
-    streamCompleteData
+    streamCompleteData,
+    conversationId
   ]);
 
   /**

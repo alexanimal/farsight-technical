@@ -9,6 +9,8 @@ export const useChatStore = create<ChatStore>()(
       messages: [],
       streamingMessage: null,
       isLoading: false,
+      conversationId: null,
+      userId: null,
 
       addMessage: (message: ChatMessage) =>
         set((state) => ({
@@ -30,7 +32,8 @@ export const useChatStore = create<ChatStore>()(
             id: uuidv4(),
             role: 'assistant',
             content: state.streamingMessage,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            conversation_id: state.conversationId || undefined
           }
 
           return {
@@ -45,10 +48,36 @@ export const useChatStore = create<ChatStore>()(
         })),
 
       clearMessages: () =>
+        set((state) => {
+          // Generate new userId when clearing messages
+          const newUserId = uuidv4()
+          return {
+            messages: [],
+            streamingMessage: null,
+            userId: newUserId
+          }
+        }),
+
+      generateNewUserId: () => {
+        const newId = uuidv4()
         set(() => ({
-          messages: [],
-          streamingMessage: null
+          userId: newId
+        }))
+        return newId
+      },
+
+      setConversationId: (conversationId: string | null) =>
+        set(() => ({
+          conversationId: conversationId
         })),
+
+      generateNewConversationId: () => {
+        const newId = uuidv4()
+        set(() => ({
+          conversationId: newId
+        }))
+        return newId
+      },
     }),
     {
       name: 'chat-storage',
@@ -70,9 +99,11 @@ export const useChatStore = create<ChatStore>()(
         }
       },
       partialize: (state) => ({
-        messages: state.messages
+        messages: state.messages,
+        conversationId: state.conversationId,
+        userId: state.userId
       }),
-      version: 1
+      version: 2
     }
   )
 )

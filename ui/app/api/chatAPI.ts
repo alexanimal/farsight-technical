@@ -50,6 +50,7 @@ export interface TaskStateResponse {
     }>
     progress_percentage?: number
     current_step?: string
+    iteration_number?: number
     metadata?: Record<string, any>
   }
   state?: {
@@ -73,7 +74,10 @@ export interface TaskStateResponse {
     }>
     shared_data: Record<string, any>
     execution_history: Array<Record<string, any>>
-    metadata?: Record<string, any>
+    metadata?: Record<string, any> & {
+      iterations_completed?: number
+      final_satisfactory?: boolean
+    }
   }
 }
 
@@ -87,6 +91,7 @@ export interface TaskEvent {
   progress_percentage?: number
   completed_agents?: number
   total_agents?: number
+  iteration_number?: number
   task_id: string
   error?: string
 }
@@ -285,10 +290,7 @@ export function extractFinalResponse(taskState: TaskStateResponse): {
     }
     content = insight.summary || ''
     
-    // Add key findings if available
-    if (insight.key_findings && insight.key_findings.length > 0) {
-      content += '\n\nKey Findings:\n' + insight.key_findings.map(f => `• ${f}`).join('\n')
-    }
+    // Key findings are no longer displayed in the chat bubble
   }
 
   // Extract sources from metadata or tool_calls
