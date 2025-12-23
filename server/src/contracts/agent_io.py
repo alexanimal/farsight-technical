@@ -112,9 +112,7 @@ class AgentOutput(BaseModel):
     status: ResponseStatus = Field(
         default=ResponseStatus.SUCCESS, description="The status of the response"
     )
-    agent_name: str = Field(
-        ..., description="The name of the agent that generated this response"
-    )
+    agent_name: str = Field(..., description="The name of the agent that generated this response")
     agent_category: str = Field(
         ..., description="The category of the agent that generated this response"
     )
@@ -171,9 +169,7 @@ class AgentOutput(BaseModel):
         """
         nested = None
         if response.nested_responses:
-            nested = [
-                cls.from_agent_response(resp) for resp in response.nested_responses
-            ]
+            nested = [cls.from_agent_response(resp) for resp in response.nested_responses]
 
         return cls(
             content=response.content,
@@ -234,16 +230,12 @@ class AgentMetadata(BaseModel):
     """
 
     name: str = Field(..., description="Unique identifier for the agent")
-    description: str = Field(
-        ..., description="Human-readable description of what the agent does"
-    )
+    description: str = Field(..., description="Human-readable description of what the agent does")
     category: str = Field(
         ..., description="Category/type of agent (e.g., 'acquisition', 'orchestration')"
     )
     version: Optional[str] = Field(default=None, description="Version of the agent")
-    domain: Optional[str] = Field(
-        default=None, description="Domain this agent specializes in"
-    )
+    domain: Optional[str] = Field(default=None, description="Domain this agent specializes in")
     capabilities: List[str] = Field(
         default_factory=list, description="List of capabilities this agent provides"
     )

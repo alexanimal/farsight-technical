@@ -32,12 +32,8 @@ class ToolParameterSchema(BaseModel):
         ...,
         description="Type of the parameter (string, integer, float, boolean, object, array)",
     )
-    description: str = Field(
-        ..., description="Human-readable description of the parameter"
-    )
-    required: bool = Field(
-        default=False, description="Whether this parameter is required"
-    )
+    description: str = Field(..., description="Human-readable description of the parameter")
+    required: bool = Field(default=False, description="Whether this parameter is required")
     default: Optional[Any] = Field(
         default=None, description="Default value if parameter is not provided"
     )
@@ -54,9 +50,7 @@ class ToolMetadata(BaseModel):
     """
 
     name: str = Field(..., description="Unique identifier for the tool")
-    description: str = Field(
-        ..., description="Human-readable description of what the tool does"
-    )
+    description: str = Field(..., description="Human-readable description of what the tool does")
     version: Optional[str] = Field(default=None, description="Version of the tool")
     parameters: List[ToolParameterSchema] = Field(
         default_factory=list, description="List of parameters this tool accepts"
@@ -120,9 +114,7 @@ class ToolOutput(BaseModel):
     result: Optional[Any] = Field(
         default=None, description="The result from the tool execution (structured data)"
     )
-    error: Optional[str] = Field(
-        default=None, description="Error message if execution failed"
-    )
+    error: Optional[str] = Field(default=None, description="Error message if execution failed")
     tool_name: str = Field(..., description="Name of the tool that was executed")
     execution_time_ms: Optional[float] = Field(
         default=None, description="Time taken to execute the tool in milliseconds"
@@ -147,9 +139,7 @@ class ToolExecutionContract(BaseModel):
     timeout_seconds: Optional[float] = Field(
         default=None, description="Maximum time allowed for tool execution"
     )
-    max_retries: int = Field(
-        default=0, description="Maximum number of retry attempts on failure"
-    )
+    max_retries: int = Field(default=0, description="Maximum number of retry attempts on failure")
     retry_on_errors: List[str] = Field(
         default_factory=list,
         description="List of error types to retry on (e.g., 'TimeoutError', 'ConnectionError')",
