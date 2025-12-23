@@ -70,9 +70,7 @@ class PineconeClient:
             Exception: If connection to Pinecone fails.
         """
         if self._client is not None:
-            logger.warning(
-                "Pinecone client already initialized, skipping re-initialization"
-            )
+            logger.warning("Pinecone client already initialized, skipping re-initialization")
             return
 
         if not self._api_key:
@@ -148,16 +146,10 @@ class PineconeClient:
             if hasattr(indexes, "names"):
                 index_names = indexes.names()
             elif isinstance(indexes, list):
-                index_names = [
-                    idx.name if hasattr(idx, "name") else str(idx) for idx in indexes
-                ]
+                index_names = [idx.name if hasattr(idx, "name") else str(idx) for idx in indexes]
             else:
                 # Fallback: try to iterate
-                index_names = (
-                    [idx.name for idx in indexes]
-                    if hasattr(indexes, "__iter__")
-                    else []
-                )
+                index_names = [idx.name for idx in indexes] if hasattr(indexes, "__iter__") else []
 
             logger.debug(f"Found {len(index_names)} indexes: {index_names}")
             return index_names
@@ -312,9 +304,7 @@ class PineconeClient:
                 fetch_params["namespace"] = namespace
 
             response = index.fetch(**fetch_params)
-            logger.debug(
-                f"Fetch executed successfully on index '{index_name}': {len(ids)} IDs"
-            )
+            logger.debug(f"Fetch executed successfully on index '{index_name}': {len(ids)} IDs")
             return response
         except Exception as e:
             logger.error(f"Fetch execution failed on index '{index_name}': {e}")
@@ -370,9 +360,7 @@ class PineconeClient:
                     stats.index_fullness if hasattr(stats, "index_fullness") else None
                 ),
                 "total_vector_count": (
-                    stats.total_vector_count
-                    if hasattr(stats, "total_vector_count")
-                    else None
+                    stats.total_vector_count if hasattr(stats, "total_vector_count") else None
                 ),
             }
         except Exception as e:

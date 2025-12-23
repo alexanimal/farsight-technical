@@ -78,7 +78,9 @@ class RedisClient:
             self._redis = Redis(connection_pool=self._pool)
 
             # Test connection
-            await self._redis.ping()
+            ping_result = self._redis.ping()
+            if hasattr(ping_result, "__await__"):
+                await ping_result
 
             logger.info(
                 f"Redis connection pool initialized: "
@@ -139,9 +141,7 @@ class RedisClient:
 
     # Conversation History Methods
 
-    async def get_conversation_history(
-        self, conversation_id: str
-    ) -> List[Dict[str, str]]:
+    async def get_conversation_history(self, conversation_id: str) -> List[Dict[str, str]]:
         """Get conversation history for a given conversation ID.
 
         Args:
@@ -220,7 +220,11 @@ class RedisClient:
             raise
 
     async def append_to_conversation(
-        self, conversation_id: str, role: str, content: str, timestamp: Optional[str] = None
+        self,
+        conversation_id: str,
+        role: str,
+        content: str,
+        timestamp: Optional[str] = None,
     ) -> None:
         """Append a message to conversation history.
 
@@ -287,9 +291,7 @@ class RedisClient:
 
     # Workflow Mapping Methods
 
-    async def get_workflow_id_for_conversation(
-        self, conversation_id: str
-    ) -> Optional[str]:
+    async def get_workflow_id_for_conversation(self, conversation_id: str) -> Optional[str]:
         """Get the current workflow ID for a conversation.
 
         Args:
@@ -335,9 +337,7 @@ class RedisClient:
             key = f"conversation:{conversation_id}:workflow_id"
             ttl = ttl or WORKFLOW_MAPPING_TTL
             await redis.setex(key, ttl, workflow_id)
-            logger.debug(
-                f"Set workflow ID {workflow_id} for conversation {conversation_id}"
-            )
+            logger.debug(f"Set workflow ID {workflow_id} for conversation {conversation_id}")
         except Exception as e:
             logger.error(
                 f"Failed to set workflow ID for conversation {conversation_id}: {e}",
@@ -377,7 +377,9 @@ class RedisClient:
         if self._redis is None:
             return False
         try:
-            await self._redis.ping()
+            ping_result = self._redis.ping()
+            if hasattr(ping_result, "__await__"):
+                await ping_result
             return True
         except Exception:
             return False
@@ -422,4 +424,3 @@ async def close_redis_client() -> None:
     if _default_client is not None:
         await _default_client.close()
         _default_client = None
-
