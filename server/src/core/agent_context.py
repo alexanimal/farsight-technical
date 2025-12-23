@@ -99,9 +99,7 @@ class AgentContext(BaseModel):
         """
         return self.metadata.get(key, default)
 
-    def add_to_history(
-        self, role: str, content: str, timestamp: Optional[str] = None
-    ) -> None:
+    def add_to_history(self, role: str, content: str, timestamp: Optional[str] = None) -> None:
         """Add a message to the conversation history.
 
         Args:
