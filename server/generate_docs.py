@@ -57,7 +57,7 @@ try:
     print(f"\nGenerating documentation to {docs_dir}...")
     print("Note: Some modules may show warnings if dependencies are not installed.")
     print("      Install dependencies with: pip install -r requirements.txt\n")
-    
+
     result = subprocess.run(
         cmd,
         cwd=server_dir,
@@ -82,4 +82,3 @@ except Exception as e:
 
     traceback.print_exc()
     sys.exit(1)
-
