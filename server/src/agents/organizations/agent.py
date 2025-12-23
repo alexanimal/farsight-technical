@@ -10,7 +10,7 @@ This agent is specialized in:
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 try:
     from langfuse import observe
@@ -19,19 +19,18 @@ except ImportError:
     def observe(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
 
+
 from src.contracts.agent_io import AgentOutput, create_agent_output
-from src.core.agent_response import AgentInsight
 from src.core.agent_base import AgentBase
 from src.core.agent_context import AgentContext
-from src.core.agent_response import AgentResponse, ResponseStatus
+from src.core.agent_response import AgentInsight, AgentResponse, ResponseStatus
 from src.prompts.prompt_manager import PromptOptions, get_prompt_manager
-from src.tools.generate_llm_function_response import \
-    generate_llm_function_response
+from src.tools.generate_llm_function_response import generate_llm_function_response
 from src.tools.get_organizations import get_organizations
-from src.tools.semantic_search_organizations import \
-    semantic_search_organizations
+from src.tools.semantic_search_organizations import semantic_search_organizations
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +133,7 @@ Rules:
             strategy = await self._determine_search_strategy(context)
 
             tool_calls = []
-            organizations = []
+            organizations: List[Dict[str, Any]] = []
 
             if strategy.get("use_semantic_search"):
                 # Step 2a: Use semantic search
@@ -142,9 +141,7 @@ Rules:
                 orgs_output = await semantic_search_organizations(**semantic_params)
 
                 if not orgs_output.success:
-                    error_msg = (
-                        orgs_output.error or "Failed to retrieve organizations"
-                    )
+                    error_msg = orgs_output.error or "Failed to retrieve organizations"
                     logger.error(f"semantic_search_organizations tool failed: {error_msg}")
                     return create_agent_output(
                         content="",
@@ -174,9 +171,7 @@ Rules:
                 orgs_output = await get_organizations(**search_params)
 
                 if not orgs_output.success:
-                    error_msg = (
-                        orgs_output.error or "Failed to retrieve organizations"
-                    )
+                    error_msg = orgs_output.error or "Failed to retrieve organizations"
                     logger.error(f"get_organizations tool failed: {error_msg}")
                     return create_agent_output(
                         content="",
@@ -205,9 +200,7 @@ Rules:
                 )
 
             # Step 3: Format results into natural language response
-            response_content = await self._format_response(
-                context, organizations, strategy
-            )
+            response_content = await self._format_response(context, organizations, strategy)
 
             logger.info(
                 f"Organizations agent completed: found {len(organizations)} organization(s)"
@@ -304,9 +297,7 @@ Rules:
         prompt_manager = get_prompt_manager()
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=self._determine_strategy_prompt,
-            options=PromptOptions(
-                add_temporal_context=False, add_markdown_instructions=False
-            ),
+            options=PromptOptions(add_temporal_context=True, add_markdown_instructions=True),
         )
 
         # Build user prompt using prompt manager
@@ -316,7 +307,7 @@ Determine the best search strategy for this query."""
 
         user_prompt = prompt_manager.build_user_prompt(
             user_query=user_prompt_content,
-            options=PromptOptions(add_temporal_context=False),
+            options=PromptOptions(add_temporal_context=True),
         )
 
         try:
@@ -517,9 +508,7 @@ Determine the best search strategy for this query."""
         prompt_manager = get_prompt_manager()
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=self._extract_params_prompt,
-            options=PromptOptions(
-                add_temporal_context=False, add_markdown_instructions=False
-            ),
+            options=PromptOptions(add_temporal_context=True, add_markdown_instructions=True),
         )
 
         # Build user prompt with company name context if available
@@ -536,7 +525,7 @@ Call the get_organizations function with the extracted parameters."""
 
         user_prompt = prompt_manager.build_user_prompt(
             user_query=user_prompt_content,
-            options=PromptOptions(add_temporal_context=False),
+            options=PromptOptions(add_temporal_context=True),
         )
 
         try:
@@ -560,7 +549,11 @@ Call the get_organizations function with the extracted parameters."""
                     filtered_params = {k: v for k, v in params.items() if v is not None}
 
                     # If company name was identified but not in params, add it
-                    if company_name and "name" not in filtered_params and "name_ilike" not in filtered_params:
+                    if (
+                        company_name
+                        and "name" not in filtered_params
+                        and "name_ilike" not in filtered_params
+                    ):
                         filtered_params["name_ilike"] = company_name
 
                     if "limit" not in filtered_params:
@@ -578,9 +571,7 @@ Call the get_organizations function with the extracted parameters."""
                 return {"limit": 10}
 
         except Exception as e:
-            logger.warning(
-                f"LLM parameter extraction failed: {e}, using defaults", exc_info=True
-            )
+            logger.warning(f"LLM parameter extraction failed: {e}, using defaults", exc_info=True)
             return {"limit": 10}
 
     async def _format_response(
@@ -649,9 +640,7 @@ If no organizations are found, explain why (e.g., search criteria too narrow, no
 
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=base_prompt,
-            options=PromptOptions(
-                add_temporal_context=False, add_markdown_instructions=False
-            ),
+            options=PromptOptions(add_temporal_context=True, add_markdown_instructions=True),
         )
 
         # Build user prompt with data
@@ -666,7 +655,7 @@ Analyze this data and generate insights that directly answer the user's query. C
 
         user_prompt = prompt_manager.build_user_prompt(
             user_query=user_prompt_content,
-            options=PromptOptions(add_temporal_context=False),
+            options=PromptOptions(add_temporal_context=True),
         )
 
         try:
@@ -705,9 +694,7 @@ Analyze this data and generate insights that directly answer the user's query. C
                         confidence=0.0,
                     )
         except Exception as e:
-            logger.warning(
-                f"Failed to generate insight from LLM: {e}", exc_info=True
-            )
+            logger.warning(f"Failed to generate insight from LLM: {e}", exc_info=True)
             # Fallback insight
             if organizations:
                 return AgentInsight(
@@ -719,4 +706,3 @@ Analyze this data and generate insights that directly answer the user's query. C
                     summary=f"I couldn't find any organizations matching your criteria. You asked about: {context.query}. Try adjusting your search parameters or broadening your criteria.",
                     confidence=0.0,
                 )
-

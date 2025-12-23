@@ -21,28 +21,27 @@ except ImportError:
     def observe(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
+
 
 from src.contracts.agent_io import AgentOutput, create_agent_output
 from src.core.agent_base import AgentBase
 from src.core.agent_context import AgentContext
 from src.core.agent_response import AgentInsight, AgentResponse, ResponseStatus
 from src.prompts.prompt_manager import PromptOptions, get_prompt_manager
-from src.tools.generate_llm_function_response import \
-    generate_llm_function_response
+from src.tools.generate_llm_function_response import generate_llm_function_response
 
 logger = logging.getLogger(__name__)
 
 # Import agent registry (no Temporal dependency)
 try:
-    from src.agents.registry import get_agent, list_available_agents, get_agent_metadata
+    from src.agents.registry import get_agent, get_agent_metadata, list_available_agents
 
     _AGENT_REGISTRY_AVAILABLE = True
 except ImportError:
     _AGENT_REGISTRY_AVAILABLE = False
-    logger.warning(
-        "Agent registry not available. Using fallback AVAILABLE_AGENTS dictionary."
-    )
+    logger.warning("Agent registry not available. Using fallback AVAILABLE_AGENTS dictionary.")
 
 # Fallback available agents dictionary (used if registry is unavailable)
 # This should match the agents registered in the system
@@ -50,22 +49,111 @@ _FALLBACK_AVAILABLE_AGENTS = {
     "acquisition": {
         "name": "acquisition",
         "description": "Handles queries about company acquisitions, mergers, and M&A activity. Handles M&A (mergers and acquisitions), company exits, buyouts, and acquisition details including prices, terms, dates, and participating companies.",
-        "keywords": ["acquisition", "acquired", "merger", "m&a", "m and a", "takeover", "buyout", "exit", "exits", "company exit", "acquisition price", "acquisition terms", "acquirer", "acquiree", "target company", "buying company", "company bought", "company sold", "acquisition date", "acquisition announcement"],
+        "keywords": [
+            "acquisition",
+            "acquired",
+            "merger",
+            "m&a",
+            "m and a",
+            "takeover",
+            "buyout",
+            "exit",
+            "exits",
+            "company exit",
+            "acquisition price",
+            "acquisition terms",
+            "acquirer",
+            "acquiree",
+            "target company",
+            "buying company",
+            "company bought",
+            "company sold",
+            "acquisition date",
+            "acquisition announcement",
+        ],
     },
     "organizations": {
         "name": "organizations",
         "description": "Handles queries about companies, organizations, and their details. NOTE: NOT for investor-related queries - use funding_rounds agent for questions about investors, investor portfolios, or companies that investors have funded.",
-        "keywords": ["company", "organization", "startup", "firm", "business", "companies", "organization details", "company information", "find company", "company search"],
+        "keywords": [
+            "company",
+            "organization",
+            "startup",
+            "firm",
+            "business",
+            "companies",
+            "organization details",
+            "company information",
+            "find company",
+            "company search",
+        ],
     },
     "funding_rounds": {
         "name": "funding_rounds",
         "description": "Handles queries about funding rounds, investments, and fundraising. PRIMARY agent for investor-related queries including finding companies investors have funded, investor portfolios, and funding rounds by specific investors.",
-        "keywords": ["funding", "investment", "round", "raise", "investor", "investors", "portfolio", "fundraise", "fundraising", "venture capital", "vc", "angel investor", "lead investor", "companies investors funded", "investor portfolio"],
+        "keywords": [
+            "funding",
+            "investment",
+            "round",
+            "raise",
+            "investor",
+            "investors",
+            "portfolio",
+            "fundraise",
+            "fundraising",
+            "venture capital",
+            "vc",
+            "angel investor",
+            "lead investor",
+            "companies investors funded",
+            "investor portfolio",
+        ],
     },
     "sector_trends": {
         "name": "sector_trends",
         "description": "Analyzes funding trends within sectors/industries over time, identifying growth patterns, funding velocity changes, and market momentum indicators. Analyzes AGGREGATED funding data across multiple companies within a sector. NOTE: This agent is for SECTOR/INDUSTRY-level analysis, NOT for individual company funding trends - use the funding_rounds agent for queries about specific companies.",
-        "keywords": ["sector", "industry", "trend", "trends", "funding velocity", "growth", "momentum", "market analysis", "sector analysis", "industry analysis", "funding trends", "market trends", "sector funding", "industry funding", "market momentum", "sector momentum", "funding patterns", "sector patterns", "aggregated funding", "sector comparison", "industry comparison"],
+        "keywords": [
+            "sector",
+            "industry",
+            "trend",
+            "trends",
+            "funding velocity",
+            "growth",
+            "momentum",
+            "market analysis",
+            "sector analysis",
+            "industry analysis",
+            "funding trends",
+            "market trends",
+            "sector funding",
+            "industry funding",
+            "market momentum",
+            "sector momentum",
+            "funding patterns",
+            "sector patterns",
+            "aggregated funding",
+            "sector comparison",
+            "industry comparison",
+        ],
+    },
+    "web_search": {
+        "name": "web_search",
+        "description": "Performs web searches to get additional context and up-to-date information about user queries. Uses LLM with web search capabilities to enrich responses with information that may not be available in the database. Can handle one or multiple search queries with parallel fan-out for efficiency.",
+        "keywords": [
+            "web search",
+            "search",
+            "current events",
+            "latest news",
+            "recent information",
+            "up-to-date",
+            "current information",
+            "web information",
+            "online search",
+            "internet search",
+            "additional context",
+            "external information",
+            "real-time information",
+        ],
     },
 }
 
@@ -102,7 +190,9 @@ def _get_available_agents() -> Dict[str, Dict[str, Any]]:
 
             # Use metadata if available
             try:
-                description = agent_metadata.get("description", f"Agent for handling {agent_name} queries")
+                description = agent_metadata.get(
+                    "description", f"Agent for handling {agent_name} queries"
+                )
                 metadata = agent_metadata.get("metadata", {})
 
                 # If metadata not fully loaded, try to load config file directly
@@ -140,9 +230,7 @@ def _get_available_agents() -> Dict[str, Dict[str, Any]]:
                         "data",
                         "retrieval",
                     }
-                    desc_words = (
-                        description.lower().replace(",", " ").replace(".", " ").split()
-                    )
+                    desc_words = description.lower().replace(",", " ").replace(".", " ").split()
                     keywords.extend(
                         [
                             w.strip()
@@ -156,25 +244,17 @@ def _get_available_agents() -> Dict[str, Dict[str, Any]]:
                         use_cases = metadata["use_cases"]
                         for use_case in use_cases:
                             # Extract key terms from use case descriptions
-                            words = (
-                                use_case.lower()
-                                .replace(",", " ")
-                                .replace(".", " ")
-                                .split()
-                            )
+                            words = use_case.lower().replace(",", " ").replace(".", " ").split()
                             keywords.extend(
                                 [
                                     w.strip()
                                     for w in words
-                                    if w.strip() not in common_words
-                                    and len(w.strip()) > 3
+                                    if w.strip() not in common_words and len(w.strip()) > 3
                                 ]
                             )
 
                 # Deduplicate and limit keywords
-                keywords = list(dict.fromkeys(keywords))[
-                    :10
-                ]  # Keep first 10 unique keywords
+                keywords = list(dict.fromkeys(keywords))[:10]  # Keep first 10 unique keywords
 
                 available_agents[agent_name] = {
                     "name": agent_name,
@@ -278,12 +358,12 @@ Rules:
         try:
             # Check mode from metadata
             mode = context.get_metadata("mode")
-            
+
             if mode == "consolidation":
                 # Consolidation mode: combine agent insights
                 logger.info("Orchestration agent in consolidation mode")
                 agent_responses = context.get_metadata("agent_responses", [])
-                
+
                 if not agent_responses:
                     logger.warning("No agent responses provided for consolidation")
                     return create_agent_output(
@@ -293,14 +373,12 @@ Rules:
                         status=ResponseStatus.ERROR,
                         error="No agent responses provided for consolidation",
                     )
-                
+
                 # Consolidate insights
-                consolidated_insight = await self._consolidate_responses(
-                    context, agent_responses
-                )
-                
+                consolidated_insight = await self._consolidate_responses(context, agent_responses)
+
                 logger.info("Orchestration agent completed consolidation")
-                
+
                 return create_agent_output(
                     content=consolidated_insight,
                     agent_name=self.name,
@@ -317,7 +395,7 @@ Rules:
                 logger.info("Orchestration agent in evaluation and replanning mode")
                 agent_responses = context.get_metadata("agent_responses", [])
                 execution_history = context.get_metadata("execution_history", [])
-                
+
                 if not agent_responses:
                     logger.warning("No agent responses provided for evaluation")
                     return create_agent_output(
@@ -327,17 +405,17 @@ Rules:
                         status=ResponseStatus.ERROR,
                         error="No agent responses provided for evaluation",
                     )
-                
+
                 # Evaluate response quality
                 evaluation = await self._evaluate_response_quality(
                     context, agent_responses, execution_history
                 )
-                
+
                 # If not satisfactory, create re-plan
                 if not evaluation.get("satisfactory", False):
                     logger.info("Response not satisfactory, creating re-plan")
                     replan = await self._create_replan(context, evaluation, agent_responses)
-                    
+
                     return create_agent_output(
                         content="",
                         agent_name=self.name,
@@ -382,22 +460,31 @@ Rules:
                 execution_mode = plan.get("execution_mode", "sequential")
                 reasoning = plan.get("reasoning", "")
                 confidence = plan.get("confidence", 0.0)
-                
+
                 # Create summary describing the plan
                 if agents_list:
                     agents_str = ", ".join(agents_list)
                     summary = f"Created execution plan with {len(agents_list)} agent(s): {agents_str}. Execution mode: {execution_mode}."
                 else:
                     summary = "Created execution plan with no agents selected."
-                
+
                 # Create AgentInsight for the plan
                 from src.core.agent_response import AgentInsight
+
                 plan_insight = AgentInsight(
                     summary=summary,
-                    key_findings=[
-                        f"Selected {len(agents_list)} agent(s): {agents_str}" if agents_list else "No agents selected",
-                        f"Execution mode: {execution_mode}",
-                    ] if agents_list else ["No agents selected for execution"],
+                    key_findings=(
+                        [
+                            (
+                                f"Selected {len(agents_list)} agent(s): {agents_str}"
+                                if agents_list
+                                else "No agents selected"
+                            ),
+                            f"Execution mode: {execution_mode}",
+                        ]
+                        if agents_list
+                        else ["No agents selected for execution"]
+                    ),
                     evidence={
                         "agents": agents_list,
                         "execution_mode": execution_mode,
@@ -465,12 +552,14 @@ Rules:
         extracted = context.get_metadata("extracted_entities", {}) or {}
         query_intent = extracted.get("query_intent")
 
-        intent_to_agents = {}
+        intent_to_agents: Dict[str, List[str]] = {}
 
         if query_intent in intent_to_agents:
             agents = [a for a in intent_to_agents[query_intent] if a in available_agents]
             if agents:
-                reasoning = f"Pre-extracted intent '{query_intent}' maps to agents: {', '.join(agents)}"
+                reasoning = (
+                    f"Pre-extracted intent '{query_intent}' maps to agents: {', '.join(agents)}"
+                )
                 logger.info(reasoning)
                 return {
                     "agents": agents,
@@ -551,9 +640,7 @@ Rules:
 
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=base_prompt,
-            options=PromptOptions(
-                add_temporal_context=False, add_markdown_instructions=False
-            ),
+            options=PromptOptions(add_temporal_context=True, add_markdown_instructions=True),
         )
 
         # Include conversation history if available
@@ -583,7 +670,7 @@ Call the create_execution_plan function with your analysis."""
 
         user_prompt = prompt_manager.build_user_prompt(
             user_query=user_prompt_content,
-            options=PromptOptions(add_temporal_context=False),
+            options=PromptOptions(add_temporal_context=True),
         )
 
         # Call LLM with function calling for structured output
@@ -606,13 +693,8 @@ Call the create_execution_plan function with your analysis."""
                     plan_data = result["arguments"]
                     logger.debug(f"Raw LLM plan data: {plan_data}")
                     # Validate and normalize plan
-                    plan = self._validate_and_normalize_plan(
-                        plan_data, available_agents
-                    )
-                    if (
-                        len(plan_data.get("agents", [])) == 0
-                        and len(plan["agents"]) > 0
-                    ):
+                    plan = self._validate_and_normalize_plan(plan_data, available_agents)
+                    if len(plan_data.get("agents", [])) == 0 and len(plan["agents"]) > 0:
                         logger.info(
                             f"Fixed empty agents list: LLM returned empty but validation added {plan['agents']}"
                         )
@@ -675,8 +757,7 @@ Call the create_execution_plan function with your analysis."""
                         valid_agents.append(agent_name)
                 # Also check if key terms from the agent's description appear
                 elif any(
-                    keyword.lower() in reasoning_lower
-                    for keyword in agent_info.get("keywords", [])
+                    keyword.lower() in reasoning_lower for keyword in agent_info.get("keywords", [])
                 ):
                     if agent_name not in valid_agents:
                         logger.info(
@@ -691,11 +772,7 @@ Call the create_execution_plan function with your analysis."""
 
         # Validate confidence
         confidence = plan_data.get("confidence", 0.5)
-        if (
-            not isinstance(confidence, (int, float))
-            or confidence < 0.0
-            or confidence > 1.0
-        ):
+        if not isinstance(confidence, (int, float)) or confidence < 0.0 or confidence > 1.0:
             confidence = 0.5
 
         return {
@@ -769,24 +846,28 @@ Call the create_execution_plan function with your analysis."""
                 except Exception as e:
                     logger.warning(f"Failed to parse agent response dict: {e}")
                     continue
-            
+
             # Extract AgentInsight from content
             content = resp.content
             if isinstance(content, AgentInsight):
-                agent_insights.append({
-                    "agent_name": resp.agent_name,
-                    "agent_category": resp.agent_category,
-                    "insight": content.model_dump()
-                })
+                agent_insights.append(
+                    {
+                        "agent_name": resp.agent_name,
+                        "agent_category": resp.agent_category,
+                        "insight": content.model_dump(),
+                    }
+                )
             elif isinstance(content, dict):
                 # Try to parse as AgentInsight if it's a dict with the right structure
                 try:
                     insight = AgentInsight(**content)
-                    agent_insights.append({
-                        "agent_name": resp.agent_name,
-                        "agent_category": resp.agent_category,
-                        "insight": insight.model_dump()
-                    })
+                    agent_insights.append(
+                        {
+                            "agent_name": resp.agent_name,
+                            "agent_category": resp.agent_category,
+                            "insight": insight.model_dump(),
+                        }
+                    )
                 except Exception:
                     # Not an AgentInsight dict - might be planning mode output, skip it
                     logger.debug(f"Skipping non-insight content from {resp.agent_name}")
@@ -850,10 +931,7 @@ Your task:
 
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=base_prompt,
-            options=PromptOptions(
-                add_temporal_context=False,
-                add_markdown_instructions=False
-            ),
+            options=PromptOptions(add_temporal_context=True, add_markdown_instructions=True),
         )
 
         # Include conversation history if available
@@ -878,7 +956,7 @@ Consolidate these insights into a single final answer that directly addresses th
 
         user_prompt = prompt_manager.build_user_prompt(
             user_query=user_prompt_content,
-            options=PromptOptions(add_temporal_context=False),
+            options=PromptOptions(add_temporal_context=True),
         )
 
         try:
@@ -911,9 +989,7 @@ Consolidate these insights into a single final answer that directly addresses th
                     confidence=0.0,
                 )
         except Exception as e:
-            logger.warning(
-                f"Failed to consolidate insights from LLM: {e}", exc_info=True
-            )
+            logger.warning(f"Failed to consolidate insights from LLM: {e}", exc_info=True)
             # Fallback
             return AgentInsight(
                 summary=f"Consolidated insights from {len(agent_responses)} agents but encountered an error during consolidation.",
@@ -949,16 +1025,20 @@ Consolidate these insights into a single final answer that directly addresses th
             if isinstance(resp, dict):
                 content = resp.get("content", {})
                 if isinstance(content, dict) and "summary" in content:
-                    agent_insights.append({
-                        "agent_name": resp.get("agent_name", "unknown"),
-                        "summary": content.get("summary", ""),
-                        "key_findings": content.get("key_findings", []),
-                    })
+                    agent_insights.append(
+                        {
+                            "agent_name": resp.get("agent_name", "unknown"),
+                            "summary": content.get("summary", ""),
+                            "key_findings": content.get("key_findings", []),
+                        }
+                    )
                 elif isinstance(content, str):
-                    agent_insights.append({
-                        "agent_name": resp.get("agent_name", "unknown"),
-                        "summary": content,
-                    })
+                    agent_insights.append(
+                        {
+                            "agent_name": resp.get("agent_name", "unknown"),
+                            "summary": content,
+                        }
+                    )
 
         if not agent_insights:
             logger.warning("No agent insights found for evaluation")
@@ -998,7 +1078,12 @@ Consolidate these insights into a single final answer that directly addresses th
                             "description": "Confidence in the evaluation (0.0-1.0)",
                         },
                     },
-                    "required": ["satisfactory", "reasoning", "missing_information", "confidence"],
+                    "required": [
+                        "satisfactory",
+                        "reasoning",
+                        "missing_information",
+                        "confidence",
+                    ],
                 },
             },
         }
@@ -1018,10 +1103,7 @@ Be critical but fair. An answer is satisfactory if it adequately addresses the q
 
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=base_prompt,
-            options=PromptOptions(
-                add_temporal_context=False,
-                add_markdown_instructions=False
-            ),
+            options=PromptOptions(add_temporal_context=True, add_markdown_instructions=True),
         )
 
         # Build user prompt
@@ -1042,7 +1124,7 @@ Call the evaluate_response_quality function with your evaluation."""
 
         user_prompt = prompt_manager.build_user_prompt(
             user_query=user_prompt_content,
-            options=PromptOptions(add_temporal_context=False),
+            options=PromptOptions(add_temporal_context=True),
         )
 
         try:
@@ -1080,7 +1162,10 @@ Call the evaluate_response_quality function with your evaluation."""
             }
 
         except Exception as e:
-            logger.warning(f"Failed to evaluate response quality: {e}, using fallback", exc_info=True)
+            logger.warning(
+                f"Failed to evaluate response quality: {e}, using fallback",
+                exc_info=True,
+            )
             return {
                 "satisfactory": False,
                 "reasoning": f"Evaluation error: {str(e)}",
@@ -1115,9 +1200,7 @@ Call the evaluate_response_quality function with your evaluation."""
         evaluation_reasoning = evaluation.get("reasoning", "")
 
         # Get available agents
-        available_agents = (
-            context.get_metadata("available_agents") or _get_available_agents()
-        )
+        available_agents = context.get_metadata("available_agents") or _get_available_agents()
 
         # Build agents description for prompt
         agents_description = "\n".join(
@@ -1180,10 +1263,7 @@ Your task:
 
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=base_prompt,
-            options=PromptOptions(
-                add_temporal_context=False,
-                add_markdown_instructions=False
-            ),
+            options=PromptOptions(add_temporal_context=True, add_markdown_instructions=True),
         )
 
         # Build user prompt
@@ -1200,7 +1280,7 @@ Create a new execution plan to address the missing information. Focus on agents 
 
         user_prompt = prompt_manager.build_user_prompt(
             user_query=user_prompt_content,
-            options=PromptOptions(add_temporal_context=False),
+            options=PromptOptions(add_temporal_context=True),
         )
 
         try:

@@ -9,4 +9,3 @@ This package contains specialized agents that handle different types of queries:
 
 Agents are discovered and registered via the registry module.
 """
-

@@ -20,20 +20,19 @@ except ImportError:
     def observe(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
 
+
 from src.contracts.agent_io import AgentOutput, create_agent_output
-from src.core.agent_response import AgentInsight
 from src.core.agent_base import AgentBase
 from src.core.agent_context import AgentContext
-from src.core.agent_response import AgentResponse, ResponseStatus
+from src.core.agent_response import AgentInsight, AgentResponse, ResponseStatus
 from src.prompts.prompt_manager import PromptOptions, get_prompt_manager
-from src.tools.generate_llm_function_response import \
-    generate_llm_function_response
+from src.tools.generate_llm_function_response import generate_llm_function_response
 from src.tools.get_acquisitions import get_acquisitions
 from src.tools.get_organizations import get_organizations
-from src.tools.semantic_search_organizations import \
-    semantic_search_organizations
+from src.tools.semantic_search_organizations import semantic_search_organizations
 
 logger = logging.getLogger(__name__)
 
@@ -131,10 +130,11 @@ Rules:
             # Step 1: Identify and resolve company names to UUIDs
             resolved_uuids = await self._resolve_company_names(context)
 
+            # Step 1.5: Infer roles for single company if not assigned
+            resolved_uuids = await self._infer_single_company_role(context, resolved_uuids)
+
             # Step 2: Extract other search parameters from the query
-            search_params = await self._extract_search_parameters(
-                context, resolved_uuids
-            )
+            search_params = await self._extract_search_parameters(context, resolved_uuids)
 
             # Step 3: Call get_acquisitions tool with extracted parameters
             # Always include organizations for better insights
@@ -143,9 +143,10 @@ Rules:
             # Fan-out when multiple companies and no directed acquiree filter
             acquisitions: list[Dict[str, Any]] = []
             tool_calls: list[Dict[str, Any]] = []
+            company_pool = resolved_uuids.get("company_pool", [])
             if (
-                resolved_uuids.get("company_pool")
-                and len(resolved_uuids["company_pool"]) > 1
+                company_pool
+                and len(company_pool) > 1
                 and not search_params.get("acquiree_uuid")
                 and not search_params.get("acquisition_uuid")
             ):
@@ -156,8 +157,7 @@ Rules:
                 tool_calls.extend(fanout_calls)
                 # If all fan-out calls failed, return early with error
                 if not acquisitions and all(
-                    call.get("result", {}).get("success") is False
-                    for call in fanout_calls
+                    call.get("result", {}).get("success") is False for call in fanout_calls
                 ):
                     return create_agent_output(
                         content="",
@@ -171,10 +171,7 @@ Rules:
 
                 # Check if tool execution was successful
                 if not acquisitions_output.success:
-                    error_msg = (
-                        acquisitions_output.error
-                        or "Failed to retrieve acquisitions"
-                    )
+                    error_msg = acquisitions_output.error or "Failed to retrieve acquisitions"
                     logger.error(f"get_acquisitions tool failed: {error_msg}")
                     return create_agent_output(
                         content="",
@@ -188,9 +185,7 @@ Rules:
                 acquisitions = acquisitions_output.result or []
 
             # Step 4: Format results into natural language response
-            response_content = await self._format_response(
-                context, acquisitions, search_params
-            )
+            response_content = await self._format_response(context, acquisitions, search_params)
 
             # Track all tool calls
             if resolved_uuids.get("semantic_search_calls"):
@@ -231,9 +226,7 @@ Rules:
                     }
                 )
 
-            logger.info(
-                f"Acquisition agent completed: found {len(acquisitions)} acquisition(s)"
-            )
+            logger.info(f"Acquisition agent completed: found {len(acquisitions)} acquisition(s)")
 
             # Return AgentOutput using contract helper
             return create_agent_output(
@@ -289,16 +282,53 @@ Rules:
             acquirer_uuid = None
             acquiree_uuid = None
 
-            # Check context to determine if this is a comparison query
+            # Check context and query to determine if this is a comparison query
             company_context = companies_data.get("context", "").lower()
+            query_lower = context.query.lower()
+
             is_comparison = any(
-                keyword in company_context
-                for keyword in ["compar", "compare", "both", "multiple", "versus", "vs", "and"]
+                keyword in company_context or keyword in query_lower
+                for keyword in [
+                    "compar",
+                    "compare",
+                    "both",
+                    "multiple",
+                    "versus",
+                    "vs",
+                    "and",
+                ]
             )
-            is_directed = any(
+
+            # Check both context metadata and query for directed acquisition patterns
+            is_directed_context = any(
                 keyword in company_context
-                for keyword in ["acquirer", "acquiree", "target", "buying", "bought", "acquired by"]
+                for keyword in [
+                    "acquirer",
+                    "acquiree",
+                    "target",
+                    "buying",
+                    "bought",
+                    "acquired by",
+                ]
             )
+            is_directed_query = any(
+                pattern in query_lower
+                for pattern in [
+                    "what did",
+                    "what has",
+                    "what companies did",
+                    "show me companies",
+                    "list companies",
+                    "companies acquired by",
+                    "acquisitions by",
+                    "acquisitions made by",
+                    "who acquired",
+                    "who bought",
+                    "acquisition of",
+                    "was acquired",
+                ]
+            )
+            is_directed = is_directed_context or is_directed_query
 
             # For comparison queries or when multiple companies without explicit roles,
             # don't assign acquirer/acquiree roles - use company_pool for fan-out
@@ -337,7 +367,7 @@ Rules:
                             resolved_uuid = str(orgs_output.result[0].get("org_uuid"))
                             if resolved_uuid not in company_pool:
                                 company_pool.append(resolved_uuid)
-                            
+
                             # Only assign to acquirer/acquiree if context indicates directed acquisition
                             if should_assign_roles:
                                 if idx == 0 and not acquirer_uuid:
@@ -386,9 +416,7 @@ Rules:
         prompt_manager = get_prompt_manager()
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=self._identify_companies_prompt,
-            options=PromptOptions(
-                add_temporal_context=True, add_markdown_instructions=True
-            ),
+            options=PromptOptions(add_temporal_context=True, add_markdown_instructions=True),
         )
 
         # Build user prompt using prompt manager
@@ -456,9 +484,7 @@ Identify any company names mentioned in this query and determine if they are the
                                             },
                                             "result": {
                                                 "num_results": len(orgs),
-                                                "matched_uuid": resolved_uuids[
-                                                    "acquirer_uuid"
-                                                ],
+                                                "matched_uuid": resolved_uuids["acquirer_uuid"],
                                                 "matched_name": orgs[0].get("name"),
                                                 "execution_time_ms": orgs_output.execution_time_ms,
                                             },
@@ -503,9 +529,7 @@ Identify any company names mentioned in this query and determine if they are the
                                             },
                                             "result": {
                                                 "num_results": len(orgs),
-                                                "matched_uuid": resolved_uuids[
-                                                    "acquiree_uuid"
-                                                ],
+                                                "matched_uuid": resolved_uuids["acquiree_uuid"],
                                                 "matched_name": orgs[0].get("name"),
                                                 "execution_time_ms": orgs_output.execution_time_ms,
                                             },
@@ -552,15 +576,123 @@ Identify any company names mentioned in this query and determine if they are the
                                     f"Semantic search failed for sector '{sector_name}': {orgs_output.error}"
                                 )
                         except Exception as e:
-                            logger.warning(
-                                f"Failed to search sector '{sector_name}': {e}"
-                            )
+                            logger.warning(f"Failed to search sector '{sector_name}': {e}")
 
         except Exception as e:
-            logger.warning(
-                f"Failed to identify/resolve company names: {e}", exc_info=True
-            )
+            logger.warning(f"Failed to identify/resolve company names: {e}", exc_info=True)
             # Continue without resolved UUIDs - agent can still search by other criteria
+
+        return resolved_uuids
+
+    async def _infer_single_company_role(
+        self, context: AgentContext, resolved_uuids: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Infer acquirer/acquiree role for single company when not explicitly assigned.
+
+        This method uses LLM to analyze the query and determine if a single company in company_pool
+        should be treated as an acquirer (e.g., "What did Google acquire?") or acquiree
+        (e.g., "Who acquired GitHub?").
+
+        Args:
+            context: The agent context containing the user query.
+            resolved_uuids: Dictionary with resolved UUIDs, may have company_pool but no roles.
+
+        Returns:
+            Updated resolved_uuids dictionary with inferred roles.
+        """
+        company_pool = resolved_uuids.get("company_pool", [])
+        acquirer_uuid = resolved_uuids.get("acquirer_uuid")
+        acquiree_uuid = resolved_uuids.get("acquiree_uuid")
+
+        # Only infer if we have exactly one company and no roles assigned
+        if len(company_pool) == 1 and not acquirer_uuid and not acquiree_uuid and company_pool[0]:
+            company_uuid = company_pool[0]
+
+            # Define function schema for role inference
+            infer_role_tool = {
+                "type": "function",
+                "function": {
+                    "name": "infer_company_role",
+                    "description": "Determine if a company mentioned in the query is the acquirer (buyer) or acquiree (target) in an acquisition context.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "role": {
+                                "type": "string",
+                                "enum": ["acquirer", "acquiree", "unknown"],
+                                "description": "The role of the company: 'acquirer' if the company is doing the acquiring/buying, 'acquiree' if the company is being acquired/bought, or 'unknown' if the role cannot be determined from the query.",
+                            },
+                        },
+                        "required": ["role"],
+                    },
+                },
+            }
+
+            # Build system prompt
+            prompt_manager = get_prompt_manager()
+            system_prompt = prompt_manager.build_system_prompt(
+                base_prompt="""You are analyzing a user query about company acquisitions. Your job is to determine the role of a company mentioned in the query.
+
+Examples:
+- "What did Google acquire?" → role: "acquirer" (Google is doing the acquiring)
+- "Who acquired GitHub?" → role: "acquiree" (GitHub is being acquired)
+- "Show me acquisitions by Microsoft" → role: "acquirer" (Microsoft is the acquirer)
+- "Tell me about the acquisition of GitHub" → role: "acquiree" (GitHub is the acquiree)
+- "Microsoft's acquisition of GitHub" → The company mentioned is "Microsoft", role: "acquirer"
+
+Analyze the query carefully to determine if the company is the buyer (acquirer) or the target (acquiree). If the role cannot be determined, return "unknown".""",
+                options=PromptOptions(add_temporal_context=True, add_markdown_instructions=True),
+            )
+
+            # Build user prompt
+            user_prompt_content = f"""User Query: {context.query}
+
+A company has been identified with UUID: {company_uuid}
+
+Determine the role of this company in the acquisition context. Is it the acquirer (doing the buying) or the acquiree (being bought)?
+
+Call the infer_company_role function with your analysis."""
+
+            user_prompt = prompt_manager.build_user_prompt(
+                user_query=user_prompt_content,
+                options=PromptOptions(add_temporal_context=True),
+            )
+
+            try:
+                result = await generate_llm_function_response(
+                    prompt=user_prompt,
+                    tools=[infer_role_tool],
+                    system_prompt=system_prompt,
+                    model="gpt-4.1-mini",
+                    temperature=0.3,
+                    tool_choice={
+                        "type": "function",
+                        "function": {"name": "infer_company_role"},
+                    },
+                )
+
+                if isinstance(result, dict) and "function_name" in result:
+                    if result["function_name"] == "infer_company_role":
+                        role = result["arguments"].get("role")
+                        if role == "acquirer":
+                            resolved_uuids["acquirer_uuid"] = company_uuid
+                            logger.info(f"LLM inferred single company {company_uuid} as acquirer")
+                        elif role == "acquiree":
+                            resolved_uuids["acquiree_uuid"] = company_uuid
+                            logger.info(f"LLM inferred single company {company_uuid} as acquiree")
+                        else:
+                            # Default to acquirer if unknown (most common case)
+                            resolved_uuids["acquirer_uuid"] = company_uuid
+                            logger.info(
+                                f"LLM could not determine role for {company_uuid}, defaulting to acquirer"
+                            )
+            except Exception as e:
+                logger.warning(f"Failed to infer company role using LLM: {e}", exc_info=True)
+                # Fallback: default to acquirer (most common case)
+                resolved_uuids["acquirer_uuid"] = company_uuid
+                logger.info(
+                    f"Fallback: defaulting single company {company_uuid} to acquirer after LLM error"
+                )
 
         return resolved_uuids
 
@@ -599,8 +731,18 @@ Identify any company names mentioned in this query and determine if they are the
         if amounts.get("acquisition_price_max") is not None:
             search_params["acquisition_price_usd_max"] = amounts["acquisition_price_max"]
 
-        # If metadata provided parameters, return early with defaults
-        if search_params:
+        # Check if we have company_pool UUIDs that need to be used
+        # If we have UUIDs in company_pool but no roles assigned, we need to use them
+        company_pool = resolved_uuids.get("company_pool", [])
+        has_unused_uuids = (
+            company_pool
+            and not search_params.get("acquirer_uuid")
+            and not search_params.get("acquiree_uuid")
+        )
+
+        # If metadata provided parameters but we have unused UUIDs, continue to LLM
+        # Otherwise, return early with defaults
+        if search_params and not has_unused_uuids:
             if "limit" not in search_params:
                 search_params["limit"] = 10
             return search_params
@@ -681,7 +823,10 @@ Identify any company names mentioned in this query and determine if they are the
                         "order_by": {
                             "type": "string",
                             "description": "Field to order results by. Must be one of: 'acquisition_announce_date', 'acquisition_price_usd'. Use 'acquisition_announce_date' for chronological ordering, 'acquisition_price_usd' for price-based ordering. Defaults to 'acquisition_announce_date' if not specified.",
-                            "enum": ["acquisition_announce_date", "acquisition_price_usd"],
+                            "enum": [
+                                "acquisition_announce_date",
+                                "acquisition_price_usd",
+                            ],
                         },
                         "order_direction": {
                             "type": "string",
@@ -698,26 +843,29 @@ Identify any company names mentioned in this query and determine if they are the
         prompt_manager = get_prompt_manager()
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=self._extract_params_prompt,
-            options=PromptOptions(
-                add_temporal_context=True, add_markdown_instructions=True
-            ),
+            options=PromptOptions(add_temporal_context=True, add_markdown_instructions=True),
         )
 
         # Build prompt with resolved UUIDs if available
         uuid_info = []
         if resolved_uuids.get("acquirer_uuid"):
-            uuid_info.append(
-                f"Acquirer UUID (already resolved): {resolved_uuids['acquirer_uuid']}"
-            )
+            uuid_info.append(f"Acquirer UUID (already resolved): {resolved_uuids['acquirer_uuid']}")
         if resolved_uuids.get("acquiree_uuid"):
+            uuid_info.append(f"Acquiree UUID (already resolved): {resolved_uuids['acquiree_uuid']}")
+
+        # Also include company_pool UUIDs if roles weren't assigned
+        company_pool = resolved_uuids.get("company_pool", [])
+        if (
+            company_pool
+            and not resolved_uuids.get("acquirer_uuid")
+            and not resolved_uuids.get("acquiree_uuid")
+        ):
             uuid_info.append(
-                f"Acquiree UUID (already resolved): {resolved_uuids['acquiree_uuid']}"
+                f"Company UUIDs found (role to be determined from query): {', '.join(company_pool)}"
             )
 
         uuid_context = (
-            "\n".join(uuid_info)
-            if uuid_info
-            else "No company names were identified in the query."
+            "\n".join(uuid_info) if uuid_info else "No company names were identified in the query."
         )
 
         # Build user prompt using prompt manager
@@ -757,13 +905,23 @@ Call the get_acquisitions function with the extracted parameters."""
 
                     # Override with resolved UUIDs if available (they take precedence)
                     if resolved_uuids.get("acquirer_uuid"):
-                        filtered_params["acquirer_uuid"] = resolved_uuids[
-                            "acquirer_uuid"
-                        ]
+                        filtered_params["acquirer_uuid"] = resolved_uuids["acquirer_uuid"]
                     if resolved_uuids.get("acquiree_uuid"):
-                        filtered_params["acquiree_uuid"] = resolved_uuids[
-                            "acquiree_uuid"
-                        ]
+                        filtered_params["acquiree_uuid"] = resolved_uuids["acquiree_uuid"]
+
+                    # If LLM didn't set UUIDs but we have company_pool, use the first one as acquirer
+                    # (this handles cases where LLM didn't understand the role)
+                    company_pool = resolved_uuids.get("company_pool", [])
+                    if (
+                        company_pool
+                        and not filtered_params.get("acquirer_uuid")
+                        and not filtered_params.get("acquiree_uuid")
+                    ):
+                        # Default to treating as acquirer if ambiguous
+                        filtered_params["acquirer_uuid"] = company_pool[0]
+                        logger.info(
+                            f"Using company_pool UUID as acquirer (ambiguous role): {company_pool[0]}"
+                        )
 
                     if "limit" not in filtered_params:
                         filtered_params["limit"] = 10
@@ -774,18 +932,50 @@ Call the get_acquisitions function with the extracted parameters."""
                     logger.warning(
                         f"Unexpected function call: {result.get('function_name')}, using defaults"
                     )
-                    return {"limit": 10}
+                    # Fallback: use company_pool if available
+                    company_pool = resolved_uuids.get("company_pool", [])
+                    fallback_params = {"limit": 10}
+                    if (
+                        company_pool
+                        and not resolved_uuids.get("acquirer_uuid")
+                        and not resolved_uuids.get("acquiree_uuid")
+                    ):
+                        fallback_params["acquirer_uuid"] = company_pool[0]
+                        logger.info(
+                            f"Fallback: using company_pool UUID as acquirer: {company_pool[0]}"
+                        )
+                    return fallback_params
             else:
                 logger.warning(
                     f"LLM did not make expected function call. Got: {type(result)}, using defaults"
                 )
-                return {"limit": 10}
+                # Fallback: use company_pool if available
+                company_pool = resolved_uuids.get("company_pool", [])
+                fallback_params = {"limit": 10}
+                if (
+                    company_pool
+                    and not resolved_uuids.get("acquirer_uuid")
+                    and not resolved_uuids.get("acquiree_uuid")
+                ):
+                    fallback_params["acquirer_uuid"] = company_pool[0]
+                    logger.info(f"Fallback: using company_pool UUID as acquirer: {company_pool[0]}")
+                return fallback_params
 
         except Exception as e:
-            logger.warning(
-                f"LLM parameter extraction failed: {e}, using defaults", exc_info=True
-            )
-            return {"limit": 10}
+            logger.warning(f"LLM parameter extraction failed: {e}, using defaults", exc_info=True)
+            # Fallback: use company_pool if available
+            company_pool = resolved_uuids.get("company_pool", [])
+            fallback_params = {"limit": 10}
+            if (
+                company_pool
+                and not resolved_uuids.get("acquirer_uuid")
+                and not resolved_uuids.get("acquiree_uuid")
+            ):
+                fallback_params["acquirer_uuid"] = company_pool[0]
+                logger.info(
+                    f"Fallback after exception: using company_pool UUID as acquirer: {company_pool[0]}"
+                )
+            return fallback_params
 
     async def _format_response(
         self,
@@ -853,9 +1043,7 @@ If no acquisitions are found, explain why (e.g., search criteria too narrow, no 
 
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=base_prompt,
-            options=PromptOptions(
-                add_temporal_context=True, add_markdown_instructions=True
-            ),
+            options=PromptOptions(add_temporal_context=True, add_markdown_instructions=True),
         )
 
         # Build user prompt with data
@@ -909,9 +1097,7 @@ Analyze this data and generate insights that directly answer the user's query. C
                         confidence=0.0,
                     )
         except Exception as e:
-            logger.warning(
-                f"Failed to generate insight from LLM: {e}", exc_info=True
-            )
+            logger.warning(f"Failed to generate insight from LLM: {e}", exc_info=True)
             # Fallback insight
             if acquisitions:
                 return AgentInsight(
@@ -951,9 +1137,7 @@ Analyze this data and generate insights that directly answer the user's query. C
                     "name": "get_acquisitions",
                     "parameters": params,
                     "result": {
-                        "num_results": len(result.result or [])
-                        if result.success
-                        else 0,
+                        "num_results": (len(result.result or []) if result.success else 0),
                         "sample_ids": (
                             [a.get("acquisition_uuid") for a in (result.result or [])[:3]]
                             if result.success and result.result

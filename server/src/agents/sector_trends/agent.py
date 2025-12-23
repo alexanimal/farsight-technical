@@ -20,23 +20,20 @@ except ImportError:
     def observe(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
 
+
 from src.contracts.agent_io import AgentOutput, create_agent_output
-from src.core.agent_response import AgentInsight
 from src.core.agent_base import AgentBase
 from src.core.agent_context import AgentContext
-from src.core.agent_response import AgentResponse, ResponseStatus
+from src.core.agent_response import AgentInsight, AgentResponse, ResponseStatus
 from src.prompts.prompt_manager import PromptOptions, get_prompt_manager
-from src.tools.generate_llm_function_response import (
-    generate_llm_function_response
-)
-from src.tools.semantic_search_organizations import (
-    semantic_search_organizations
-)
 from src.tools.aggregate_funding_trends import aggregate_funding_trends
 from src.tools.calculate_funding_velocity import calculate_funding_velocity
+from src.tools.generate_llm_function_response import generate_llm_function_response
 from src.tools.identify_funding_patterns import identify_funding_patterns
+from src.tools.semantic_search_organizations import semantic_search_organizations
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +131,7 @@ Rules:
             logger.info(f"Searching for companies in sector: {sector_name}")
             semantic_output = await semantic_search_organizations(
                 text=sector_name,
-                top_k=50,  # Get more companies for trend analysis
+                top_k=100,  # Get more companies for trend analysis
             )
 
             if not semantic_output.success:
@@ -159,10 +156,7 @@ Rules:
                 )
 
             # Extract organization UUIDs
-            org_uuids = [
-                str(org.get("org_uuid")) for org in organizations
-                if org.get("org_uuid")
-            ]
+            org_uuids = [str(org.get("org_uuid")) for org in organizations if org.get("org_uuid")]
 
             if not org_uuids:
                 return create_agent_output(
@@ -175,15 +169,17 @@ Rules:
 
             logger.info(f"Found {len(org_uuids)} companies in sector '{sector_name}'")
 
-            tool_calls.append({
-                "name": "semantic_search_organizations",
-                "parameters": {"text": sector_name, "top_k": 50},
-                "result": {
-                    "num_results": len(organizations),
-                    "execution_time_ms": semantic_output.execution_time_ms,
-                    "success": semantic_output.success,
-                },
-            })
+            tool_calls.append(
+                {
+                    "name": "semantic_search_organizations",
+                    "parameters": {"text": sector_name, "top_k": 100},
+                    "result": {
+                        "num_results": len(organizations),
+                        "execution_time_ms": semantic_output.execution_time_ms,
+                        "success": semantic_output.success,
+                    },
+                }
+            )
 
             # Step 3: Aggregate funding trends
             logger.info(f"Aggregating funding trends for {len(org_uuids)} companies")
@@ -221,15 +217,17 @@ Rules:
                     error=f"No funding data found for companies in sector '{sector_name}' for the specified time period.",
                 )
 
-            tool_calls.append({
-                "name": "aggregate_funding_trends",
-                "parameters": aggregate_params,
-                "result": {
-                    "num_periods": len(trend_data_list),
-                    "execution_time_ms": trends_output.execution_time_ms,
-                    "success": trends_output.success,
-                },
-            })
+            tool_calls.append(
+                {
+                    "name": "aggregate_funding_trends",
+                    "parameters": aggregate_params,
+                    "result": {
+                        "num_periods": len(trend_data_list),
+                        "execution_time_ms": trends_output.execution_time_ms,
+                        "success": trends_output.success,
+                    },
+                }
+            )
 
             # Step 4: Calculate funding velocity
             logger.info("Calculating funding velocity metrics")
@@ -239,21 +237,23 @@ Rules:
                 calculate_cagr=True,
             )
 
-            velocity_data = {}
+            velocity_data: Dict[str, Any] = {}
             if velocity_output.success:
                 velocity_data = velocity_output.result or {}
-                tool_calls.append({
-                    "name": "calculate_funding_velocity",
-                    "parameters": {
-                        "trend_data": f"[{len(trend_data_list)} periods]",
-                        "moving_average_periods": 3,
-                        "calculate_cagr": True,
-                    },
-                    "result": {
-                        "execution_time_ms": velocity_output.execution_time_ms,
-                        "success": velocity_output.success,
-                    },
-                })
+                tool_calls.append(
+                    {
+                        "name": "calculate_funding_velocity",
+                        "parameters": {
+                            "trend_data": f"[{len(trend_data_list)} periods]",
+                            "moving_average_periods": 3,
+                            "calculate_cagr": True,
+                        },
+                        "result": {
+                            "execution_time_ms": velocity_output.execution_time_ms,
+                            "success": velocity_output.success,
+                        },
+                    }
+                )
             else:
                 logger.warning(f"calculate_funding_velocity failed: {velocity_output.error}")
 
@@ -267,22 +267,24 @@ Rules:
                 min_periods_for_cycles=8,
             )
 
-            patterns_data = {}
+            patterns_data: Dict[str, Any] = {}
             if patterns_output.success:
                 patterns_data = patterns_output.result or {}
-                tool_calls.append({
-                    "name": "identify_funding_patterns",
-                    "parameters": {
-                        "trend_data": f"[{len(trend_data_list)} periods]",
-                        "granularity": granularity,
-                        "anomaly_threshold": 2.0,
-                        "detect_seasonality": True,
-                    },
-                    "result": {
-                        "execution_time_ms": patterns_output.execution_time_ms,
-                        "success": patterns_output.success,
-                    },
-                })
+                tool_calls.append(
+                    {
+                        "name": "identify_funding_patterns",
+                        "parameters": {
+                            "trend_data": f"[{len(trend_data_list)} periods]",
+                            "granularity": granularity,
+                            "anomaly_threshold": 2.0,
+                            "detect_seasonality": True,
+                        },
+                        "result": {
+                            "execution_time_ms": patterns_output.execution_time_ms,
+                            "success": patterns_output.success,
+                        },
+                    }
+                )
             else:
                 logger.warning(f"identify_funding_patterns failed: {patterns_output.error}")
 
@@ -402,9 +404,7 @@ Rules:
         prompt_manager = get_prompt_manager()
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=self._extract_params_prompt,
-            options=PromptOptions(
-                add_temporal_context=False, add_markdown_instructions=False
-            ),
+            options=PromptOptions(add_temporal_context=True, add_markdown_instructions=True),
         )
 
         # Build user prompt using prompt manager
@@ -414,7 +414,7 @@ Extract the sector name, time period, granularity, and other parameters from thi
 
         user_prompt = prompt_manager.build_user_prompt(
             user_query=user_prompt_content,
-            options=PromptOptions(add_temporal_context=False),
+            options=PromptOptions(add_temporal_context=True),
         )
 
         try:
@@ -450,13 +450,9 @@ Extract the sector name, time period, granularity, and other parameters from thi
                         f"Unexpected function call: {result.get('function_name')}, using defaults"
                     )
             else:
-                logger.warning(
-                    f"LLM did not make expected function call. Got: {type(result)}"
-                )
+                logger.warning(f"LLM did not make expected function call. Got: {type(result)}")
         except Exception as e:
-            logger.warning(
-                f"LLM parameter extraction failed: {e}, using defaults", exc_info=True
-            )
+            logger.warning(f"LLM parameter extraction failed: {e}, using defaults", exc_info=True)
 
         # Return defaults if extraction failed
         two_years_ago = datetime.now() - timedelta(days=730)
@@ -539,9 +535,7 @@ Focus on actionable insights for finance professionals: investment timing, marke
 
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=base_prompt,
-            options=PromptOptions(
-                add_temporal_context=False, add_markdown_instructions=False
-            ),
+            options=PromptOptions(add_temporal_context=True, add_markdown_instructions=True),
         )
 
         # Build user prompt with data
@@ -563,7 +557,7 @@ Analyze this data and generate insights that directly answer the user's query ab
 
         user_prompt = prompt_manager.build_user_prompt(
             user_query=user_prompt_content,
-            options=PromptOptions(add_temporal_context=False),
+            options=PromptOptions(add_temporal_context=True),
         )
 
         try:
@@ -596,12 +590,9 @@ Analyze this data and generate insights that directly answer the user's query ab
                     confidence=0.0,
                 )
         except Exception as e:
-            logger.warning(
-                f"Failed to generate insight from LLM: {e}", exc_info=True
-            )
+            logger.warning(f"Failed to generate insight from LLM: {e}", exc_info=True)
             # Fallback insight
             return AgentInsight(
                 summary=f"Analyzed funding trends for {sector_name} but encountered an error generating insights.",
                 confidence=0.0,
             )
-

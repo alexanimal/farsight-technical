@@ -131,6 +131,8 @@ def discover_agents() -> None:
         ("funding_rounds", "funding_rounds_agent.yaml"),
         ("organizations", "organizations_agent.yaml"),
         ("sector_trends", "sector_trends_agent.yaml"),
+        ("investor_analysis", "investor_analysis_agent.yaml"),
+        ("web_search", "web_search_agent.yaml"),
     ]
 
     for agent_name, config_filename in agent_mappings:
@@ -157,11 +159,7 @@ def discover_agents() -> None:
                 if attr_name.startswith("_"):
                     continue
                 attr = getattr(agent_module, attr_name)
-                if (
-                    isinstance(attr, type)
-                    and issubclass(attr, AgentBase)
-                    and attr != AgentBase
-                ):
+                if isinstance(attr, type) and issubclass(attr, AgentBase) and attr != AgentBase:
                     agent_class = attr
                     break
 
@@ -185,9 +183,7 @@ def discover_agents() -> None:
             register_agent(agent_name, agent_class, config_path)
 
         except Exception as e:
-            logger.warning(
-                f"Failed to register agent {agent_name} during discovery: {e}"
-            )
+            logger.warning(f"Failed to register agent {agent_name} during discovery: {e}")
 
 
 # Initialize agent registry on module load
@@ -195,4 +191,3 @@ try:
     discover_agents()
 except Exception as e:
     logger.warning(f"Failed to auto-discover agents: {e}")
-

@@ -3,4 +3,3 @@
 from .agent import SectorTrendsAgent
 
 __all__ = ["SectorTrendsAgent"]
-
