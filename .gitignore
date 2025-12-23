@@ -12,3 +12,5 @@ coverage/
 htmlcov/
 .coverage
 exclude_plan.md
+queries/
+plans/
