@@ -250,6 +250,25 @@ Rules:
             - strategy: String describing the strategy
             - semantic_params: Parameters for semantic search (if applicable)
         """
+        # Use pre-extracted metadata when available
+        extracted = context.get_metadata("extracted_entities", {})
+        sectors = extracted.get("sectors", [])
+        companies = extracted.get("companies", {}).get("names", [])
+
+        if sectors:
+            return {
+                "use_semantic_search": True,
+                "strategy": "semantic",
+                "semantic_params": {"text": sectors[0], "top_k": 10},
+            }
+
+        if companies:
+            return {
+                "use_semantic_search": False,
+                "strategy": "structured",
+                "company_name": companies[0],
+            }
+
         # Use LLM to determine search strategy
         determine_strategy_tool = {
             "type": "function",
@@ -364,6 +383,40 @@ Determine the best search strategy for this query."""
         Returns:
             Dictionary of parameters to pass to get_organizations tool.
         """
+        # Use pre-extracted metadata when available
+        extracted = context.get_metadata("extracted_entities", {})
+        search_params: Dict[str, Any] = {}
+
+        # Company name / sectors
+        companies = extracted.get("companies", {}).get("names", [])
+        sectors = extracted.get("sectors", [])
+
+        if company_name:
+            search_params["name_ilike"] = company_name
+        elif companies:
+            search_params["name_ilike"] = companies[0]
+
+        if sectors:
+            search_params["categories_contains"] = sectors[0]
+
+        # Time period (founding dates) and funding amounts
+        time_period = extracted.get("time_period", {})
+        if time_period.get("start"):
+            search_params["founding_date_from"] = time_period["start"]
+        if time_period.get("end"):
+            search_params["founding_date_to"] = time_period["end"]
+
+        amounts = extracted.get("amounts", {})
+        if amounts.get("fundraise_min") is not None:
+            search_params["total_funding_usd_min"] = amounts["fundraise_min"]
+        if amounts.get("fundraise_max") is not None:
+            search_params["total_funding_usd_max"] = amounts["fundraise_max"]
+
+        if search_params:
+            if "limit" not in search_params:
+                search_params["limit"] = 10
+            return search_params
+
         # Define the function/tool schema for get_organizations (simplified version)
         # Note: get_organizations has many parameters, so we'll include the most common ones
         get_organizations_tool = {

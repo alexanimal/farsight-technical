@@ -171,6 +171,10 @@ class WorkflowProgressQueryResult(BaseModel):
         default=None,
         description="Optional description of the current step",
     )
+    iteration_number: Optional[int] = Field(
+        default=None,
+        description="Current iteration number (1-based) for multi-step reasoning",
+    )
     metadata: Dict[str, Any] = Field(
         default_factory=dict,
         description="Additional metadata about the progress",

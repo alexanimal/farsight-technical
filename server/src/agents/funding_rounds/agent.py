@@ -7,10 +7,12 @@ This agent is specialized in:
 - Searching funding rounds by various criteria (company names, dates, amounts, investors, stages, etc.)
 """
 
+import asyncio
 import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
+from uuid import UUID
 
 try:
     from langfuse import observe
@@ -27,6 +29,7 @@ from src.core.agent_base import AgentBase
 from src.core.agent_context import AgentContext
 from src.core.agent_response import AgentResponse, ResponseStatus
 from src.prompts.prompt_manager import PromptOptions, get_prompt_manager
+from src.tools.find_investor_portfolio import find_investor_portfolio
 from src.tools.generate_llm_function_response import \
     generate_llm_function_response
 from src.tools.get_funding_rounds import get_funding_rounds
@@ -125,43 +128,82 @@ Rules:
         try:
             logger.info(f"Funding rounds agent processing query: {context.query[:100]}")
 
-            # Step 1: Identify and resolve company names to UUIDs
+            # Prefer pre-extracted intent if available
+            extracted = context.get_metadata("extracted_entities", {})
+            query_intent = extracted.get("query_intent")
+
+            if query_intent == "find_investor_portfolio":
+                return await self._handle_investor_portfolio_query(context)
+
+            # Fallback to LLM classification if intent not provided
+            query_type = query_intent or await self._classify_query_type(context)
+
+            if query_type == "investor_portfolio":
+                return await self._handle_investor_portfolio_query(context)
+
+            # Step 2: Identify and resolve company names to UUIDs
             resolved_uuids = await self._resolve_company_names(context)
 
-            # Step 2: Extract other search parameters from the query
+            # Step 3: Extract other search parameters from the query
             search_params = await self._extract_search_parameters(
                 context, resolved_uuids
             )
 
-            # Step 3: Call get_funding_rounds tool with extracted parameters
+            # Step 4: Call get_funding_rounds tool with extracted parameters
             # Always include organizations for better insights
             search_params["include_organizations"] = True
-            funding_rounds_output = await get_funding_rounds(**search_params)
 
-            # Check if tool execution was successful
-            if not funding_rounds_output.success:
-                error_msg = (
-                    funding_rounds_output.error or "Failed to retrieve funding rounds"
+            # Fan-out when multiple companies and no single org_uuid filter
+            funding_rounds: list[Dict[str, Any]] = []
+            tool_calls: list[Dict[str, Any]] = []
+            funding_rounds_output = None
+            
+            if (
+                resolved_uuids.get("company_pool")
+                and len(resolved_uuids["company_pool"]) > 1
+                and not search_params.get("org_uuid")
+            ):
+                funding_rounds, fanout_calls = await self._fanout_funding_rounds(
+                    company_pool=resolved_uuids["company_pool"],
+                    base_params=search_params,
                 )
-                logger.error(f"get_funding_rounds tool failed: {error_msg}")
-                return create_agent_output(
-                    content="",
-                    agent_name=self.name,
-                    agent_category=self.category,
-                    status=ResponseStatus.ERROR,
-                    error=f"Failed to retrieve funding rounds: {error_msg}",
-                )
+                tool_calls.extend(fanout_calls)
+                # If all fan-out calls failed, return early with error
+                if not funding_rounds and all(
+                    call.get("result", {}).get("success") is False
+                    for call in fanout_calls
+                ):
+                    return create_agent_output(
+                        content="",
+                        agent_name=self.name,
+                        agent_category=self.category,
+                        status=ResponseStatus.ERROR,
+                        error="Failed to retrieve funding rounds for all companies in fan-out.",
+                    )
+            else:
+                funding_rounds_output = await get_funding_rounds(**search_params)
 
-            # Extract result from ToolOutput
-            funding_rounds = funding_rounds_output.result or []
+                # Check if tool execution was successful
+                if not funding_rounds_output.success:
+                    error_msg = (
+                        funding_rounds_output.error or "Failed to retrieve funding rounds"
+                    )
+                    logger.error(f"get_funding_rounds tool failed: {error_msg}")
+                    return create_agent_output(
+                        content="",
+                        agent_name=self.name,
+                        agent_category=self.category,
+                        status=ResponseStatus.ERROR,
+                        error=f"Failed to retrieve funding rounds: {error_msg}",
+                    )
 
-            # Step 4: Format results into natural language response
+                # Extract result from ToolOutput
+                funding_rounds = funding_rounds_output.result or []
+
+            # Step 5: Format results into natural language response
             response_content = await self._format_response(
                 context, funding_rounds, search_params
             )
-
-            # Build tool calls list
-            tool_calls = []
 
             # Track all tool calls
             if resolved_uuids.get("semantic_search_calls"):
@@ -183,22 +225,24 @@ Rules:
                         }
                     )
 
-            tool_calls.append(
-                {
-                    "name": "get_funding_rounds",
-                    "parameters": search_params,
-                    "result": {
-                        "num_results": len(funding_rounds),
-                        "sample_ids": (
-                            [fr.get("funding_round_uuid") for fr in funding_rounds[:3]]
-                            if funding_rounds
-                            else []
-                        ),
-                        "execution_time_ms": funding_rounds_output.execution_time_ms,
-                        "success": funding_rounds_output.success,
-                    },
-                }
-            )
+            # If we did single-call path, add that call metadata
+            if not any(call.get("name") == "get_funding_rounds" for call in tool_calls) and funding_rounds_output:
+                tool_calls.append(
+                    {
+                        "name": "get_funding_rounds",
+                        "parameters": search_params,
+                        "result": {
+                            "num_results": len(funding_rounds),
+                            "sample_ids": (
+                                [fr.get("funding_round_uuid") for fr in funding_rounds[:3]]
+                                if funding_rounds
+                                else []
+                            ),
+                            "execution_time_ms": funding_rounds_output.execution_time_ms,
+                            "success": funding_rounds_output.success,
+                        },
+                    }
+                )
 
             logger.info(
                 f"Funding rounds agent completed: found {len(funding_rounds)} funding round(s)"
@@ -244,6 +288,77 @@ Rules:
             - org_uuid: UUID of the organization (if found)
             - semantic_search_calls: List of semantic search tool calls made
         """
+        # Use pre-extracted companies if available
+        extracted = context.get_metadata("extracted_entities", {})
+        companies_data = extracted.get("companies", {})
+        company_names = companies_data.get("names", [])
+        company_uuids = companies_data.get("uuids", [])
+
+        company_pool: list[str] = []
+
+        if company_names or company_uuids:
+            logger.info("Using pre-extracted companies for funding rounds agent")
+            org_uuid = None
+
+            # Check context to determine if this is a comparison query
+            company_context = companies_data.get("context", "").lower()
+            is_comparison = any(
+                keyword in company_context
+                for keyword in ["compar", "compare", "both", "multiple", "versus", "vs", "and"]
+            )
+            is_directed = any(
+                keyword in company_context
+                for keyword in ["specific", "single", "one", "the company"]
+            )
+
+            # For comparison queries or when multiple companies without explicit single-company context,
+            # don't assign org_uuid - use company_pool for fan-out
+            should_assign_single = is_directed and not is_comparison
+
+            if is_comparison:
+                logger.info(
+                    f"Comparison query detected (context: '{company_context}'), "
+                    f"using company_pool for fan-out instead of single org_uuid"
+                )
+            elif should_assign_single:
+                logger.info(
+                    f"Single company query detected (context: '{company_context}'), "
+                    f"assigning org_uuid"
+                )
+
+            if company_uuids:
+                # Add all UUIDs to company_pool
+                for uuid in company_uuids:
+                    if uuid:
+                        company_pool.append(str(uuid))
+
+                # Only assign single org_uuid if context indicates single company query
+                if should_assign_single and len(company_uuids) >= 1:
+                    org_uuid = str(company_uuids[0])
+            elif company_names:
+                # Resolve all company names and add to pool
+                for name in company_names:
+                    if name:
+                        try:
+                            orgs_output = await get_organizations(name_ilike=name, limit=3)
+                            if orgs_output.success and orgs_output.result:
+                                resolved_uuid = str(orgs_output.result[0].get("org_uuid"))
+                                if resolved_uuid not in company_pool:
+                                    company_pool.append(resolved_uuid)
+                                
+                                # Only assign to org_uuid if single company query and first name
+                                if should_assign_single and not org_uuid:
+                                    org_uuid = resolved_uuid
+                        except Exception as e:
+                            logger.warning(f"Failed to resolve company '{name}': {e}")
+
+            return {
+                "org_uuid": org_uuid,
+                "company_pool": company_pool,
+                "semantic_search_calls": [],
+                "get_organizations_calls": [],
+            }
+
         # Use LLM to identify company names and sectors in the query
         identify_companies_tool = {
             "type": "function",
@@ -272,7 +387,7 @@ Rules:
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=self._identify_companies_prompt,
             options=PromptOptions(
-                add_temporal_context=False, add_markdown_instructions=False
+                add_temporal_context=True, add_markdown_instructions=True
             ),
         )
 
@@ -283,11 +398,12 @@ Identify any company names mentioned in this query."""
 
         user_prompt = prompt_manager.build_user_prompt(
             user_query=user_prompt_content,
-            options=PromptOptions(add_temporal_context=False),
+            options=PromptOptions(add_temporal_context=True),
         )
 
         resolved_uuids: Dict[str, Any] = {
             "org_uuid": None,
+            "company_pool": [],
             "semantic_search_calls": [],
             "get_organizations_calls": [],
         }
@@ -323,9 +439,10 @@ Identify any company names mentioned in this query."""
                                 if orgs:
                                     # Use the top match - convert UUID to string
                                     org_uuid = orgs[0].get("org_uuid")
-                                    resolved_uuids["org_uuid"] = (
-                                        str(org_uuid) if org_uuid else None
-                                    )
+                                    resolved_uuid_str = str(org_uuid) if org_uuid else None
+                                    resolved_uuids["org_uuid"] = resolved_uuid_str
+                                    if resolved_uuid_str and resolved_uuid_str not in resolved_uuids["company_pool"]:
+                                        resolved_uuids["company_pool"].append(resolved_uuid_str)
                                     resolved_uuids["get_organizations_calls"].append(
                                         {
                                             "parameters": {
@@ -395,6 +512,739 @@ Identify any company names mentioned in this query."""
 
         return resolved_uuids
 
+    async def _fanout_funding_rounds(
+        self,
+        company_pool: list[str],
+        base_params: Dict[str, Any],
+        max_concurrency: int = 3,
+    ) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]]]:
+        """Execute get_funding_rounds per company concurrently with bounded fan-out.
+
+        Returns a tuple of (flattened_funding_rounds, tool_calls_metadata).
+        """
+        semaphore = asyncio.Semaphore(max_concurrency)
+        funding_rounds: list[Dict[str, Any]] = []
+        tool_calls: list[Dict[str, Any]] = []
+
+        async def _run(company_uuid: str) -> None:
+            params = {k: v for k, v in base_params.items() if k != "org_uuid"}
+            params["org_uuid"] = company_uuid
+            params["include_organizations"] = True
+
+            async with semaphore:
+                result = await get_funding_rounds(**params)
+
+            tool_calls.append(
+                {
+                    "name": "get_funding_rounds",
+                    "parameters": params,
+                    "result": {
+                        "num_results": len(result.result or [])
+                        if result.success
+                        else 0,
+                        "sample_ids": (
+                            [fr.get("funding_round_uuid") for fr in (result.result or [])[:3]]
+                            if result.success and result.result
+                            else []
+                        ),
+                        "execution_time_ms": result.execution_time_ms,
+                        "success": result.success,
+                        "error": result.error,
+                    },
+                    "source_company_uuid": company_uuid,
+                }
+            )
+
+            if result.success and result.result:
+                funding_rounds.extend(result.result)
+
+        # Deduplicate company UUIDs to avoid double calls
+        seen = set()
+        unique_pool = []
+        for uuid in company_pool:
+            if uuid and uuid not in seen:
+                seen.add(uuid)
+                unique_pool.append(uuid)
+
+        await asyncio.gather(*[_run(uuid) for uuid in unique_pool])
+
+        return funding_rounds, tool_calls
+
+    async def _classify_query_type(self, context: AgentContext) -> str:
+        """Use LLM to classify the query type.
+        
+        Determines whether the query is asking for:
+        - investor_portfolio: Finding companies an investor has funded (portfolio query)
+        - funding_rounds: Finding funding rounds for companies or other funding round queries
+        
+        Args:
+            context: The agent context containing the user query.
+            
+        Returns:
+            "investor_portfolio" if the query is about finding an investor's portfolio,
+            "funding_rounds" otherwise.
+        """
+        classify_query_tool = {
+            "type": "function",
+            "function": {
+                "name": "classify_funding_query",
+                "description": "Classify a funding-related query to determine the appropriate tool to use.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query_type": {
+                            "type": "string",
+                            "enum": ["investor_portfolio", "funding_rounds"],
+                            "description": "Type of query: 'investor_portfolio' if asking about companies an investor has funded (e.g., 'What companies has Sequoia invested in?', 'Show me Y Combinator's portfolio'), 'funding_rounds' for queries about funding rounds for companies, funding amounts, stages, dates, etc. (e.g., 'What funding rounds did Google raise?', 'Show me Series A rounds in 2023').",
+                        },
+                        "reasoning": {
+                            "type": "string",
+                            "description": "Brief explanation of why this query type was chosen.",
+                        },
+                    },
+                    "required": ["query_type", "reasoning"],
+                },
+            },
+        }
+        
+        system_prompt = """You are a query classifier for a funding rounds analysis system. Your job is to determine whether a query is asking for:
+1. An investor's portfolio (companies they've invested in) - use "investor_portfolio"
+2. Funding rounds information (rounds for companies, amounts, stages, dates) - use "funding_rounds"
+
+Key distinctions:
+- "What companies has [investor] invested in?" → investor_portfolio
+- "[Investor] portfolio" → investor_portfolio
+- "Companies [investor] has funded" → investor_portfolio
+- "What funding rounds did [company] raise?" → funding_rounds
+- "Show me Series A rounds" → funding_rounds
+- "Funding rounds in 2023" → funding_rounds
+- "How much did [company] raise?" → funding_rounds
+
+When in doubt, prefer "funding_rounds" as it's the more general case."""
+        
+        user_prompt = f"""Classify this query: {context.query}"""
+        
+        try:
+            result = await generate_llm_function_response(
+                prompt=user_prompt,
+                tools=[classify_query_tool],
+                system_prompt=system_prompt,
+                model="gpt-4.1-mini",
+                temperature=0.1,  # Low temperature for consistent classification
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": "classify_funding_query"},
+                },
+            )
+            
+            if isinstance(result, dict) and "function_name" in result:
+                if result["function_name"] == "classify_funding_query":
+                    query_type = result["arguments"].get("query_type", "funding_rounds")
+                    reasoning = result["arguments"].get("reasoning", "")
+                    logger.debug(f"Query classified as '{query_type}': {reasoning}")
+                    return query_type
+            
+            # Default to funding_rounds if classification fails
+            logger.warning("Query classification failed, defaulting to funding_rounds")
+            return "funding_rounds"
+            
+        except Exception as e:
+            logger.warning(f"Query classification error: {e}, defaulting to funding_rounds", exc_info=True)
+            return "funding_rounds"
+
+    async def _fanout_investor_portfolios(
+        self,
+        investor_names: list[str],
+        base_params: Dict[str, Any],
+        max_concurrency: int = 3,
+    ) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]]]:
+        """Execute find_investor_portfolio per investor concurrently with bounded fan-out.
+
+        Returns a tuple of (portfolio_results, tool_calls_metadata).
+        Each portfolio_result is a dict with 'investor_name' and 'portfolio_data'.
+        """
+        semaphore = asyncio.Semaphore(max_concurrency)
+        portfolio_results: list[Dict[str, Any]] = []
+        tool_calls: list[Dict[str, Any]] = []
+
+        async def _run(investor_name: str) -> None:
+            params = {
+                "investor_name": investor_name,
+                "time_period_start": base_params.get("time_period_start"),
+                "time_period_end": base_params.get("time_period_end"),
+                "include_lead_only": base_params.get("include_lead_only", False),
+            }
+
+            async with semaphore:
+                result = await find_investor_portfolio(**params)
+
+            tool_calls.append(
+                {
+                    "name": "find_investor_portfolio",
+                    "parameters": params,
+                    "result": {
+                        "num_companies": (
+                            result.result.get("summary", {}).get("total_companies", 0)
+                            if result.success and result.result
+                            else 0
+                        ),
+                        "num_investments": (
+                            result.result.get("summary", {}).get("total_investments", 0)
+                            if result.success and result.result
+                            else 0
+                        ),
+                        "execution_time_ms": result.execution_time_ms,
+                        "success": result.success,
+                        "error": result.error,
+                    },
+                    "source_investor_name": investor_name,
+                }
+            )
+
+            if result.success and result.result:
+                portfolio_results.append({
+                    "investor_name": investor_name,
+                    "portfolio_data": result.result,
+                })
+
+        # Deduplicate investor names to avoid double calls
+        seen = set()
+        unique_names = []
+        for name in investor_names:
+            if name and name.lower() not in seen:
+                seen.add(name.lower())
+                unique_names.append(name)
+
+        await asyncio.gather(*[_run(name) for name in unique_names])
+
+        return portfolio_results, tool_calls
+
+    async def _handle_multi_investor_portfolio_query(
+        self,
+        context: AgentContext,
+        investor_names: list[str],
+        time_period_start: Optional[str],
+        time_period_end: Optional[str],
+    ) -> AgentOutput:
+        """Handle queries about multiple investor portfolios with fan-out.
+        
+        Args:
+            context: The agent context containing the user query.
+            investor_names: List of investor/company names to query.
+            time_period_start: Optional start date for filtering.
+            time_period_end: Optional end date for filtering.
+            
+        Returns:
+            AgentOutput with aggregated investor portfolio information.
+        """
+        base_params = {
+            "time_period_start": time_period_start,
+            "time_period_end": time_period_end,
+            "include_lead_only": False,
+        }
+        
+        portfolio_results, tool_calls = await self._fanout_investor_portfolios(
+            investor_names=investor_names,
+            base_params=base_params,
+        )
+        
+        # If all fan-out calls failed, return early with error
+        if not portfolio_results and all(
+            call.get("result", {}).get("success") is False
+            for call in tool_calls
+        ):
+            return create_agent_output(
+                content="",
+                agent_name=self.name,
+                agent_category=self.category,
+                status=ResponseStatus.ERROR,
+                error="Failed to retrieve investor portfolios for all investors in fan-out.",
+            )
+        
+        # Format the aggregated portfolio response
+        response_content = await self._format_multi_portfolio_response(
+            context, portfolio_results
+        )
+        
+        return create_agent_output(
+            content=response_content,
+            agent_name=self.name,
+            agent_category=self.category,
+            status=ResponseStatus.SUCCESS,
+            tool_calls=tool_calls,
+            metadata={
+                "query": context.query,
+                "investor_names": investor_names,
+                "num_investors": len(portfolio_results),
+                "portfolio_summaries": [
+                    {
+                        "investor_name": pr["investor_name"],
+                        "summary": pr["portfolio_data"].get("summary", {}),
+                    }
+                    for pr in portfolio_results
+                ],
+            },
+        )
+
+    async def _handle_investor_portfolio_query(self, context: AgentContext) -> AgentOutput:
+        """Handle queries about investor portfolios.
+        
+        Args:
+            context: The agent context containing the user query.
+            
+        Returns:
+            AgentOutput with investor portfolio information.
+        """
+        # Check for pre-extracted companies first
+        extracted = context.get_metadata("extracted_entities", {})
+        companies_data = extracted.get("companies", {})
+        company_names = companies_data.get("names", [])
+        
+        # Time period from extracted entities
+        time_period = extracted.get("time_period", {})
+        time_period_start = time_period.get("start")
+        time_period_end = time_period.get("end")
+        
+        # If multiple companies identified, use fan-out
+        if company_names and len(company_names) > 1:
+            logger.info(
+                f"Multiple investors detected ({len(company_names)}), using fan-out for investor portfolios"
+            )
+            return await self._handle_multi_investor_portfolio_query(
+                context, company_names, time_period_start, time_period_end
+            )
+        
+        # If single company identified, use it directly
+        investor_name = None
+        if company_names and len(company_names) == 1:
+            investor_name = company_names[0]
+            logger.info(f"Using pre-extracted investor name: {investor_name}")
+        
+        # Use LLM to extract investor name and parameters if not pre-extracted
+        extract_investor_tool = {
+            "type": "function",
+            "function": {
+                "name": "extract_investor_query_params",
+                "description": "Extract investor name and parameters from a query about investor portfolios.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "investor_name": {
+                            "type": "string",
+                            "description": "Name of the investor mentioned in the query (e.g., 'Sequoia Capital', 'Andreessen Horowitz')",
+                        },
+                        "time_period_start": {
+                            "type": "string",
+                            "description": "Start date for filtering investments (ISO format, e.g., '2018-01-01T00:00:00'). Leave null if not mentioned.",
+                        },
+                        "time_period_end": {
+                            "type": "string",
+                            "description": "End date for filtering investments (ISO format, e.g., '2024-12-31T23:59:59'). Leave null if not mentioned.",
+                        },
+                        "include_lead_only": {
+                            "type": "boolean",
+                            "description": "If true, only include rounds where investor was lead. Leave null if not mentioned.",
+                        },
+                    },
+                    "required": ["investor_name"],
+                },
+            },
+        }
+        
+        system_prompt = """You are analyzing a query about an investor's portfolio. Extract the investor name and any time period or filtering criteria mentioned in the query.
+        
+Examples:
+- "What companies has Sequoia Capital invested in?" → investor_name: "Sequoia Capital"
+- "Show me Andreessen Horowitz's portfolio from 2020 to 2024" → investor_name: "Andreessen Horowitz", time_period_start: "2020-01-01T00:00:00", time_period_end: "2024-12-31T23:59:59"
+- "What companies did Y Combinator lead invest in?" → investor_name: "Y Combinator", include_lead_only: true"""
+        
+        # If we already have investor_name from pre-extracted entities, skip LLM extraction
+        if not investor_name:
+            user_prompt = f"""User Query: {context.query}
+
+Extract the investor name and any parameters from this query."""
+            
+            try:
+                result = await generate_llm_function_response(
+                    prompt=user_prompt,
+                    tools=[extract_investor_tool],
+                    system_prompt=system_prompt,
+                    model="gpt-4.1-mini",
+                    temperature=0.3,
+                    tool_choice={
+                        "type": "function",
+                        "function": {"name": "extract_investor_query_params"},
+                    },
+                )
+                
+                if isinstance(result, dict) and "function_name" in result:
+                    if result["function_name"] == "extract_investor_query_params":
+                        args = result["arguments"]
+                        investor_name = args.get("investor_name")
+                        # Use LLM-extracted time period if not already set from pre-extracted
+                        if not time_period_start:
+                            time_period_start = args.get("time_period_start")
+                        if not time_period_end:
+                            time_period_end = args.get("time_period_end")
+                else:
+                    # LLM extraction failed, try fallback
+                    investor_name = None
+            except Exception as e:
+                logger.warning(f"LLM investor extraction failed: {e}, using pre-extracted if available")
+        
+        # Now proceed with single investor query
+        if not investor_name:
+            return create_agent_output(
+                content="",
+                agent_name=self.name,
+                agent_category=self.category,
+                status=ResponseStatus.ERROR,
+                error="Could not identify investor name in the query.",
+            )
+        
+        try:
+            # Call find_investor_portfolio tool
+            portfolio_output = await find_investor_portfolio(
+                investor_name=investor_name,
+                time_period_start=time_period_start,
+                time_period_end=time_period_end,
+                include_lead_only=False,  # Default to False unless specified
+            )
+            
+            if not portfolio_output.success:
+                error_msg = portfolio_output.error or "Failed to retrieve investor portfolio"
+                logger.error(f"find_investor_portfolio tool failed: {error_msg}")
+                return create_agent_output(
+                    content="",
+                    agent_name=self.name,
+                    agent_category=self.category,
+                    status=ResponseStatus.ERROR,
+                    error=f"Failed to retrieve investor portfolio: {error_msg}",
+                )
+            
+            # Format the portfolio response
+            portfolio_data = portfolio_output.result or {}
+            response_content = await self._format_portfolio_response(
+                context, portfolio_data
+            )
+            
+            return create_agent_output(
+                content=response_content,
+                agent_name=self.name,
+                agent_category=self.category,
+                status=ResponseStatus.SUCCESS,
+                tool_calls=[
+                    {
+                        "name": "find_investor_portfolio",
+                        "parameters": {
+                            "investor_name": investor_name,
+                            "time_period_start": time_period_start,
+                            "time_period_end": time_period_end,
+                            "include_lead_only": False,
+                        },
+                        "result": {
+                            "num_companies": portfolio_data.get("summary", {}).get("total_companies", 0),
+                            "num_investments": portfolio_data.get("summary", {}).get("total_investments", 0),
+                            "execution_time_ms": portfolio_output.execution_time_ms,
+                            "success": portfolio_output.success,
+                        },
+                    }
+                ],
+                metadata={
+                    "query": context.query,
+                    "investor_name": investor_name,
+                    "portfolio_summary": portfolio_data.get("summary", {}),
+                },
+            )
+            
+        except Exception as e:
+            error_msg = f"Failed to handle investor portfolio query: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return create_agent_output(
+                content="",
+                agent_name=self.name,
+                agent_category=self.category,
+                status=ResponseStatus.ERROR,
+                error=error_msg,
+            )
+            
+        except Exception as e:
+            error_msg = f"Failed to handle investor portfolio query: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return create_agent_output(
+                content="",
+                agent_name=self.name,
+                agent_category=self.category,
+                status=ResponseStatus.ERROR,
+                error=error_msg,
+            )
+
+    async def _format_portfolio_response(
+        self, context: AgentContext, portfolio_data: Dict[str, Any]
+    ) -> AgentInsight:
+        """Generate domain insight from investor portfolio data using LLM.
+        
+        Args:
+            context: The agent context.
+            portfolio_data: Portfolio data from find_investor_portfolio tool.
+            
+        Returns:
+            AgentInsight object with domain interpretation and reasoning.
+        """
+        generate_insight_tool = {
+            "type": "function",
+            "function": {
+                "name": "generate_insight",
+                "description": "Generate domain insight from investor portfolio data",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "summary": {
+                            "type": "string",
+                            "description": "Human-readable insight summary answering the user's query",
+                        },
+                        "key_findings": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Bullet points of key findings",
+                        },
+                        "evidence": {
+                            "type": "object",
+                            "description": "Supporting data from tool calls",
+                        },
+                        "confidence": {
+                            "type": "number",
+                            "minimum": 0.0,
+                            "maximum": 1.0,
+                            "description": "Confidence in the insight",
+                        },
+                    },
+                    "required": ["summary"],
+                },
+            },
+        }
+        
+        prompt_manager = get_prompt_manager()
+        base_prompt = """You are an investor portfolio analysis expert. Analyze the investor portfolio data and generate insights that directly answer the user's query.
+
+Your task:
+- Summarize the investor's portfolio (number of companies, investments, capital deployed)
+- Highlight notable portfolio companies (by funding, stage, or other metrics)
+- Identify investment patterns (stages, sectors, time periods)
+- Compare portfolio size and activity if time periods are specified
+- State uncertainty where data is missing
+- Directly answer the user's query in the summary
+
+If no portfolio companies are found, explain why (e.g., investor name not found, no investments in specified time period)."""
+        
+        system_prompt = prompt_manager.build_system_prompt(
+            base_prompt=base_prompt,
+            options=PromptOptions(
+                add_temporal_context=True, add_markdown_instructions=True
+            ),
+        )
+        
+        user_prompt_content = f"""User Query: {context.query}
+
+Investor Portfolio Data (JSON):
+{json.dumps(portfolio_data, indent=2, default=str)}
+
+Analyze this data and generate insights that directly answer the user's query. Call the generate_insight function with your analysis."""
+        
+        user_prompt = prompt_manager.build_user_prompt(
+            user_query=user_prompt_content,
+            options=PromptOptions(add_temporal_context=True),
+        )
+        
+        try:
+            result = await generate_llm_function_response(
+                prompt=user_prompt,
+                tools=[generate_insight_tool],
+                system_prompt=system_prompt,
+                model="gpt-4.1-mini",
+                temperature=0.3,
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": "generate_insight"},
+                },
+            )
+            
+            if isinstance(result, dict) and "function_name" in result:
+                args = result["arguments"]
+                return AgentInsight(
+                    summary=args["summary"],
+                    key_findings=args.get("key_findings"),
+                    evidence=args.get("evidence"),
+                    confidence=args.get("confidence"),
+                )
+            else:
+                # Fallback
+                summary = portfolio_data.get("summary", {})
+                num_companies = summary.get("total_companies", 0)
+                if num_companies > 0:
+                    return AgentInsight(
+                        summary=f"Found {num_companies} portfolio company/companies for {portfolio_data.get('investor_name', 'the investor')}.",
+                        confidence=0.7,
+                    )
+                else:
+                    return AgentInsight(
+                        summary=f"Could not find any portfolio companies for {portfolio_data.get('investor_name', 'the specified investor')}.",
+                        confidence=0.0,
+                    )
+        except Exception as e:
+            logger.warning(
+                f"Failed to generate portfolio insight from LLM: {e}", exc_info=True
+            )
+            summary = portfolio_data.get("summary", {})
+            num_companies = summary.get("total_companies", 0)
+            if num_companies > 0:
+                return AgentInsight(
+                    summary=f"Found {num_companies} portfolio company/companies for {portfolio_data.get('investor_name', 'the investor')}.",
+                    confidence=0.7,
+                )
+            else:
+                return AgentInsight(
+                    summary=f"Could not find any portfolio companies for {portfolio_data.get('investor_name', 'the specified investor')}.",
+                    confidence=0.0,
+                )
+
+    async def _format_multi_portfolio_response(
+        self,
+        context: AgentContext,
+        portfolio_results: list[Dict[str, Any]],
+    ) -> AgentInsight:
+        """Generate domain insight from multiple investor portfolio data using LLM.
+        
+        Args:
+            context: The agent context.
+            portfolio_results: List of dicts with 'investor_name' and 'portfolio_data'.
+            
+        Returns:
+            AgentInsight object with domain interpretation and reasoning.
+        """
+        generate_insight_tool = {
+            "type": "function",
+            "function": {
+                "name": "generate_insight",
+                "description": "Generate domain insight from multiple investor portfolio data",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "summary": {
+                            "type": "string",
+                            "description": "Human-readable insight summary answering the user's query, comparing portfolios across investors",
+                        },
+                        "key_findings": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Bullet points of key findings comparing the portfolios",
+                        },
+                        "evidence": {
+                            "type": "object",
+                            "description": "Supporting data from tool calls",
+                        },
+                        "confidence": {
+                            "type": "number",
+                            "minimum": 0.0,
+                            "maximum": 1.0,
+                            "description": "Confidence in the insight",
+                        },
+                    },
+                    "required": ["summary"],
+                },
+            },
+        }
+        
+        prompt_manager = get_prompt_manager()
+        base_prompt = """You are an investor portfolio analysis expert. Analyze multiple investor portfolio data and generate insights that directly answer the user's query.
+
+Your task:
+- Compare portfolios across all investors (number of companies, investments, capital deployed)
+- Highlight notable portfolio companies for each investor (by funding, stage, or other metrics)
+- Identify investment patterns and differences between investors (stages, sectors, time periods, investment sizes)
+- Compare portfolio sizes, activity levels, and strategic focus
+- State uncertainty where data is missing
+- Directly answer the user's query in the summary, providing a comprehensive comparison
+
+If no portfolio companies are found for any investor, explain why (e.g., investor name not found, no investments in specified time period)."""
+        
+        system_prompt = prompt_manager.build_system_prompt(
+            base_prompt=base_prompt,
+            options=PromptOptions(
+                add_temporal_context=True, add_markdown_instructions=True
+            ),
+        )
+        
+        user_prompt_content = f"""User Query: {context.query}
+
+Investor Portfolio Data (JSON):
+{json.dumps(portfolio_results, indent=2, default=str)}
+
+Analyze this data and generate insights that directly answer the user's query. Compare the portfolios across all investors. Call the generate_insight function with your analysis."""
+        
+        user_prompt = prompt_manager.build_user_prompt(
+            user_query=user_prompt_content,
+            options=PromptOptions(add_temporal_context=True),
+        )
+        
+        try:
+            result = await generate_llm_function_response(
+                prompt=user_prompt,
+                tools=[generate_insight_tool],
+                system_prompt=system_prompt,
+                model="gpt-4.1-mini",
+                temperature=0.3,
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": "generate_insight"},
+                },
+            )
+            
+            if isinstance(result, dict) and "function_name" in result:
+                args = result["arguments"]
+                return AgentInsight(
+                    summary=args["summary"],
+                    key_findings=args.get("key_findings"),
+                    evidence=args.get("evidence"),
+                    confidence=args.get("confidence"),
+                )
+            else:
+                # Fallback
+                total_companies = sum(
+                    pr["portfolio_data"].get("summary", {}).get("total_companies", 0)
+                    for pr in portfolio_results
+                )
+                investor_names = [pr["investor_name"] for pr in portfolio_results]
+                if total_companies > 0:
+                    return AgentInsight(
+                        summary=f"Found portfolios for {len(portfolio_results)} investor(s): {', '.join(investor_names)}. Total portfolio companies: {total_companies}.",
+                        confidence=0.7,
+                    )
+                else:
+                    return AgentInsight(
+                        summary=f"Could not find any portfolio companies for the specified investors: {', '.join(investor_names)}.",
+                        confidence=0.0,
+                    )
+        except Exception as e:
+            logger.warning(
+                f"Failed to generate multi-portfolio insight from LLM: {e}", exc_info=True
+            )
+            total_companies = sum(
+                pr["portfolio_data"].get("summary", {}).get("total_companies", 0)
+                for pr in portfolio_results
+            )
+            investor_names = [pr["investor_name"] for pr in portfolio_results]
+            if total_companies > 0:
+                return AgentInsight(
+                    summary=f"Found portfolios for {len(portfolio_results)} investor(s): {', '.join(investor_names)}. Total portfolio companies: {total_companies}.",
+                    confidence=0.7,
+                )
+            else:
+                return AgentInsight(
+                    summary=f"Could not find any portfolio companies for the specified investors: {', '.join(investor_names)}.",
+                    confidence=0.0,
+                )
+
     async def _extract_search_parameters(
         self, context: AgentContext, resolved_uuids: Dict[str, Any]
     ) -> Dict[str, Any]:
@@ -407,6 +1257,49 @@ Identify any company names mentioned in this query."""
         Returns:
             Dictionary of parameters to pass to get_funding_rounds tool.
         """
+        # First, use pre-extracted metadata when available to avoid redundant LLM calls
+        extracted = context.get_metadata("extracted_entities", {})
+        search_params: Dict[str, Any] = {}
+
+        # Use resolved org uuid if present
+        if resolved_uuids.get("org_uuid"):
+            search_params["org_uuid"] = resolved_uuids["org_uuid"]
+
+        # Time period
+        time_period = extracted.get("time_period", {})
+        if time_period.get("start"):
+            search_params["investment_date_from"] = time_period["start"]
+        if time_period.get("end"):
+            search_params["investment_date_to"] = time_period["end"]
+
+        # Amounts
+        amounts = extracted.get("amounts", {})
+        if amounts.get("fundraise_min") is not None:
+            search_params["fundraise_amount_usd_min"] = amounts["fundraise_min"]
+        if amounts.get("fundraise_max") is not None:
+            search_params["fundraise_amount_usd_max"] = amounts["fundraise_max"]
+        if amounts.get("valuation_min") is not None:
+            search_params["valuation_usd_min"] = amounts["valuation_min"]
+        if amounts.get("valuation_max") is not None:
+            search_params["valuation_usd_max"] = amounts["valuation_max"]
+
+        # Funding stages
+        funding_stages = extracted.get("funding_stages", [])
+        if funding_stages:
+            search_params["general_funding_stage"] = funding_stages[0]
+
+        # Investors
+        investors = extracted.get("investors", {})
+        investor_names = investors.get("names", [])
+        if investor_names:
+            search_params["investors_contains"] = investor_names[0]
+
+        # Apply defaults if we gathered any params from metadata
+        if search_params:
+            if "limit" not in search_params:
+                search_params["limit"] = 10
+            return search_params
+
         # Define the function/tool schema for get_funding_rounds
         get_funding_rounds_tool = {
             "type": "function",
@@ -509,7 +1402,7 @@ Identify any company names mentioned in this query."""
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=self._extract_params_prompt,
             options=PromptOptions(
-                add_temporal_context=False, add_markdown_instructions=False
+                add_temporal_context=True, add_markdown_instructions=True
             ),
         )
 
@@ -538,7 +1431,7 @@ Call the get_funding_rounds function with the extracted parameters."""
 
         user_prompt = prompt_manager.build_user_prompt(
             user_query=user_prompt_content,
-            options=PromptOptions(add_temporal_context=False),
+            options=PromptOptions(add_temporal_context=True),
         )
 
         try:
@@ -562,8 +1455,18 @@ Call the get_funding_rounds function with the extracted parameters."""
                     filtered_params = {k: v for k, v in params.items() if v is not None}
 
                     # Override with resolved UUIDs if available (they take precedence)
-                    if resolved_uuids.get("org_uuid"):
-                        filtered_params["org_uuid"] = resolved_uuids["org_uuid"]
+                    # Only use resolved UUID if it's a valid UUID string
+                    resolved_uuid = resolved_uuids.get("org_uuid")
+                    if resolved_uuid:
+                        try:
+                            # Validate that it's a valid UUID string
+                            UUID(resolved_uuid)
+                            filtered_params["org_uuid"] = resolved_uuid
+                        except (ValueError, TypeError):
+                            # Invalid UUID, log warning and skip it
+                            logger.warning(
+                                f"Invalid UUID from resolved_uuids: {resolved_uuid}, skipping"
+                            )
 
                     if "limit" not in filtered_params:
                         filtered_params["limit"] = 10
@@ -654,7 +1557,7 @@ If no funding rounds are found, explain why (e.g., search criteria too narrow, n
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=base_prompt,
             options=PromptOptions(
-                add_temporal_context=False, add_markdown_instructions=False
+                add_temporal_context=True, add_markdown_instructions=True
             ),
         )
 
@@ -670,7 +1573,7 @@ Analyze this data and generate insights that directly answer the user's query. C
 
         user_prompt = prompt_manager.build_user_prompt(
             user_query=user_prompt_content,
-            options=PromptOptions(add_temporal_context=False),
+            options=PromptOptions(add_temporal_context=True),
         )
 
         try:

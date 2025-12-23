@@ -143,6 +143,8 @@ def _get_activities() -> List:
     activities = [
         agents.execute_agent,
         agents.execute_agent_with_options,
+        agents.save_conversation_history,
+        agents.enrich_query,
         tools.execute_tool,
         tools.execute_tool_with_options,
     ]

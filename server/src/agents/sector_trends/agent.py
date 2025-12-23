@@ -338,6 +338,31 @@ Rules:
         Returns:
             Dictionary of extracted parameters.
         """
+        # Use pre-extracted metadata when available
+        extracted = context.get_metadata("extracted_entities", {})
+        params: Dict[str, Any] = {}
+
+        sectors = extracted.get("sectors", [])
+        if sectors:
+            params["sector_name"] = sectors[0]
+
+        time_period = extracted.get("time_period", {})
+        if time_period.get("start"):
+            params["time_period_start"] = time_period["start"]
+        if time_period.get("end"):
+            params["time_period_end"] = time_period["end"]
+        if time_period.get("granularity"):
+            params["granularity"] = time_period["granularity"]
+
+        amounts = extracted.get("amounts", {})
+        if amounts.get("fundraise_min") is not None:
+            params["min_funding_amount"] = amounts["fundraise_min"]
+
+        if params:
+            if "granularity" not in params:
+                params["granularity"] = "quarterly"
+            return params
+
         extract_params_tool = {
             "type": "function",
             "function": {

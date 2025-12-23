@@ -30,6 +30,8 @@ from .calculate_portfolio_metrics import \
 from .analyze_sector_concentration import analyze_sector_concentration
 from .analyze_sector_concentration import \
     get_tool_metadata as get_analyze_sector_concentration_metadata
+from .query_enrichment import QueryEnrichmentService
+from .query_enrichment import ExtractedQueryMetadata
 
 __all__ = [
     "generate_llm_function_response",
@@ -54,4 +56,6 @@ __all__ = [
     "get_calculate_portfolio_metrics_metadata",
     "analyze_sector_concentration",
     "get_analyze_sector_concentration_metadata",
+    "QueryEnrichmentService",
+    "ExtractedQueryMetadata",
 ]

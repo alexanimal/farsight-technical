@@ -34,6 +34,11 @@ from src.temporal.signals import (SIGNAL_CANCELLATION, SIGNAL_USER_INPUT,
 
 logger = logging.getLogger(__name__)
 
+# Configuration constants for iterative reasoning
+MAX_ITERATIONS = 3  # Maximum number of planning/execution iterations
+MIN_CONFIDENCE_THRESHOLD = 0.7  # Minimum confidence to consider answer satisfactory
+EARLY_EXIT_CONFIDENCE = 0.9  # Confidence threshold for early exit
+
 
 @dataclass
 class AgentExecutionState:
@@ -66,6 +71,8 @@ class WorkflowState:
     cancellation_reason: Optional[str] = None
     user_inputs: List[Dict[str, Any]] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    current_iteration: int = 0  # Track current iteration number
+    evaluation_results: List[Dict[str, Any]] = field(default_factory=list)  # Store evaluation results
 
 
 @workflow.defn(name="orchestrator")
@@ -132,61 +139,157 @@ class OrchestratorWorkflow:
         self._state.metadata["workflow_id"] = workflow_id
         self._state.metadata["execution_mode"] = execution_mode
 
+        # Initialize conversation history from context
+        conversation_history = context.get("conversation_history", [])
+        if conversation_history:
+            workflow.logger.info(
+                f"Loaded {len(conversation_history)} messages from conversation history"
+            )
+        else:
+            conversation_history = []
+            context["conversation_history"] = conversation_history
+
+        # Append user query to conversation history
+        user_query = context.get("query", "")
+        if user_query:
+            conversation_history.append({
+                "role": "user",
+                "content": user_query,
+                "timestamp": workflow.now().isoformat() + "Z",
+            })
+            context["conversation_history"] = conversation_history
+
         workflow.logger.info(
-            f"Starting orchestrator workflow {workflow_id} with query: {context.get('query', 'N/A')[:100]}"
+            f"Starting orchestrator workflow {workflow_id} with query: {user_query[:100]}"
         )
 
         try:
-            # If no agent plan provided, start with orchestration agent
-            if agent_plan is None:
-                agent_plan, plan_execution_mode = await self._determine_agent_plan(context)
-                # Use execution_mode from orchestration agent's plan if available
-                if plan_execution_mode:
-                    execution_mode = plan_execution_mode
-                    self._state.metadata["execution_mode"] = execution_mode
-                    workflow.logger.info(f"Using execution_mode from orchestration plan: {execution_mode}")
+            # Iterative reasoning loop
+            iteration = 0
+            satisfactory = False
+            final_response = None
 
-            # Execute agents according to plan
-            if execution_mode == "parallel":
-                results = await self._execute_agents_parallel(agent_plan, context)
-            else:
-                results = await self._execute_agents_sequential(agent_plan, context)
+            while not satisfactory and iteration < MAX_ITERATIONS:
+                self._state.current_iteration = iteration
+                workflow.logger.info(f"Starting iteration {iteration + 1}/{MAX_ITERATIONS}")
 
-            # Determine final status
-            if self._state.cancellation_requested:
-                self._state.status = WorkflowStatus.CANCELLED
-                self._state.completed_at = workflow.now()
-                return {
-                    "success": False,
-                    "final_response": None,
-                    "agent_responses": self._state.agent_responses,
-                    "workflow_id": workflow_id,
-                    "metadata": {
-                        "cancelled": True,
-                        "cancellation_reason": self._state.cancellation_reason,
-                    },
-                }
+                # Determine agent plan (initial plan or re-plan)
+                if iteration == 0:
+                    # First iteration: use provided plan or determine new plan
+                    if agent_plan is None:
+                        # Enrich query before orchestration
+                        enriched = await self._enrich_query_with_context(context)
+                        context.update(enriched)
+                        agent_plan, plan_execution_mode = await self._determine_agent_plan(context)
+                        # Use execution_mode from orchestration agent's plan if available
+                        if plan_execution_mode:
+                            execution_mode = plan_execution_mode
+                            self._state.metadata["execution_mode"] = execution_mode
+                            workflow.logger.info(f"Using execution_mode from orchestration plan: {execution_mode}")
+                else:
+                    # Subsequent iterations: evaluate and decide if replanning is needed
+                    # Preserve original execution_mode when replanning
+                    original_execution_mode = execution_mode
+                    evaluation, replan = await self._evaluate_and_replan(context)
+                    
+                    if evaluation:
+                        self._state.evaluation_results.append(evaluation)
+                        satisfactory = evaluation.get("satisfactory", False)
+                        confidence = evaluation.get("confidence", 0.0)
+                        
+                        workflow.logger.info(
+                            f"Previous iteration evaluation: "
+                            f"satisfactory={satisfactory}, confidence={confidence}"
+                        )
 
-            # Check if any agents failed
-            failed_agents = [
-                name
-                for name, exec_state in self._state.agent_executions.items()
-                if exec_state.status == "failed"
-            ]
+                        # Early exit if confidence is very high or answer is satisfactory
+                        if confidence >= EARLY_EXIT_CONFIDENCE:
+                            workflow.logger.info(
+                                f"High confidence ({confidence}) reached, exiting early"
+                            )
+                            satisfactory = True
+                            break
+                        elif satisfactory:
+                            workflow.logger.info("Answer is satisfactory, exiting loop")
+                            break
+                    
+                    # Only replan if not satisfactory and replan is available
+                    if not satisfactory and replan:
+                        agent_plan = replan.get("agents", [])
+                        # Use execution_mode from replan, but fallback to original if not provided
+                        replan_execution_mode = replan.get("execution_mode")
+                        if replan_execution_mode:
+                            execution_mode = replan_execution_mode
+                        else:
+                            # Preserve original execution_mode if replan doesn't specify
+                            execution_mode = original_execution_mode
+                            workflow.logger.info(
+                                f"Replan did not specify execution_mode, preserving original: {execution_mode}"
+                            )
+                        self._state.metadata["execution_mode"] = execution_mode
+                        workflow.logger.info(
+                            f"Re-planning for iteration {iteration + 1}: {len(agent_plan)} agents, "
+                            f"execution_mode: {execution_mode}"
+                        )
+                    elif not satisfactory:
+                        # Evaluation says not satisfactory but no replan available, exit
+                        workflow.logger.warning("Answer not satisfactory but no replan available, exiting loop")
+                        break
+                    else:
+                        # Satisfactory, no need to replan
+                        break
 
-            if failed_agents:
-                self._state.status = WorkflowStatus.FAILED
-                self._state.error = f"Agents failed: {', '.join(failed_agents)}"
-            else:
-                self._state.status = WorkflowStatus.COMPLETED
+                # If no agents to execute, exit loop
+                if not agent_plan:
+                    workflow.logger.info("No agents to execute, exiting loop")
+                    break
 
-            self._state.completed_at = workflow.now()
+                # Execute agents according to plan
+                if execution_mode == "parallel":
+                    results = await self._execute_agents_parallel(agent_plan, context)
+                else:
+                    results = await self._execute_agents_sequential(agent_plan, context)
+
+                # Check for cancellation
+                if self._state.cancellation_requested:
+                    workflow.logger.info("Cancellation requested, exiting loop")
+                    break
+
+                # Update context with results from this iteration
+                context = await self._update_context_with_results(context, results, iteration)
+
+                # Evaluate response quality after execution (skip on last iteration)
+                if iteration < MAX_ITERATIONS - 1:
+                    evaluation = await self._evaluate_response_quality(context, results)
+                    self._state.evaluation_results.append(evaluation)
+                    
+                    satisfactory = evaluation.get("satisfactory", False)
+                    confidence = evaluation.get("confidence", 0.0)
+                    
+                    workflow.logger.info(
+                        f"Iteration {iteration + 1} evaluation: "
+                        f"satisfactory={satisfactory}, confidence={confidence}"
+                    )
+
+                    # Early exit if confidence is very high
+                    if confidence >= EARLY_EXIT_CONFIDENCE:
+                        workflow.logger.info(
+                            f"High confidence ({confidence}) reached, exiting early"
+                        )
+                        satisfactory = True
+                else:
+                    # Last iteration: don't evaluate, just mark as satisfactory
+                    workflow.logger.info("Last iteration, skipping evaluation")
+                    satisfactory = True
+
+                iteration += 1
+
+            # After loop: consolidate final response
+            workflow.logger.info(f"Completed {iteration} iteration(s), consolidating final response")
 
             # Consolidate agent responses into final answer
-            final_response = None
             if self._state.agent_responses:
-                # Filter out orchestration agent responses from planning phase
-                # (we only want responses from specialized agents for consolidation)
+                # Filter out orchestration agent responses from planning/evaluation phases
                 specialized_agent_responses = [
                     resp
                     for resp in self._state.agent_responses
@@ -203,6 +306,7 @@ class OrchestratorWorkflow:
                         # Create consolidation context
                         consolidation_context = {
                             "query": context.get("query", ""),
+                            "conversation_history": context.get("conversation_history", []),
                             "metadata": {
                                 "mode": "consolidation",
                                 "agent_responses": specialized_agent_responses,
@@ -220,26 +324,72 @@ class OrchestratorWorkflow:
                             workflow.logger.info(
                                 "Successfully consolidated agent responses"
                             )
+                            
+                            # Append consolidated response to conversation history
+                            await self._append_to_history("assistant", consolidated_response)
                         else:
                             workflow.logger.warning(
                                 f"Consolidation failed: {consolidation_result.get('error', 'Unknown error')}"
                             )
                             # Fallback to last agent response
                             final_response = self._state.agent_responses[-1]
+                            # Append fallback response to history
+                            if final_response:
+                                await self._append_to_history("assistant", final_response)
                     except Exception as e:
                         workflow.logger.error(
                             f"Error during consolidation: {e}", exc_info=True
                         )
                         # Fallback to last agent response
                         final_response = self._state.agent_responses[-1]
+                        # Append fallback response to history
+                        if final_response:
+                            await self._append_to_history("assistant", final_response)
                 else:
                     # No specialized agent responses, use orchestration response if available
                     for response in reversed(self._state.agent_responses):
                         if response.get("agent_category") == "orchestration":
                             final_response = response
                             break
-                    if final_response is None:
+                    if final_response is None and self._state.agent_responses:
                         final_response = self._state.agent_responses[-1]
+                    # Append final response to history
+                    if final_response:
+                        await self._append_to_history("assistant", final_response)
+
+            # Determine final status
+            if self._state.cancellation_requested:
+                self._state.status = WorkflowStatus.CANCELLED
+                self._state.completed_at = workflow.now()
+                self._state.metadata["iterations_completed"] = iteration
+                return {
+                    "success": False,
+                    "final_response": final_response,
+                    "agent_responses": self._state.agent_responses,
+                    "workflow_id": workflow_id,
+                    "metadata": {
+                        "cancelled": True,
+                        "cancellation_reason": self._state.cancellation_reason,
+                        "iterations_completed": iteration,
+                    },
+                }
+
+            # Check if any agents failed
+            failed_agents = [
+                name
+                for name, exec_state in self._state.agent_executions.items()
+                if exec_state.status == "failed"
+            ]
+
+            if failed_agents:
+                self._state.status = WorkflowStatus.FAILED
+                self._state.error = f"Agents failed: {', '.join(failed_agents)}"
+            else:
+                self._state.status = WorkflowStatus.COMPLETED
+
+            self._state.completed_at = workflow.now()
+            self._state.metadata["iterations_completed"] = iteration
+            self._state.metadata["final_satisfactory"] = satisfactory
 
             return {
                 "success": self._state.status == WorkflowStatus.COMPLETED,
@@ -256,6 +406,10 @@ class OrchestratorWorkflow:
             self._state.error = error_msg
             self._state.completed_at = workflow.now()
             raise
+
+        finally:
+            # Save conversation history after workflow completion
+            await self._save_conversation_history()
 
     async def _determine_agent_plan(self, context: Dict[str, Any]) -> Tuple[List[str], Optional[str]]:
         """Determine which agents to execute using orchestration agent.
@@ -294,6 +448,185 @@ class OrchestratorWorkflow:
         else:
             workflow.logger.warning("No execution plan found in orchestration response metadata")
             return [], None
+
+    async def _evaluate_and_replan(
+        self, context: Dict[str, Any]
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        """Evaluate current responses and create a re-plan if needed.
+
+        Args:
+            context: Current context with agent responses.
+
+        Returns:
+            Tuple of (evaluation, replan):
+            - evaluation: Evaluation result dict with satisfactory, confidence, etc., or None if failed
+            - replan: Dictionary with "agents" and "execution_mode" if re-planning needed,
+              None if no re-plan needed or evaluation failed
+        """
+        # Get all agent responses from all iterations
+        all_responses = self._state.agent_responses.copy()
+        
+        # Filter out orchestration agent responses (planning/evaluation)
+        specialized_responses = [
+            resp for resp in all_responses
+            if resp.get("agent_category") != "orchestration"
+        ]
+
+        if not specialized_responses:
+            workflow.logger.warning("No specialized agent responses for evaluation")
+            return None, None
+
+        # Ensure query is enriched (if not already)
+        if "extracted_entities" not in context.get("metadata", {}):
+            enriched = await self._enrich_query_with_context(context)
+            context.update(enriched)
+
+        # Create evaluation context
+        evaluation_context = {
+            "query": context.get("query", ""),
+            "conversation_history": context.get("conversation_history", []),
+            "metadata": {
+                "mode": "evaluation_and_replanning",
+                "agent_responses": specialized_responses,
+                "execution_history": self._state.execution_history,
+            },
+        }
+
+        # Call orchestration agent in evaluation mode
+        result = await self._execute_single_agent("orchestration", evaluation_context)
+
+        if not result.get("success"):
+            workflow.logger.warning("Evaluation failed, cannot create re-plan")
+            return None, None
+
+        response = result.get("response", {})
+        metadata = response.get("metadata", {})
+        evaluation = metadata.get("evaluation")
+        replan = metadata.get("replan")
+
+        if evaluation:
+            workflow.logger.info(
+                f"Evaluation result: satisfactory={evaluation.get('satisfactory')}, "
+                f"confidence={evaluation.get('confidence')}"
+            )
+        else:
+            workflow.logger.warning("No evaluation result found in orchestration response")
+
+        if replan and isinstance(replan, dict) and "agents" in replan:
+            workflow.logger.info(
+                f"Re-plan created: {len(replan['agents'])} agents, "
+                f"mode: {replan.get('execution_mode', 'sequential')}"
+            )
+            return evaluation, replan
+        else:
+            workflow.logger.info("Evaluation determined no re-planning needed")
+            return evaluation, None
+
+    async def _evaluate_response_quality(
+        self, context: Dict[str, Any], results: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Evaluate the quality of agent responses.
+
+        Args:
+            context: Current context.
+            results: Results from agent execution.
+
+        Returns:
+            Evaluation result dictionary.
+        """
+        # Get all agent responses from all iterations
+        all_responses = self._state.agent_responses.copy()
+        
+        # Filter out orchestration agent responses
+        specialized_responses = [
+            resp for resp in all_responses
+            if resp.get("agent_category") != "orchestration"
+        ]
+
+        if not specialized_responses:
+            # No responses to evaluate
+            return {
+                "satisfactory": False,
+                "reasoning": "No agent responses to evaluate",
+                "missing_information": ["No responses available"],
+                "confidence": 0.0,
+            }
+
+        # Create evaluation context
+        evaluation_context = {
+            "query": context.get("query", ""),
+            "conversation_history": context.get("conversation_history", []),
+            "metadata": {
+                "mode": "evaluation_and_replanning",
+                "agent_responses": specialized_responses,
+                "execution_history": self._state.execution_history,
+            },
+        }
+
+        # Call orchestration agent in evaluation mode
+        result = await self._execute_single_agent("orchestration", evaluation_context)
+
+        if not result.get("success"):
+            workflow.logger.warning("Evaluation failed, defaulting to not satisfactory")
+            return {
+                "satisfactory": False,
+                "reasoning": "Evaluation failed",
+                "missing_information": ["Unable to evaluate"],
+                "confidence": 0.5,
+            }
+
+        response = result.get("response", {})
+        metadata = response.get("metadata", {})
+        evaluation = metadata.get("evaluation", {})
+
+        if evaluation:
+            return evaluation
+        else:
+            # Fallback
+            return {
+                "satisfactory": False,
+                "reasoning": "Evaluation result not found",
+                "missing_information": ["Evaluation incomplete"],
+                "confidence": 0.5,
+            }
+
+    async def _update_context_with_results(
+        self, context: Dict[str, Any], results: List[Dict[str, Any]], iteration: int
+    ) -> Dict[str, Any]:
+        """Update context with results from an iteration.
+
+        This method accumulates agent responses, updates shared data,
+        and prepares context for the next iteration.
+
+        Args:
+            context: Current context.
+            results: Results from agent execution.
+            iteration: Current iteration number.
+
+        Returns:
+            Updated context dictionary.
+        """
+        # Store iteration responses in metadata
+        iteration_key = f"iteration_{iteration}_responses"
+        if "metadata" not in context:
+            context["metadata"] = {}
+        context["metadata"][iteration_key] = results
+
+        # Accumulate shared data from all successful results
+        for result in results:
+            if result.get("success") and result.get("response"):
+                response = result["response"]
+                # Update shared data
+                if "shared_data" in response.get("metadata", {}):
+                    context.setdefault("shared_data", {}).update(
+                        response["metadata"]["shared_data"]
+                    )
+
+        # Add iteration info to metadata
+        context["metadata"]["current_iteration"] = iteration
+        context["metadata"]["total_iterations"] = MAX_ITERATIONS
+
+        return context
 
     async def _execute_single_agent(
         self, agent_name: str, context: Dict[str, Any]
@@ -439,6 +772,9 @@ class OrchestratorWorkflow:
                         response["metadata"]["shared_data"]
                     )
 
+                # Append assistant response to conversation history (only for final consolidation)
+                # We'll append the final consolidated response, not individual agent responses
+
         return results
 
     async def _execute_agents_parallel(
@@ -492,6 +828,74 @@ class OrchestratorWorkflow:
                 )
 
         return processed_results
+
+    async def _enrich_query_with_context(
+        self, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Enrich query with context and extract metadata.
+
+        Note: context is a Dict[str, Any] in the workflow, not AgentContext.
+        Agents receive AgentContext objects which have get_metadata() methods.
+
+        This method calls an activity to perform the enrichment, as workflows
+        must be deterministic and cannot import non-deterministic modules.
+
+        Returns dict with updated query and metadata.
+        """
+        # Skip if already enriched (checking metadata is sufficient)
+        if context.get("metadata", {}).get("extracted_entities"):
+            return {}
+
+        try:
+            # Call activity to perform query enrichment
+            # Activities can import non-deterministic modules like langfuse
+            result = await workflow.execute_activity(
+                "enrich_query",
+                args=[
+                    context.get("query", ""),
+                    context.get("conversation_history", []),
+                ],
+                start_to_close_timeout=timedelta(seconds=60),
+                retry_policy=RetryPolicy(
+                    initial_interval=timedelta(seconds=1),
+                    backoff_coefficient=2.0,
+                    maximum_interval=timedelta(seconds=10),
+                    maximum_attempts=2,  # Fewer retries for enrichment
+                ),
+            )
+
+            if not result.get("success"):
+                workflow.logger.warning(
+                    f"Query enrichment activity failed: {result.get('error', 'Unknown error')}, using original query"
+                )
+                return {}  # Return empty dict to use original query
+
+            # Update context dict
+            # Use improved query even if metadata extraction partially failed
+            enrichment_data = result.get("result", {})
+            improved_query = enrichment_data.get("improved_query") or context.get("query", "")
+            metadata_dict = enrichment_data.get("metadata", {})
+
+            updates = {
+                "query": improved_query,
+                "metadata": {
+                    **context.get("metadata", {}),
+                    "extracted_entities": metadata_dict,
+                    "original_query": enrichment_data.get("original_query", context.get("query", "")),
+                },
+            }
+
+            workflow.logger.info(
+                f"Query enriched: '{context.get('query', '')[:50]}...' -> "
+                f"'{updates['query'][:50]}...'"
+            )
+
+            return updates
+        except Exception as e:
+            workflow.logger.warning(
+                f"Query enrichment failed: {e}, using original query", exc_info=True
+            )
+            return {}  # Return empty dict to use original query
 
     async def _check_user_input(self, context: Dict[str, Any]) -> None:
         """Check for and process user input signals.
@@ -582,6 +986,11 @@ class OrchestratorWorkflow:
             if running_agent:
                 current_step = f"Executing {running_agent.agent_name}"
 
+        # Include iteration information
+        iteration_number = self._state.current_iteration + 1 if self._state.current_iteration > 0 else None
+        if iteration_number:
+            current_step = f"Iteration {iteration_number}/{MAX_ITERATIONS}: {current_step}" if current_step else f"Iteration {iteration_number}/{MAX_ITERATIONS}"
+
         return WorkflowProgressQueryResult(
             workflow_id=workflow_id,
             status=self._state.status,
@@ -592,6 +1001,7 @@ class OrchestratorWorkflow:
             agent_statuses=agent_statuses,
             progress_percentage=progress_percentage,
             current_step=current_step,
+            iteration_number=iteration_number,
             metadata=self._state.metadata,
         )
 
@@ -648,6 +1058,88 @@ class OrchestratorWorkflow:
             metadata=exec_state.metadata,
         )
 
+    async def _append_to_history(self, role: str, content: Any) -> None:
+        """Append a message to conversation history.
+
+        Args:
+            role: Message role ('user', 'assistant', 'system').
+            content: Message content (string or dict for assistant responses).
+        """
+        conversation_history = self._state.context.get("conversation_history", [])
+        if not conversation_history:
+            conversation_history = []
+            self._state.context["conversation_history"] = conversation_history
+
+        # Format content based on type
+        if role == "assistant" and isinstance(content, dict):
+            # Extract summary from AgentInsight or use content directly
+            if isinstance(content.get("content"), dict):
+                insight = content["content"]
+                if "summary" in insight:
+                    content_str = insight["summary"]
+                else:
+                    content_str = str(insight)
+            elif isinstance(content.get("content"), str):
+                content_str = content["content"]
+            else:
+                content_str = str(content)
+        else:
+            content_str = str(content)
+
+        conversation_history.append({
+            "role": role,
+            "content": content_str,
+            "timestamp": workflow.now().isoformat() + "Z",
+        })
+        self._state.context["conversation_history"] = conversation_history
+
+    async def _save_conversation_history(self) -> None:
+        """Save conversation history to Redis via activity.
+
+        This method saves the current conversation history to Redis for persistence.
+        It's called after workflow completion or on error.
+        """
+        conversation_id = self._state.context.get("conversation_id")
+        if not conversation_id:
+            workflow.logger.debug("No conversation_id, skipping history save")
+            return
+
+        conversation_history = self._state.context.get("conversation_history", [])
+        if not conversation_history:
+            workflow.logger.debug(f"No conversation history to save for {conversation_id}")
+            return
+
+        try:
+            # Call activity to save history (Redis operations must be in activities)
+            result = await workflow.execute_activity(
+                "save_conversation_history",
+                args=[conversation_id, conversation_history],
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=RetryPolicy(
+                    initial_interval=timedelta(seconds=1),
+                    backoff_coefficient=2.0,
+                    maximum_interval=timedelta(seconds=10),
+                    maximum_attempts=3,
+                ),
+            )
+
+            if result.get("success"):
+                workflow.logger.info(
+                    f"Saved conversation history for {conversation_id} "
+                    f"({len(conversation_history)} messages)"
+                )
+            else:
+                workflow.logger.warning(
+                    f"Failed to save conversation history for {conversation_id}: "
+                    f"{result.get('error', 'Unknown error')}"
+                )
+        except Exception as e:
+            workflow.logger.error(
+                f"Error saving conversation history for {conversation_id}: {e}",
+                exc_info=True,
+            )
+            # Don't fail workflow on history save error
+
     @workflow.signal(name=SIGNAL_CANCELLATION)
     async def handle_cancellation(self, signal: CancellationSignal) -> None:
         """Handle cancellation signal.
@@ -677,3 +1169,13 @@ class OrchestratorWorkflow:
         if "user_inputs" not in self._state.context:
             self._state.context["user_inputs"] = []
         self._state.context["user_inputs"].append(signal.model_dump())
+
+        # Append user input to conversation history
+        await self._append_to_history("user", signal.input_text)
+        
+        # Update context query with new user input
+        self._state.context["query"] = signal.input_text
+        
+        # Enrich query after updating
+        enriched = await self._enrich_query_with_context(self._state.context)
+        self._state.context.update(enriched)

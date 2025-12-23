@@ -49,23 +49,23 @@ except ImportError:
 _FALLBACK_AVAILABLE_AGENTS = {
     "acquisition": {
         "name": "acquisition",
-        "description": "Handles queries about company acquisitions, mergers, and M&A activity",
-        "keywords": ["acquisition", "acquired", "merger", "m&a", "takeover", "buyout"],
+        "description": "Handles queries about company acquisitions, mergers, and M&A activity. Handles M&A (mergers and acquisitions), company exits, buyouts, and acquisition details including prices, terms, dates, and participating companies.",
+        "keywords": ["acquisition", "acquired", "merger", "m&a", "m and a", "takeover", "buyout", "exit", "exits", "company exit", "acquisition price", "acquisition terms", "acquirer", "acquiree", "target company", "buying company", "company bought", "company sold", "acquisition date", "acquisition announcement"],
     },
     "organizations": {
         "name": "organizations",
-        "description": "Handles queries about companies, organizations, and their details",
-        "keywords": ["company", "organization", "startup", "firm", "business", "companies"],
+        "description": "Handles queries about companies, organizations, and their details. NOTE: NOT for investor-related queries - use funding_rounds agent for questions about investors, investor portfolios, or companies that investors have funded.",
+        "keywords": ["company", "organization", "startup", "firm", "business", "companies", "organization details", "company information", "find company", "company search"],
     },
     "funding_rounds": {
         "name": "funding_rounds",
-        "description": "Handles queries about funding rounds, investments, and fundraising",
-        "keywords": ["funding", "investment", "round", "raise", "investor", "fundraise"],
+        "description": "Handles queries about funding rounds, investments, and fundraising. PRIMARY agent for investor-related queries including finding companies investors have funded, investor portfolios, and funding rounds by specific investors.",
+        "keywords": ["funding", "investment", "round", "raise", "investor", "investors", "portfolio", "fundraise", "fundraising", "venture capital", "vc", "angel investor", "lead investor", "companies investors funded", "investor portfolio"],
     },
     "sector_trends": {
         "name": "sector_trends",
-        "description": "Analyzes funding trends within sectors over time, identifying growth patterns, funding velocity changes, and market momentum indicators",
-        "keywords": ["sector", "trend", "funding velocity", "growth", "momentum", "market analysis", "sector analysis", "funding trends", "market trends"],
+        "description": "Analyzes funding trends within sectors/industries over time, identifying growth patterns, funding velocity changes, and market momentum indicators. Analyzes AGGREGATED funding data across multiple companies within a sector. NOTE: This agent is for SECTOR/INDUSTRY-level analysis, NOT for individual company funding trends - use the funding_rounds agent for queries about specific companies.",
+        "keywords": ["sector", "industry", "trend", "trends", "funding velocity", "growth", "momentum", "market analysis", "sector analysis", "industry analysis", "funding trends", "market trends", "sector funding", "industry funding", "market momentum", "sector momentum", "funding patterns", "sector patterns", "aggregated funding", "sector comparison", "industry comparison"],
     },
 }
 
@@ -258,9 +258,10 @@ Rules:
     async def execute(self, context: AgentContext) -> AgentOutput:
         """Execute the orchestration agent in planning or consolidation mode.
 
-        This method supports two modes:
+        This method supports three modes:
         1. **Planning mode** (default): Creates an execution plan
         2. **Consolidation mode**: Consolidates agent insights into final answer
+        3. **Evaluation mode**: Evaluates response quality and creates re-plan if needed
 
         Args:
             context: The agent context containing the user query and metadata.
@@ -311,6 +312,59 @@ Rules:
                         "num_agents_consolidated": len(agent_responses),
                     },
                 )
+            elif mode == "evaluation_and_replanning":
+                # Evaluation mode: evaluate response quality and create re-plan
+                logger.info("Orchestration agent in evaluation and replanning mode")
+                agent_responses = context.get_metadata("agent_responses", [])
+                execution_history = context.get_metadata("execution_history", [])
+                
+                if not agent_responses:
+                    logger.warning("No agent responses provided for evaluation")
+                    return create_agent_output(
+                        content="",
+                        agent_name=self.name,
+                        agent_category=self.category,
+                        status=ResponseStatus.ERROR,
+                        error="No agent responses provided for evaluation",
+                    )
+                
+                # Evaluate response quality
+                evaluation = await self._evaluate_response_quality(
+                    context, agent_responses, execution_history
+                )
+                
+                # If not satisfactory, create re-plan
+                if not evaluation.get("satisfactory", False):
+                    logger.info("Response not satisfactory, creating re-plan")
+                    replan = await self._create_replan(context, evaluation, agent_responses)
+                    
+                    return create_agent_output(
+                        content="",
+                        agent_name=self.name,
+                        agent_category=self.category,
+                        status=ResponseStatus.SUCCESS,
+                        metadata={
+                            "query": context.query,
+                            "mode": "evaluation_and_replanning",
+                            "evaluation": evaluation,
+                            "replan": replan,
+                        },
+                    )
+                else:
+                    # Response is satisfactory
+                    logger.info("Response is satisfactory, no re-planning needed")
+                    return create_agent_output(
+                        content="",
+                        agent_name=self.name,
+                        agent_category=self.category,
+                        status=ResponseStatus.SUCCESS,
+                        metadata={
+                            "query": context.query,
+                            "mode": "evaluation_and_replanning",
+                            "evaluation": evaluation,
+                            "replan": None,
+                        },
+                    )
             else:
                 # Planning mode (default): create execution plan
                 logger.info(f"Orchestration agent analyzing query: {context.query[:100]}")
@@ -407,6 +461,24 @@ Rules:
             - reasoning: Explanation of the plan
             - confidence: Confidence score (0.0-1.0)
         """
+        # If query intent was pre-extracted, use it to shortcut planning
+        extracted = context.get_metadata("extracted_entities", {}) or {}
+        query_intent = extracted.get("query_intent")
+
+        intent_to_agents = {}
+
+        if query_intent in intent_to_agents:
+            agents = [a for a in intent_to_agents[query_intent] if a in available_agents]
+            if agents:
+                reasoning = f"Pre-extracted intent '{query_intent}' maps to agents: {', '.join(agents)}"
+                logger.info(reasoning)
+                return {
+                    "agents": agents,
+                    "execution_mode": "sequential",
+                    "reasoning": reasoning,
+                    "confidence": 0.75,
+                }
+
         # Build agents description for prompt
         agents_description = "\n".join(
             [
@@ -484,13 +556,26 @@ Rules:
             ),
         )
 
+        # Include conversation history if available
+        history_text = ""
+        if context.conversation_history:
+            history_for_llm = context.get_conversation_history_for_llm(max_messages=50)
+            if history_for_llm:
+                history_lines = []
+                for msg in history_for_llm:
+                    role = msg.get("role", "unknown")
+                    content = msg.get("content", "")
+                    history_lines.append(f"{role.capitalize()}: {content}")
+                history_text = "\n\nPrevious conversation:\n" + "\n".join(history_lines) + "\n"
+
         # Build user prompt using prompt manager
         user_prompt_content = f"""User Query: {context.query}
-
+{history_text}
 Analyze this query and create an execution plan. Consider:
 - What information is the user seeking?
 - Which agents have the capabilities to provide this information?
 - Should agents run sequentially or in parallel?
+- If there's conversation history, how does this query relate to previous messages?
 
 IMPORTANT: If you determine that an agent is relevant to answering this query, you MUST include that agent's name in the agents array. Do not leave the agents array empty if you identify relevant agents in your reasoning.
 
@@ -771,13 +856,25 @@ Your task:
             ),
         )
 
+        # Include conversation history if available
+        history_text = ""
+        if context.conversation_history:
+            history_for_llm = context.get_conversation_history_for_llm(max_messages=50)
+            if history_for_llm:
+                history_lines = []
+                for msg in history_for_llm:
+                    role = msg.get("role", "unknown")
+                    content = msg.get("content", "")
+                    history_lines.append(f"{role.capitalize()}: {content}")
+                history_text = "\n\nPrevious conversation:\n" + "\n".join(history_lines) + "\n"
+
         # Build user prompt with all agent insights
         user_prompt_content = f"""User Query: {context.query}
-
+{history_text}
 Agent Insights:
 {json.dumps(agent_insights, indent=2, default=str)}
 
-Consolidate these insights into a single final answer that directly addresses the user's query. Call the consolidate_insights function with your consolidated analysis."""
+Consolidate these insights into a single final answer that directly addresses the user's query. If there's conversation history, ensure your answer is coherent with previous messages. Call the consolidate_insights function with your consolidated analysis."""
 
         user_prompt = prompt_manager.build_user_prompt(
             user_query=user_prompt_content,
@@ -822,3 +919,331 @@ Consolidate these insights into a single final answer that directly addresses th
                 summary=f"Consolidated insights from {len(agent_responses)} agents but encountered an error during consolidation.",
                 confidence=0.0,
             )
+
+    async def _evaluate_response_quality(
+        self,
+        context: AgentContext,
+        agent_responses: List[Any],
+        execution_history: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Evaluate the quality and completeness of agent responses.
+
+        This method uses an LLM to evaluate if the current answer is satisfactory
+        for the user's query, identifying gaps and missing information.
+
+        Args:
+            context: The agent context containing the original user query.
+            agent_responses: List of AgentOutput objects (or dicts) from agents.
+            execution_history: List of execution events from the workflow.
+
+        Returns:
+            Dictionary containing:
+            - satisfactory: bool indicating if answer is satisfactory
+            - reasoning: str explaining the evaluation
+            - missing_information: List[str] of missing information gaps
+            - confidence: float (0.0-1.0) confidence in the evaluation
+        """
+        # Extract insights from agent responses
+        agent_insights = []
+        for resp in agent_responses:
+            if isinstance(resp, dict):
+                content = resp.get("content", {})
+                if isinstance(content, dict) and "summary" in content:
+                    agent_insights.append({
+                        "agent_name": resp.get("agent_name", "unknown"),
+                        "summary": content.get("summary", ""),
+                        "key_findings": content.get("key_findings", []),
+                    })
+                elif isinstance(content, str):
+                    agent_insights.append({
+                        "agent_name": resp.get("agent_name", "unknown"),
+                        "summary": content,
+                    })
+
+        if not agent_insights:
+            logger.warning("No agent insights found for evaluation")
+            return {
+                "satisfactory": False,
+                "reasoning": "No agent insights were available to evaluate",
+                "missing_information": ["No agent responses available"],
+                "confidence": 0.0,
+            }
+
+        # Define function schema for evaluation
+        evaluate_quality_tool = {
+            "type": "function",
+            "function": {
+                "name": "evaluate_response_quality",
+                "description": "Evaluate if the current answer is satisfactory for the user's query",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "satisfactory": {
+                            "type": "boolean",
+                            "description": "Whether the answer is satisfactory and complete",
+                        },
+                        "reasoning": {
+                            "type": "string",
+                            "description": "Explanation of why the answer is or isn't satisfactory",
+                        },
+                        "missing_information": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of missing information or gaps in the answer",
+                        },
+                        "confidence": {
+                            "type": "number",
+                            "minimum": 0.0,
+                            "maximum": 1.0,
+                            "description": "Confidence in the evaluation (0.0-1.0)",
+                        },
+                    },
+                    "required": ["satisfactory", "reasoning", "missing_information", "confidence"],
+                },
+            },
+        }
+
+        # Build system prompt
+        prompt_manager = get_prompt_manager()
+        base_prompt = """You are an evaluation agent. Your task is to evaluate if the current answer is satisfactory for the user's query.
+
+Consider:
+- Does the answer directly address the query?
+- Is the information complete and comprehensive?
+- Are there obvious gaps or missing information?
+- Would additional research improve the answer?
+- Is the answer accurate and well-supported?
+
+Be critical but fair. An answer is satisfactory if it adequately addresses the query, even if it could be improved."""
+
+        system_prompt = prompt_manager.build_system_prompt(
+            base_prompt=base_prompt,
+            options=PromptOptions(
+                add_temporal_context=False,
+                add_markdown_instructions=False
+            ),
+        )
+
+        # Build user prompt
+        user_prompt_content = f"""User Query: {context.query}
+
+Agent Responses:
+{json.dumps(agent_insights, indent=2, default=str)}
+
+Execution History:
+{json.dumps(execution_history, indent=2, default=str)}
+
+Evaluate if the current answer is satisfactory. Consider:
+- Does it fully answer the user's query?
+- Are there missing pieces of information?
+- Would additional research help?
+
+Call the evaluate_response_quality function with your evaluation."""
+
+        user_prompt = prompt_manager.build_user_prompt(
+            user_query=user_prompt_content,
+            options=PromptOptions(add_temporal_context=False),
+        )
+
+        try:
+            result = await generate_llm_function_response(
+                prompt=user_prompt,
+                tools=[evaluate_quality_tool],
+                system_prompt=system_prompt,
+                model="gpt-4.1-mini",
+                temperature=0.3,
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": "evaluate_response_quality"},
+                },
+            )
+
+            if isinstance(result, dict) and "function_name" in result:
+                if result["function_name"] == "evaluate_response_quality":
+                    evaluation = result["arguments"]
+                    logger.info(
+                        f"Evaluation result: satisfactory={evaluation.get('satisfactory')}, "
+                        f"confidence={evaluation.get('confidence')}"
+                    )
+                    return evaluation
+                else:
+                    logger.warning(f"Unexpected function call: {result.get('function_name')}")
+            else:
+                logger.warning(f"LLM did not make expected function call. Got: {type(result)}")
+
+            # Fallback: assume not satisfactory if evaluation fails
+            return {
+                "satisfactory": False,
+                "reasoning": "Evaluation failed, assuming answer needs improvement",
+                "missing_information": ["Unable to evaluate response quality"],
+                "confidence": 0.5,
+            }
+
+        except Exception as e:
+            logger.warning(f"Failed to evaluate response quality: {e}, using fallback", exc_info=True)
+            return {
+                "satisfactory": False,
+                "reasoning": f"Evaluation error: {str(e)}",
+                "missing_information": ["Evaluation failed"],
+                "confidence": 0.5,
+            }
+
+    async def _create_replan(
+        self,
+        context: AgentContext,
+        evaluation: Dict[str, Any],
+        agent_responses: List[Any],
+    ) -> Dict[str, Any]:
+        """Create a new execution plan based on evaluation results.
+
+        This method creates a plan to address missing information identified
+        in the evaluation. It may include new agents or refine queries for existing agents.
+
+        Args:
+            context: The agent context.
+            evaluation: Evaluation result from _evaluate_response_quality().
+            agent_responses: List of previous agent responses.
+
+        Returns:
+            Dictionary containing:
+            - agents: List of agent names to execute
+            - execution_mode: "sequential" or "parallel"
+            - reasoning: Explanation of the re-plan
+            - confidence: Confidence score (0.0-1.0)
+        """
+        missing_info = evaluation.get("missing_information", [])
+        evaluation_reasoning = evaluation.get("reasoning", "")
+
+        # Get available agents
+        available_agents = (
+            context.get_metadata("available_agents") or _get_available_agents()
+        )
+
+        # Build agents description for prompt
+        agents_description = "\n".join(
+            [
+                f"- {name}: {info['description']} (keywords: {', '.join(info.get('keywords', []))})"
+                for name, info in available_agents.items()
+            ]
+        )
+
+        agent_names = list(available_agents.keys())
+
+        # Define function schema for re-planning
+        create_replan_tool = {
+            "type": "function",
+            "function": {
+                "name": "create_replan",
+                "description": "Create a new execution plan to address missing information",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "agents": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of agent names to execute. Focus on agents that can address the missing information.",
+                            "enum": agent_names,
+                        },
+                        "execution_mode": {
+                            "type": "string",
+                            "enum": ["sequential", "parallel"],
+                            "description": "Execution strategy for the re-plan",
+                        },
+                        "reasoning": {
+                            "type": "string",
+                            "description": "Explanation of why these agents were selected and how they address the missing information",
+                        },
+                        "confidence": {
+                            "type": "number",
+                            "minimum": 0.0,
+                            "maximum": 1.0,
+                            "description": "Confidence that this plan will address the missing information",
+                        },
+                    },
+                    "required": ["agents", "execution_mode", "reasoning", "confidence"],
+                },
+            },
+        }
+
+        # Build system prompt
+        prompt_manager = get_prompt_manager()
+        base_prompt = f"""You are a re-planning agent. Your task is to create a new execution plan to address missing information identified in an evaluation.
+
+Available agents:
+{agents_description}
+
+Your task:
+- Analyze the missing information from the evaluation
+- Select agents that can best address these gaps
+- Create a focused plan to fill the information gaps
+- Consider which agents were already used (to avoid redundancy unless needed)"""
+
+        system_prompt = prompt_manager.build_system_prompt(
+            base_prompt=base_prompt,
+            options=PromptOptions(
+                add_temporal_context=False,
+                add_markdown_instructions=False
+            ),
+        )
+
+        # Build user prompt
+        user_prompt_content = f"""Original Query: {context.query}
+
+Evaluation Results:
+- Satisfactory: {evaluation.get('satisfactory', False)}
+- Reasoning: {evaluation_reasoning}
+- Missing Information: {json.dumps(missing_info, indent=2)}
+
+Previous Agent Responses: {len(agent_responses)} agent(s) have already executed.
+
+Create a new execution plan to address the missing information. Focus on agents that can fill the identified gaps. Call the create_replan function with your plan."""
+
+        user_prompt = prompt_manager.build_user_prompt(
+            user_query=user_prompt_content,
+            options=PromptOptions(add_temporal_context=False),
+        )
+
+        try:
+            result = await generate_llm_function_response(
+                prompt=user_prompt,
+                tools=[create_replan_tool],
+                system_prompt=system_prompt,
+                model="gpt-4o-mini",
+                temperature=0.3,
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": "create_replan"},
+                },
+            )
+
+            if isinstance(result, dict) and "function_name" in result:
+                if result["function_name"] == "create_replan":
+                    replan_data = result["arguments"]
+                    # Validate and normalize plan
+                    replan = self._validate_and_normalize_plan(replan_data, available_agents)
+                    logger.info(
+                        f"Created re-plan: {len(replan['agents'])} agents, "
+                        f"mode: {replan.get('execution_mode', 'sequential')}"
+                    )
+                    return replan
+                else:
+                    logger.warning(f"Unexpected function call: {result.get('function_name')}")
+            else:
+                logger.warning(f"LLM did not make expected function call. Got: {type(result)}")
+
+            # Fallback: return empty plan
+            return {
+                "agents": [],
+                "execution_mode": "sequential",
+                "reasoning": "Re-planning failed, using fallback",
+                "confidence": 0.3,
+            }
+
+        except Exception as e:
+            logger.warning(f"Failed to create re-plan: {e}, using fallback", exc_info=True)
+            return {
+                "agents": [],
+                "execution_mode": "sequential",
+                "reasoning": f"Re-planning error: {str(e)}",
+                "confidence": 0.3,
+            }

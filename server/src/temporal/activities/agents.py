@@ -15,7 +15,7 @@ import importlib
 import logging
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 from temporalio import activity
 from temporalio.common import RetryPolicy
@@ -24,6 +24,7 @@ from src.contracts.agent_io import AgentOutput, validate_agent_input
 from src.core.agent_base import AgentBase
 from src.core.agent_context import AgentContext
 from src.core.agent_response import AgentResponse
+from src.db import get_redis_client
 from src.runtime.executor import Executor, get_executor
 
 # Import agent registry from agents module (no Temporal dependency)
@@ -229,6 +230,106 @@ async def execute_agent_with_options(
         activity.logger.info(f"Custom activity options provided: {activity_options}")
 
     return await execute_agent(agent_name, context, executor=executor)
+
+
+@activity.defn(name="save_conversation_history")
+async def save_conversation_history(
+    conversation_id: str,
+    history: List[Dict[str, str]],
+) -> Dict[str, Any]:
+    """Save conversation history to Redis.
+
+    This activity saves the conversation history to Redis for persistence.
+    It's called from workflows to persist conversation state.
+
+    Args:
+        conversation_id: The conversation identifier.
+        history: List of message dictionaries with 'role', 'content', and 'timestamp' keys.
+
+    Returns:
+        Dictionary containing:
+        - success: bool indicating if save succeeded
+        - error: Error message (if failed)
+        - conversation_id: The conversation ID
+    """
+    activity.logger.info(
+        f"Saving conversation history for {conversation_id} ({len(history)} messages)"
+    )
+
+    try:
+        redis_client = await get_redis_client()
+        await redis_client.save_conversation_history(conversation_id, history)
+
+        activity.logger.info(f"Successfully saved conversation history for {conversation_id}")
+        return {
+            "success": True,
+            "error": None,
+            "conversation_id": conversation_id,
+        }
+    except Exception as e:
+        error_msg = f"Failed to save conversation history for {conversation_id}: {str(e)}"
+        activity.logger.error(error_msg, exc_info=True)
+        return {
+            "success": False,
+            "error": error_msg,
+            "conversation_id": conversation_id,
+        }
+
+
+@activity.defn(name="enrich_query")
+async def enrich_query(
+    query: str,
+    conversation_history: List[Dict[str, str]],
+) -> Dict[str, Any]:
+    """Enrich query with context and extract metadata.
+
+    This activity performs query enrichment using the QueryEnrichmentService.
+    It's called from workflows to improve user queries and extract structured metadata.
+
+    Args:
+        query: The user's query string.
+        conversation_history: List of message dictionaries with 'role' and 'content' keys.
+            Can be empty list for first-time users.
+
+    Returns:
+        Dictionary containing:
+        - success: bool indicating if enrichment succeeded
+        - result: Dictionary with improved_query, original_query, and metadata (if successful)
+        - error: Error message (if failed)
+    """
+    activity.logger.info(
+        f"Enriching query: '{query[:100]}...' (history: {len(conversation_history)} messages)"
+    )
+
+    try:
+        # Import here to avoid non-deterministic imports at module level
+        from src.tools.query_enrichment import QueryEnrichmentService
+
+        service = QueryEnrichmentService()
+
+        # Call enrichment service
+        result = await service.enrich_query(
+            query=query,
+            conversation_history=conversation_history if conversation_history else None,
+        )
+
+        activity.logger.info(
+            f"Query enriched successfully: '{query[:50]}...' -> '{result.get('improved_query', '')[:50]}...'"
+        )
+
+        return {
+            "success": True,
+            "result": result,
+            "error": None,
+        }
+    except Exception as e:
+        error_msg = f"Query enrichment failed: {str(e)}"
+        activity.logger.error(error_msg, exc_info=True)
+        return {
+            "success": False,
+            "result": None,
+            "error": error_msg,
+        }
 
 
 def get_activity_options(

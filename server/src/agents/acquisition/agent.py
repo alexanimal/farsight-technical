@@ -7,6 +7,7 @@ This agent is specialized in:
 - Searching acquisitions by various criteria (company names, dates, prices, etc.)
 """
 
+import asyncio
 import json
 import logging
 from pathlib import Path
@@ -138,32 +139,58 @@ Rules:
             # Step 3: Call get_acquisitions tool with extracted parameters
             # Always include organizations for better insights
             search_params["include_organizations"] = True
-            acquisitions_output = await get_acquisitions(**search_params)
 
-            # Check if tool execution was successful
-            if not acquisitions_output.success:
-                error_msg = (
-                    acquisitions_output.error or "Failed to retrieve acquisitions"
+            # Fan-out when multiple companies and no directed acquiree filter
+            acquisitions: list[Dict[str, Any]] = []
+            tool_calls: list[Dict[str, Any]] = []
+            if (
+                resolved_uuids.get("company_pool")
+                and len(resolved_uuids["company_pool"]) > 1
+                and not search_params.get("acquiree_uuid")
+                and not search_params.get("acquisition_uuid")
+            ):
+                acquisitions, fanout_calls = await self._fanout_acquisitions(
+                    company_pool=resolved_uuids["company_pool"],
+                    base_params=search_params,
                 )
-                logger.error(f"get_acquisitions tool failed: {error_msg}")
-                return create_agent_output(
-                    content="",
-                    agent_name=self.name,
-                    agent_category=self.category,
-                    status=ResponseStatus.ERROR,
-                    error=f"Failed to retrieve acquisitions: {error_msg}",
-                )
+                tool_calls.extend(fanout_calls)
+                # If all fan-out calls failed, return early with error
+                if not acquisitions and all(
+                    call.get("result", {}).get("success") is False
+                    for call in fanout_calls
+                ):
+                    return create_agent_output(
+                        content="",
+                        agent_name=self.name,
+                        agent_category=self.category,
+                        status=ResponseStatus.ERROR,
+                        error="Failed to retrieve acquisitions for all companies in fan-out.",
+                    )
+            else:
+                acquisitions_output = await get_acquisitions(**search_params)
 
-            # Extract result from ToolOutput
-            acquisitions = acquisitions_output.result or []
+                # Check if tool execution was successful
+                if not acquisitions_output.success:
+                    error_msg = (
+                        acquisitions_output.error
+                        or "Failed to retrieve acquisitions"
+                    )
+                    logger.error(f"get_acquisitions tool failed: {error_msg}")
+                    return create_agent_output(
+                        content="",
+                        agent_name=self.name,
+                        agent_category=self.category,
+                        status=ResponseStatus.ERROR,
+                        error=f"Failed to retrieve acquisitions: {error_msg}",
+                    )
+
+                # Extract result from ToolOutput
+                acquisitions = acquisitions_output.result or []
 
             # Step 4: Format results into natural language response
             response_content = await self._format_response(
                 context, acquisitions, search_params
             )
-
-            # Build tool calls list
-            tool_calls = []
 
             # Track all tool calls
             if resolved_uuids.get("semantic_search_calls"):
@@ -185,22 +212,24 @@ Rules:
                         }
                     )
 
-            tool_calls.append(
-                {
-                    "name": "get_acquisitions",
-                    "parameters": search_params,
-                    "result": {
-                        "num_results": len(acquisitions),
-                        "sample_ids": (
-                            [a.get("acquisition_uuid") for a in acquisitions[:3]]
-                            if acquisitions
-                            else []
-                        ),
-                        "execution_time_ms": acquisitions_output.execution_time_ms,
-                        "success": acquisitions_output.success,
-                    },
-                }
-            )
+            # If we did single-call path, add that call metadata
+            if not tool_calls:
+                tool_calls.append(
+                    {
+                        "name": "get_acquisitions",
+                        "parameters": search_params,
+                        "result": {
+                            "num_results": len(acquisitions),
+                            "sample_ids": (
+                                [a.get("acquisition_uuid") for a in acquisitions[:3]]
+                                if acquisitions
+                                else []
+                            ),
+                            "execution_time_ms": acquisitions_output.execution_time_ms,
+                            "success": acquisitions_output.success,
+                        },
+                    }
+                )
 
             logger.info(
                 f"Acquisition agent completed: found {len(acquisitions)} acquisition(s)"
@@ -247,6 +276,85 @@ Rules:
             - acquiree_uuid: UUID of the acquired company (if found)
             - semantic_search_calls: List of semantic search tool calls made
         """
+        # Use pre-extracted companies if available
+        extracted = context.get_metadata("extracted_entities", {})
+        companies_data = extracted.get("companies", {})
+        company_names = companies_data.get("names", [])
+        company_uuids = companies_data.get("uuids", [])
+
+        company_pool: list[str] = []
+
+        if company_names or company_uuids:
+            logger.info("Using pre-extracted companies for acquisition agent")
+            acquirer_uuid = None
+            acquiree_uuid = None
+
+            # Check context to determine if this is a comparison query
+            company_context = companies_data.get("context", "").lower()
+            is_comparison = any(
+                keyword in company_context
+                for keyword in ["compar", "compare", "both", "multiple", "versus", "vs", "and"]
+            )
+            is_directed = any(
+                keyword in company_context
+                for keyword in ["acquirer", "acquiree", "target", "buying", "bought", "acquired by"]
+            )
+
+            # For comparison queries or when multiple companies without explicit roles,
+            # don't assign acquirer/acquiree roles - use company_pool for fan-out
+            should_assign_roles = is_directed and not is_comparison
+
+            if is_comparison:
+                logger.info(
+                    f"Comparison query detected (context: '{company_context}'), "
+                    f"using company_pool for fan-out instead of role assignment"
+                )
+            elif should_assign_roles:
+                logger.info(
+                    f"Directed acquisition query detected (context: '{company_context}'), "
+                    f"assigning acquirer/acquiree roles"
+                )
+
+            if company_uuids:
+                # Add all UUIDs to company_pool
+                for uuid in company_uuids:
+                    if uuid:
+                        company_pool.append(str(uuid))
+
+                # Only assign roles if context indicates a directed acquisition
+                if should_assign_roles and len(company_uuids) >= 1:
+                    acquirer_uuid = str(company_uuids[0])
+                if should_assign_roles and len(company_uuids) >= 2:
+                    acquiree_uuid = str(company_uuids[1])
+
+            # Try to resolve names if UUIDs missing
+            # Only resolve to roles if we should assign roles, otherwise just add to pool
+            for idx, name in enumerate(company_names):
+                if name:
+                    try:
+                        orgs_output = await get_organizations(name_ilike=name, limit=3)
+                        if orgs_output.success and orgs_output.result:
+                            resolved_uuid = str(orgs_output.result[0].get("org_uuid"))
+                            if resolved_uuid not in company_pool:
+                                company_pool.append(resolved_uuid)
+                            
+                            # Only assign to acquirer/acquiree if context indicates directed acquisition
+                            if should_assign_roles:
+                                if idx == 0 and not acquirer_uuid:
+                                    acquirer_uuid = resolved_uuid
+                                elif idx == 1 and not acquiree_uuid:
+                                    acquiree_uuid = resolved_uuid
+                    except Exception as e:
+                        logger.warning(f"Failed to resolve company '{name}': {e}")
+
+            return {
+                "acquirer_uuid": acquirer_uuid,
+                "acquiree_uuid": acquiree_uuid,
+                "company_pool": company_pool,
+                "semantic_search_calls": [],
+                "get_organizations_calls": [],
+            }
+
         # Use LLM to identify company names and sectors in the query
         identify_companies_tool = {
             "type": "function",
@@ -279,7 +387,7 @@ Rules:
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=self._identify_companies_prompt,
             options=PromptOptions(
-                add_temporal_context=False, add_markdown_instructions=False
+                add_temporal_context=True, add_markdown_instructions=True
             ),
         )
 
@@ -290,12 +398,13 @@ Identify any company names mentioned in this query and determine if they are the
 
         user_prompt = prompt_manager.build_user_prompt(
             user_query=user_prompt_content,
-            options=PromptOptions(add_temporal_context=False),
+            options=PromptOptions(add_temporal_context=True),
         )
 
         resolved_uuids: Dict[str, Any] = {
             "acquirer_uuid": None,
             "acquiree_uuid": None,
+            "company_pool": [],
             "semantic_search_calls": [],
             "get_organizations_calls": [],
         }
@@ -335,6 +444,10 @@ Identify any company names mentioned in this query and determine if they are the
                                     resolved_uuids["acquirer_uuid"] = (
                                         str(org_uuid) if org_uuid else None
                                     )
+                                    if resolved_uuids["acquirer_uuid"]:
+                                        resolved_uuids["company_pool"].append(
+                                            resolved_uuids["acquirer_uuid"]
+                                        )
                                     resolved_uuids["get_organizations_calls"].append(
                                         {
                                             "parameters": {
@@ -378,6 +491,10 @@ Identify any company names mentioned in this query and determine if they are the
                                     resolved_uuids["acquiree_uuid"] = (
                                         str(org_uuid) if org_uuid else None
                                     )
+                                    if resolved_uuids["acquiree_uuid"]:
+                                        resolved_uuids["company_pool"].append(
+                                            resolved_uuids["acquiree_uuid"]
+                                        )
                                     resolved_uuids["get_organizations_calls"].append(
                                         {
                                             "parameters": {
@@ -458,6 +575,36 @@ Identify any company names mentioned in this query and determine if they are the
         Returns:
             Dictionary of parameters to pass to get_acquisitions tool.
         """
+        # First, use pre-extracted metadata when available to avoid redundant LLM calls
+        extracted = context.get_metadata("extracted_entities", {})
+        search_params: Dict[str, Any] = {}
+
+        # Company UUIDs
+        if resolved_uuids.get("acquirer_uuid"):
+            search_params["acquirer_uuid"] = resolved_uuids["acquirer_uuid"]
+        if resolved_uuids.get("acquiree_uuid"):
+            search_params["acquiree_uuid"] = resolved_uuids["acquiree_uuid"]
+
+        # Time period
+        time_period = extracted.get("time_period", {})
+        if time_period.get("start"):
+            search_params["acquisition_announce_date_from"] = time_period["start"]
+        if time_period.get("end"):
+            search_params["acquisition_announce_date_to"] = time_period["end"]
+
+        # Amounts
+        amounts = extracted.get("amounts", {})
+        if amounts.get("acquisition_price_min") is not None:
+            search_params["acquisition_price_usd_min"] = amounts["acquisition_price_min"]
+        if amounts.get("acquisition_price_max") is not None:
+            search_params["acquisition_price_usd_max"] = amounts["acquisition_price_max"]
+
+        # If metadata provided parameters, return early with defaults
+        if search_params:
+            if "limit" not in search_params:
+                search_params["limit"] = 10
+            return search_params
+
         # Define the function/tool schema for get_acquisitions
         get_acquisitions_tool = {
             "type": "function",
@@ -552,7 +699,7 @@ Identify any company names mentioned in this query and determine if they are the
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=self._extract_params_prompt,
             options=PromptOptions(
-                add_temporal_context=False, add_markdown_instructions=False
+                add_temporal_context=True, add_markdown_instructions=True
             ),
         )
 
@@ -585,7 +732,7 @@ Call the get_acquisitions function with the extracted parameters."""
 
         user_prompt = prompt_manager.build_user_prompt(
             user_query=user_prompt_content,
-            options=PromptOptions(add_temporal_context=False),
+            options=PromptOptions(add_temporal_context=True),
         )
 
         try:
@@ -707,7 +854,7 @@ If no acquisitions are found, explain why (e.g., search criteria too narrow, no 
         system_prompt = prompt_manager.build_system_prompt(
             base_prompt=base_prompt,
             options=PromptOptions(
-                add_temporal_context=False, add_markdown_instructions=False
+                add_temporal_context=True, add_markdown_instructions=True
             ),
         )
 
@@ -723,7 +870,7 @@ Analyze this data and generate insights that directly answer the user's query. C
 
         user_prompt = prompt_manager.build_user_prompt(
             user_query=user_prompt_content,
-            options=PromptOptions(add_temporal_context=False),
+            options=PromptOptions(add_temporal_context=True),
         )
 
         try:
@@ -776,3 +923,61 @@ Analyze this data and generate insights that directly answer the user's query. C
                     summary=f"I couldn't find any acquisitions matching your criteria. You asked about: {context.query}. Try adjusting your search parameters or broadening your criteria.",
                     confidence=0.0,
                 )
+
+    async def _fanout_acquisitions(
+        self,
+        company_pool: list[str],
+        base_params: Dict[str, Any],
+        max_concurrency: int = 3,
+    ) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]]]:
+        """Execute get_acquisitions per company concurrently with bounded fan-out.
+
+        Returns a tuple of (flattened_acquisitions, tool_calls_metadata).
+        """
+        semaphore = asyncio.Semaphore(max_concurrency)
+        acquisitions: list[Dict[str, Any]] = []
+        tool_calls: list[Dict[str, Any]] = []
+
+        async def _run(company_uuid: str) -> None:
+            params = {k: v for k, v in base_params.items() if k != "acquirer_uuid"}
+            params["acquirer_uuid"] = company_uuid
+            params["include_organizations"] = True
+
+            async with semaphore:
+                result = await get_acquisitions(**params)
+
+            tool_calls.append(
+                {
+                    "name": "get_acquisitions",
+                    "parameters": params,
+                    "result": {
+                        "num_results": len(result.result or [])
+                        if result.success
+                        else 0,
+                        "sample_ids": (
+                            [a.get("acquisition_uuid") for a in (result.result or [])[:3]]
+                            if result.success and result.result
+                            else []
+                        ),
+                        "execution_time_ms": result.execution_time_ms,
+                        "success": result.success,
+                        "error": result.error,
+                    },
+                    "source_company_uuid": company_uuid,
+                }
+            )
+
+            if result.success and result.result:
+                acquisitions.extend(result.result)
+
+        # Deduplicate company UUIDs to avoid double calls
+        seen = set()
+        unique_pool = []
+        for uuid in company_pool:
+            if uuid and uuid not in seen:
+                seen.add(uuid)
+                unique_pool.append(uuid)
+
+        await asyncio.gather(*[_run(uuid) for uuid in unique_pool])
+
+        return acquisitions, tool_calls
