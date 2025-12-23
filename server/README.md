@@ -121,3 +121,65 @@ Schemas are provided in Excel files – you will need to write your own connecto
    ```
 
    The worker polls Temporal for workflow and activity tasks and executes them.
+
+## Generating Documentation
+
+This project uses `pdoc` to generate HTML documentation from Python docstrings.
+
+### Prerequisites
+
+**Important:** All project dependencies must be installed before generating documentation, as `pdoc` needs to import the modules to extract full type information and resolve imports.
+
+```bash
+# Install dependencies first
+pip install -r requirements.txt
+```
+
+### Generate Documentation
+
+The easiest way is to use the provided script that automatically discovers all modules:
+
+```bash
+# From the server directory
+python generate_docs.py
+```
+
+This script will:
+- Automatically discover all Python modules in `src/` recursively
+- Generate HTML documentation for all of them
+- Enable search functionality
+- Show source code links
+
+**Note:** The script uses file path discovery, so it will document all modules even if some imports fail. However, for best results (full type information, resolved imports), ensure all dependencies are installed.
+
+### Manual Generation
+
+If you prefer to generate docs manually:
+
+```bash
+# Use directory path - pdoc will discover all modules recursively
+pdoc src --output-dir docs --search --show-source
+
+# Or specify individual modules
+pdoc src.config src.api src.agents --output-dir docs --search
+```
+
+### Troubleshooting
+
+If you see import errors or warnings:
+- Make sure all dependencies are installed: `pip install -r requirements.txt`
+- Some modules may show warnings if optional dependencies are missing, but documentation will still be generated
+- The `src/__init__.py` has an empty `__all__` by design (for Temporal determinism), but the script discovers all submodules automatically
+
+The documentation will be generated in the `docs/` directory. Open `docs/index.html` in your browser to view it.
+
+### View Documentation Locally
+
+After generating, you can view the docs by opening `docs/index.html` in your browser, or serve them with a simple HTTP server:
+
+```bash
+# Python 3
+python -m http.server 8080 --directory docs
+
+# Then open http://localhost:8080 in your browser
+```
