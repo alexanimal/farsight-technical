@@ -5,13 +5,20 @@ lifecycle management. The API is stateless and acts as a bridge to Temporal work
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
 from src.api.middleware import setup_cors, setup_error_handlers
 from src.api.routers import tasks
-from src.temporal import close_client, get_client
+from src.temporal import (
+    DEFAULT_TASK_QUEUE,
+    DEFAULT_TEMPORAL_ADDRESS,
+    DEFAULT_TEMPORAL_NAMESPACE,
+    close_client,
+    get_client,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +34,22 @@ async def lifespan(app: FastAPI):
     logger.info("Starting API server...")
     try:
         # Initialize Temporal client
+        # Read configuration from environment variables (set in docker-compose.yml)
         # Note: This will fail if Temporal server is not running
         # The API will still start, but workflow operations will fail until Temporal is available
-        await get_client()
-        logger.info("Temporal client initialized and connected")
+        temporal_address = os.getenv("TEMPORAL_ADDRESS", DEFAULT_TEMPORAL_ADDRESS)
+        temporal_namespace = os.getenv("TEMPORAL_NAMESPACE", DEFAULT_TEMPORAL_NAMESPACE)
+        task_queue = os.getenv("TEMPORAL_TASK_QUEUE", DEFAULT_TASK_QUEUE)
+        
+        await get_client(
+            temporal_address=temporal_address,
+            temporal_namespace=temporal_namespace,
+            task_queue=task_queue,
+        )
+        logger.info(
+            f"Temporal client initialized and connected to {temporal_address} "
+            f"(namespace: {temporal_namespace})"
+        )
     except Exception as e:
         logger.warning(
             f"Failed to initialize Temporal client: {e}. "
