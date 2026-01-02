@@ -32,22 +32,39 @@ jobs:
         working-directory: ./server
         run: |
           uv sync
-          # Note: CDK deployment requires infrastructure code to be present
-          # If infrastructure directory exists, install CDK dependencies here
-          # npm install -g aws-cdk
           
-      # - name: Configure AWS credentials
-      #   uses: aws-actions/configure-aws-credentials@v1
-      #   with:
-      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      #     aws-region: ${{ secrets.AWS_REGION }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
           
-      # - name: Deploy with CDK
-      #   working-directory: ./server
-      #   env:
-      #     PYTHONPATH: ${{ github.workspace }}/server
-      #   run: |
-      #     # Uncomment when infrastructure code is available
-      #     # uv run cdk deploy --all --require-approval never
-      #     echo "CDK deployment skipped - no infrastructure code present"
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        
+      - name: Build and push Docker image
+        working-directory: ./server
+        run: |
+          docker build -t farsight-server:latest .
+          docker tag farsight-server:latest ${{ steps.login-ecr.outputs.registry }}/farsight-server:latest
+          docker tag farsight-server:latest ${{ steps.login-ecr.outputs.registry }}/farsight-server:${{ github.sha }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/farsight-server:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/farsight-server:${{ github.sha }}
+          
+      - name: Install CDK CLI
+        run: |
+          npm install -g aws-cdk
+          
+      - name: Deploy infrastructure with CDK
+        working-directory: ./server
+        env:
+          PYTHONPATH: ${{ github.workspace }}/server
+        run: |
+          uv run cdk deploy --all --require-approval never
+          
+      - name: Update ECS services
+        run: |
+          aws ecs update-service --cluster farsight-cluster --service farsight-api-server --force-new-deployment --region ${{ secrets.AWS_REGION || 'us-east-1' }} || true
+          aws ecs update-service --cluster farsight-cluster --service farsight-worker --force-new-deployment --region ${{ secrets.AWS_REGION || 'us-east-1' }} || true
