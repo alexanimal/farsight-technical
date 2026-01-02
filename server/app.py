@@ -17,4 +17,3 @@ FarsightStack(
 )
 
 app.synth()
-

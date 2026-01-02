@@ -46,21 +46,11 @@ class FarsightStack(cdk.Stack):
 
         # Configuration from context or defaults
         self.vpc_cidr = self.node.try_get_context("vpc_cidr") or "10.0.0.0/16"
-        self.db_instance_class = (
-            self.node.try_get_context("db_instance_class") or "db.t3.medium"
-        )
-        self.redis_node_type = (
-            self.node.try_get_context("redis_node_type") or "cache.t3.micro"
-        )
-        self.ecr_repo_name = (
-            self.node.try_get_context("ecr_repo_name") or "farsight-server"
-        )
-        self.cluster_name = (
-            self.node.try_get_context("cluster_name") or "farsight-cluster"
-        )
-        self.temporal_address = (
-            self.node.try_get_context("temporal_address") or "temporal:7233"
-        )
+        self.db_instance_class = self.node.try_get_context("db_instance_class") or "db.t3.medium"
+        self.redis_node_type = self.node.try_get_context("redis_node_type") or "cache.t3.micro"
+        self.ecr_repo_name = self.node.try_get_context("ecr_repo_name") or "farsight-server"
+        self.cluster_name = self.node.try_get_context("cluster_name") or "farsight-cluster"
+        self.temporal_address = self.node.try_get_context("temporal_address") or "temporal:7233"
 
         # Create VPC and networking
         self.vpc = self._create_vpc()
@@ -173,25 +163,17 @@ class FarsightStack(cdk.Stack):
             "DBSubnetGroup",
             vpc=self.vpc,
             description="Subnet group for RDS",
-            vpc_subnets=ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
-            ),
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
         )
 
         # Create database instance
         database = rds.DatabaseInstance(
             self,
             "PostgreSQLDatabase",
-            engine=rds.DatabaseInstanceEngine.postgres(
-                version=rds.PostgresEngineVersion.VER_14_9
-            ),
-            instance_type=ec2.InstanceType.of(
-                ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM
-            ),
+            engine=rds.DatabaseInstanceEngine.postgres(version=rds.PostgresEngineVersion.VER_14_9),
+            instance_type=ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
             vpc=self.vpc,
-            vpc_subnets=ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
-            ),
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
             subnet_group=subnet_group,
             security_groups=[db_security_group],
             database_name="farsight",
@@ -226,10 +208,7 @@ class FarsightStack(cdk.Stack):
             self,
             "RedisSubnetGroup",
             description="Subnet group for ElastiCache",
-            subnet_ids=[
-                subnet.subnet_id
-                for subnet in self.vpc.private_subnets
-            ],
+            subnet_ids=[subnet.subnet_id for subnet in self.vpc.private_subnets],
         )
 
         # Create Redis cluster
@@ -353,9 +332,7 @@ class FarsightStack(cdk.Stack):
             vpc=self.vpc,
             internet_facing=True,
             security_group=alb_security_group,
-            vpc_subnets=ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.PUBLIC
-            ),
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
         )
 
         # Store reference to security group for later use
@@ -428,21 +405,13 @@ class FarsightStack(cdk.Stack):
                 "PINECONE_INDEX": "default-index",
             },
             secrets={
-                "OPENAI_API_KEY": ecs.Secret.from_secrets_manager(
-                    self.secret, "OPENAI_API_KEY"
-                ),
+                "OPENAI_API_KEY": ecs.Secret.from_secrets_manager(self.secret, "OPENAI_API_KEY"),
                 "PINECONE_API_KEY": ecs.Secret.from_secrets_manager(
                     self.secret, "PINECONE_API_KEY"
                 ),
-                "POSTGRES_PASSWORD": ecs.Secret.from_secrets_manager(
-                    self.db.secret, "password"
-                ),
-                "REDIS_PASSWORD": ecs.Secret.from_secrets_manager(
-                    self.secret, "REDIS_PASSWORD"
-                ),
-                "API_KEY": ecs.Secret.from_secrets_manager(
-                    self.secret, "API_KEY"
-                ),
+                "POSTGRES_PASSWORD": ecs.Secret.from_secrets_manager(self.db.secret, "password"),
+                "REDIS_PASSWORD": ecs.Secret.from_secrets_manager(self.secret, "REDIS_PASSWORD"),
+                "API_KEY": ecs.Secret.from_secrets_manager(self.secret, "API_KEY"),
             },
         )
 
@@ -500,9 +469,7 @@ class FarsightStack(cdk.Stack):
             task_definition=task_definition,
             desired_count=2,
             security_groups=[ecs_security_group],
-            vpc_subnets=ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
-            ),
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
             assign_public_ip=False,
             health_check_grace_period=cdk.Duration.seconds(60),
         )
@@ -565,18 +532,12 @@ class FarsightStack(cdk.Stack):
                 "PINECONE_INDEX": "default-index",
             },
             secrets={
-                "OPENAI_API_KEY": ecs.Secret.from_secrets_manager(
-                    self.secret, "OPENAI_API_KEY"
-                ),
+                "OPENAI_API_KEY": ecs.Secret.from_secrets_manager(self.secret, "OPENAI_API_KEY"),
                 "PINECONE_API_KEY": ecs.Secret.from_secrets_manager(
                     self.secret, "PINECONE_API_KEY"
                 ),
-                "POSTGRES_PASSWORD": ecs.Secret.from_secrets_manager(
-                    self.db.secret, "password"
-                ),
-                "REDIS_PASSWORD": ecs.Secret.from_secrets_manager(
-                    self.secret, "REDIS_PASSWORD"
-                ),
+                "POSTGRES_PASSWORD": ecs.Secret.from_secrets_manager(self.db.secret, "password"),
+                "REDIS_PASSWORD": ecs.Secret.from_secrets_manager(self.secret, "REDIS_PASSWORD"),
             },
         )
 
@@ -588,9 +549,7 @@ class FarsightStack(cdk.Stack):
             task_definition=task_definition,
             desired_count=2,
             security_groups=[ecs_security_group],
-            vpc_subnets=ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
-            ),
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
             assign_public_ip=False,
         )
 
@@ -682,4 +641,3 @@ class FarsightStack(cdk.Stack):
             value=self.ecr_repository.repository_uri,
             description="ECR repository URI for pushing Docker images",
         )
-
