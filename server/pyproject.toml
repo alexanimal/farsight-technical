@@ -24,6 +24,8 @@ dependencies = [
     "temporalio>=1.21.0",
     "types-pyyaml>=6.0.12.20250915",
     "pdoc>=14.0.0",
+    "aws-cdk-lib>=2.100.0",
+    "constructs>=10.0.0",
 ]
 
 [tool.pytest.ini_options]
