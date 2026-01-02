@@ -16,20 +16,18 @@ application to ECS, including:
 """
 
 import aws_cdk as cdk
-from aws_cdk import (
-    aws_ec2 as ec2,
-    aws_ecr as ecr,
-    aws_ecs as ecs,
-    aws_elasticloadbalancingv2 as elbv2,
-    aws_rds as rds,
-    aws_elasticache as elasticache,
-    aws_secretsmanager as secretsmanager,
-    aws_iam as iam,
-    aws_logs as logs,
-    aws_cloudwatch as cloudwatch,
-    aws_cloudwatch_actions as cw_actions,
-    aws_sns as sns,
-)
+from aws_cdk import aws_cloudwatch as cloudwatch
+from aws_cdk import aws_cloudwatch_actions as cw_actions
+from aws_cdk import aws_ec2 as ec2
+from aws_cdk import aws_ecr as ecr
+from aws_cdk import aws_ecs as ecs
+from aws_cdk import aws_elasticache as elasticache
+from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+from aws_cdk import aws_iam as iam
+from aws_cdk import aws_logs as logs
+from aws_cdk import aws_rds as rds
+from aws_cdk import aws_secretsmanager as secretsmanager
+from aws_cdk import aws_sns as sns
 from constructs import Construct
 
 

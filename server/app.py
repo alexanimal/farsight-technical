@@ -2,6 +2,7 @@
 """CDK App entry point for Farsight Technical infrastructure."""
 
 import aws_cdk as cdk
+
 from infrastructure.stack import FarsightStack
 
 app = cdk.App()
