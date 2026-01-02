@@ -348,6 +348,8 @@ class FarsightStack(cdk.Stack):
             description="Security group for ECS tasks",
             allow_all_outbound=True,
         )
+        # Store for reuse in worker service
+        self.ecs_security_group = ecs_security_group
 
         # Allow traffic from ALB
         ecs_security_group.add_ingress_rule(
@@ -380,6 +382,11 @@ class FarsightStack(cdk.Stack):
             task_role=self.iam_roles["task_role"],
         )
 
+        # Ensure database secret exists and narrow type for mypy
+        db_secret = self.db.secret
+        if db_secret is None:
+            raise ValueError("Database secret is required but not available")
+
         # Container definition
         container = task_definition.add_container(
             "api-server",
@@ -407,22 +414,11 @@ class FarsightStack(cdk.Stack):
                 "PINECONE_API_KEY": ecs.Secret.from_secrets_manager(
                     self.secret, "PINECONE_API_KEY"
                 ),
-                "POSTGRES_PASSWORD": ecs.Secret.from_secrets_manager(self.db.secret, "password"),
+                "POSTGRES_PASSWORD": ecs.Secret.from_secrets_manager(db_secret, "password"),
                 "REDIS_PASSWORD": ecs.Secret.from_secrets_manager(self.secret, "REDIS_PASSWORD"),
                 "API_KEY": ecs.Secret.from_secrets_manager(self.secret, "API_KEY"),
             },
-        )
-
-        container.add_port_mappings(
-            ecs.PortMapping(
-                container_port=8000,
-                protocol=ecs.Protocol.TCP,
-            )
-        )
-
-        # Health check
-        container.add_health_check(
-            ecs.HealthCheck(
+            health_check=ecs.HealthCheck(
                 command=[
                     "CMD-SHELL",
                     "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1",
@@ -431,6 +427,13 @@ class FarsightStack(cdk.Stack):
                 timeout=cdk.Duration.seconds(10),
                 retries=3,
                 start_period=cdk.Duration.seconds(60),
+            ),
+        )
+
+        container.add_port_mappings(
+            ecs.PortMapping(
+                container_port=8000,
+                protocol=ecs.Protocol.TCP,
             )
         )
 
@@ -480,6 +483,8 @@ class FarsightStack(cdk.Stack):
     def _create_worker_service(self) -> ecs.FargateService:
         """Create ECS Fargate service for Temporal worker."""
         # Reuse the same security group as API service
+        if not hasattr(self, "ecs_security_group"):
+            raise ValueError("ECS security group must be created before worker service")
         ecs_security_group = self.ecs_security_group
 
         # Allow traffic to RDS (if not already allowed)
@@ -505,6 +510,11 @@ class FarsightStack(cdk.Stack):
             execution_role=self.iam_roles["execution_role"],
             task_role=self.iam_roles["task_role"],
         )
+
+        # Ensure database secret exists and narrow type for mypy
+        db_secret = self.db.secret
+        if db_secret is None:
+            raise ValueError("Database secret is required but not available")
 
         # Container definition
         container = task_definition.add_container(
@@ -534,7 +544,7 @@ class FarsightStack(cdk.Stack):
                 "PINECONE_API_KEY": ecs.Secret.from_secrets_manager(
                     self.secret, "PINECONE_API_KEY"
                 ),
-                "POSTGRES_PASSWORD": ecs.Secret.from_secrets_manager(self.db.secret, "password"),
+                "POSTGRES_PASSWORD": ecs.Secret.from_secrets_manager(db_secret, "password"),
                 "REDIS_PASSWORD": ecs.Secret.from_secrets_manager(self.secret, "REDIS_PASSWORD"),
             },
         )
