@@ -1,6 +1,6 @@
 # AWS ECS Deployment Guide
 
-This document outlines how to deploy the Farsight Technical server application to AWS ECS (Elastic Container Service).
+This document outlines how to deploy the Farsight Technical server application to AWS ECS (Elastic Container Service) using AWS CDK.
 
 ## Architecture Overview
 
@@ -12,45 +12,257 @@ The deployment consists of several components:
 4. **PostgreSQL** - Database for Temporal and application data (AWS RDS)
 5. **Redis** - Cache and conversation history (AWS ElastiCache)
 
+### Architecture Diagram
+
+```mermaid
+graph TB
+    Internet[Internet Users] --> ALB[Application Load Balancer]
+    
+    subgraph VPC["VPC 10.0.0.0/16"]
+        subgraph PublicSubnets["Public Subnets"]
+            ALB
+            NAT[NAT Gateway]
+        end
+        
+        subgraph PrivateSubnets["Private Subnets"]
+            subgraph ECSCluster["ECS Fargate Cluster"]
+                APIService[API Server Service<br/>Port 8000]
+                WorkerService[Worker Service<br/>Temporal Worker]
+            end
+            
+            RDS[(RDS PostgreSQL<br/>Multi-AZ)]
+            Redis[(ElastiCache Redis)]
+        end
+        
+        subgraph VPCEndpoints["VPC Endpoints"]
+            ECRVPCE[ECR Endpoint]
+            LogsVPCE[CloudWatch Logs Endpoint]
+            SecretsVPCE[Secrets Manager Endpoint]
+        end
+    end
+    
+    subgraph AWSServices["AWS Managed Services"]
+        ECR[ECR Repository<br/>Docker Images]
+        Secrets[Secrets Manager<br/>Application Secrets]
+        CloudWatch[CloudWatch<br/>Logs and Metrics]
+        AutoScaling[Auto Scaling<br/>CPU-based Policies]
+    end
+    
+    ALB -->|HTTP Port 80| APIService
+    APIService -->|Read/Write| RDS
+    APIService -->|Read/Write| Redis
+    WorkerService -->|Read/Write| RDS
+    WorkerService -->|Read/Write| Redis
+    WorkerService -->|Connect| Temporal[Temporal Server<br/>External or ECS]
+    
+    APIService -->|Pull Images| ECRVPCE
+    APIService -->|Read Secrets| SecretsVPCE
+    APIService -->|Write Logs| LogsVPCE
+    WorkerService -->|Pull Images| ECRVPCE
+    WorkerService -->|Read Secrets| SecretsVPCE
+    WorkerService -->|Write Logs| LogsVPCE
+    
+    ECRVPCE --> ECR
+    SecretsVPCE --> Secrets
+    LogsVPCE --> CloudWatch
+    
+    APIService -->|Metrics| CloudWatch
+    WorkerService -->|Metrics| CloudWatch
+    AutoScaling -->|Scale Based On| CloudWatch
+    AutoScaling -->|Control| APIService
+    AutoScaling -->|Control| WorkerService
+    
+    NAT -->|Outbound Internet| Internet
+    
+    style ALB fill:#90EE90
+    style APIService fill:#87CEEB
+    style WorkerService fill:#87CEEB
+    style RDS fill:#FFB6C1
+    style Redis fill:#FFB6C1
+    style ECR fill:#DDA0DD
+    style Secrets fill:#DDA0DD
+    style CloudWatch fill:#DDA0DD
+```
+
 ## Prerequisites
 
 - AWS CLI configured with appropriate permissions
+- AWS CDK CLI installed: `npm install -g aws-cdk`
 - Docker installed locally
-- ECR repository created for container images
-- VPC with public and private subnets configured
-- Security groups configured for services
+- Python 3.10+ with dependencies installed
+- CDK bootstrapped in your AWS account (run `cdk bootstrap` if not already done)
 
-## Step 1: Build and Push Docker Images
+## Step 1: Set Up Secrets in AWS Secrets Manager
 
-### 1.1 Create ECR Repository
+Before deploying infrastructure, you need to create and populate the secrets that will be used by the application:
 
 ```bash
-aws ecr create-repository --repository-name farsight-server --region us-east-1
+aws secretsmanager create-secret \
+  --name farsight/server-secrets \
+  --secret-string '{
+    "OPENAI_API_KEY": "your-openai-key",
+    "PINECONE_API_KEY": "your-pinecone-key",
+    "POSTGRES_PASSWORD": "your-postgres-password",
+    "REDIS_PASSWORD": "your-redis-password",
+    "API_KEY": "your-api-key"
+  }'
 ```
 
-### 1.2 Authenticate Docker to ECR
+**Note:** The CDK stack will create the secret structure, but you need to populate it with actual values. Alternatively, you can update the secret after CDK creates it:
+
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id farsight/server-secrets \
+  --secret-string '{
+    "OPENAI_API_KEY": "your-openai-key",
+    "PINECONE_API_KEY": "your-pinecone-key",
+    "POSTGRES_PASSWORD": "your-postgres-password",
+    "REDIS_PASSWORD": "your-redis-password",
+    "API_KEY": "your-api-key"
+  }'
+```
+
+## Step 2: Deploy Infrastructure with CDK
+
+The CDK stack automatically creates all necessary AWS resources. This is the recommended approach.
+
+### 2.1 Install Dependencies
+
+From the `server` directory:
+
+```bash
+# Install Python dependencies including CDK
+uv sync
+```
+
+### 2.2 Bootstrap CDK (First Time Only)
+
+If you haven't bootstrapped CDK in your AWS account:
+
+```bash
+cdk bootstrap
+```
+
+### 2.3 Deploy Infrastructure
+
+Deploy all infrastructure with a single command:
+
+```bash
+# From the server directory
+cdk deploy
+```
+
+The CDK stack will create:
+- VPC with public and private subnets
+- ECR repository for Docker images
+- RDS PostgreSQL database (Multi-AZ, db.t3.medium)
+- ElastiCache Redis cluster (cache.t3.micro)
+- Secrets Manager secret (structure created, you populate values)
+- IAM roles for ECS tasks
+- CloudWatch log groups
+- ECS Fargate cluster
+- ECS task definitions for API server and worker
+- ECS services with auto-scaling
+- Application Load Balancer with target group
+- Security groups with appropriate rules
+- VPC endpoints for ECR, CloudWatch Logs, and Secrets Manager
+- CloudWatch alarms for monitoring
+
+### 2.4 Configure Stack Parameters (Optional)
+
+You can customize the deployment using CDK context:
+
+```bash
+# Set custom region
+cdk deploy --context region=us-east-1
+
+# Set custom VPC CIDR
+cdk deploy --context vpc_cidr=10.0.0.0/16
+
+# Set database instance class
+cdk deploy --context db_instance_class=db.t3.medium
+
+# Set Redis node type
+cdk deploy --context redis_node_type=cache.t3.micro
+
+# Set ECR repository name
+cdk deploy --context ecr_repo_name=farsight-server
+
+# Set cluster name
+cdk deploy --context cluster_name=farsight-cluster
+
+# Set Temporal address (if using external Temporal)
+cdk deploy --context temporal_address=temporal.example.com:7233
+```
+
+### 2.5 View Stack Outputs
+
+After deployment, CDK will output important information:
+
+- `LoadBalancerDNS`: The DNS name of the Application Load Balancer (use this to access your API)
+- `ECRRepositoryURI`: The URI of the ECR repository for pushing Docker images
+
+## Step 3: Build and Push Docker Images
+
+### 3.1 Get ECR Repository URI
+
+After CDK deployment, get the ECR repository URI from the stack outputs or:
+
+```bash
+aws ecr describe-repositories --repository-names farsight-server --query 'repositories[0].repositoryUri' --output text
+```
+
+### 3.2 Authenticate Docker to ECR
 
 ```bash
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com
 ```
 
-### 1.3 Build and Tag Images
+### 3.3 Build and Push Images
 
 ```bash
 # Build the server image
 cd server
 docker build -t farsight-server:latest .
 
-# Tag for ECR
-docker tag farsight-server:latest <account-id>.dkr.ecr.us-east-1.amazonaws.com/farsight-server:latest
+# Tag for ECR (use the ECR repository URI from stack outputs)
+docker tag farsight-server:latest <ecr-repository-uri>:latest
+docker tag farsight-server:latest <ecr-repository-uri>:${{ github.sha }}
 
 # Push to ECR
-docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/farsight-server:latest
+docker push <ecr-repository-uri>:latest
+docker push <ecr-repository-uri>:${{ github.sha }}
 ```
 
-## Step 2: Set Up AWS Infrastructure
+## Step 4: Update ECS Services (After Image Push)
 
-### 2.1 RDS PostgreSQL Database
+After pushing a new image, force ECS services to use it:
+
+```bash
+aws ecs update-service \
+  --cluster farsight-cluster \
+  --service farsight-api-server \
+  --force-new-deployment \
+  --region us-east-1
+
+aws ecs update-service \
+  --cluster farsight-cluster \
+  --service farsight-worker \
+  --force-new-deployment \
+  --region us-east-1
+```
+
+## Alternative: Manual Deployment (Without CDK)
+
+If you prefer to deploy manually using AWS CLI, the following sections provide step-by-step instructions. **Note:** CDK deployment is recommended as it handles all dependencies and configurations automatically.
+
+### Manual Step 1: Create ECR Repository
+
+```bash
+aws ecr create-repository --repository-name farsight-server --region us-east-1
+```
+
+### Manual Step 2: Set Up RDS PostgreSQL Database
 
 Create an RDS PostgreSQL instance for Temporal and application data:
 
@@ -71,7 +283,7 @@ aws rds create-db-instance \
 
 **Note:** Store database credentials in AWS Secrets Manager for secure access.
 
-### 2.2 ElastiCache Redis Cluster
+### Manual Step 3: Create ElastiCache Redis Cluster
 
 Create an ElastiCache Redis cluster for conversation history:
 
@@ -85,33 +297,9 @@ aws elasticache create-cache-cluster \
   --subnet-group-name <subnet-group-name>
 ```
 
-### 2.3 Temporal Server (Optional)
+### Manual Step 4: Create ECS Task Definitions
 
-You can deploy Temporal server as a separate ECS service or use Temporal Cloud. For self-hosted:
-
-- Deploy Temporal server container in ECS
-- Use the same RDS PostgreSQL instance (separate database)
-- Configure Temporal UI as a separate service
-
-## Step 3: Configure Secrets in AWS Secrets Manager
-
-Store sensitive environment variables in AWS Secrets Manager:
-
-```bash
-aws secretsmanager create-secret \
-  --name farsight/server-secrets \
-  --secret-string '{
-    "OPENAI_API_KEY": "your-openai-key",
-    "PINECONE_API_KEY": "your-pinecone-key",
-    "POSTGRES_PASSWORD": "your-postgres-password",
-    "REDIS_PASSWORD": "your-redis-password",
-    "API_KEY": "your-api-key"
-  }'
-```
-
-## Step 4: Create ECS Task Definitions
-
-### 4.1 API Server Task Definition
+#### 4.1 API Server Task Definition
 
 Create `task-definition-api.json`:
 
@@ -326,20 +514,20 @@ Register the worker task definition:
 aws ecs register-task-definition --cli-input-json file://task-definition-worker.json
 ```
 
-## Step 5: Create CloudWatch Log Groups
+### Manual Step 5: Create CloudWatch Log Groups
 
 ```bash
 aws logs create-log-group --log-group-name /ecs/farsight-api-server
 aws logs create-log-group --log-group-name /ecs/farsight-worker
 ```
 
-## Step 6: Create ECS Cluster
+### Manual Step 6: Create ECS Cluster
 
 ```bash
 aws ecs create-cluster --cluster-name farsight-cluster
 ```
 
-## Step 7: Create ECS Services
+### Manual Step 7: Create ECS Services
 
 ### 7.1 API Server Service
 
@@ -367,7 +555,7 @@ aws ecs create-service \
   --network-configuration "awsvpcConfiguration={subnets=[<subnet-1>,<subnet-2>],securityGroups=[<security-group-id>],assignPublicIp=DISABLED}"
 ```
 
-## Step 8: Set Up Application Load Balancer
+### Manual Step 8: Set Up Application Load Balancer
 
 ### 8.1 Create Target Group
 
@@ -404,7 +592,7 @@ aws elbv2 create-listener \
   --default-actions Type=forward,TargetGroupArn=<target-group-arn>
 ```
 
-## Step 9: Configure Auto-Scaling
+### Manual Step 9: Configure Auto-Scaling
 
 ### 9.1 Register Scalable Targets
 
@@ -446,7 +634,7 @@ aws application-autoscaling put-scaling-policy \
   }'
 ```
 
-## Step 10: Security Considerations
+## Step 5: Security Considerations
 
 ### 10.1 IAM Roles
 
@@ -478,7 +666,7 @@ Configure security groups to allow:
 - Place RDS and ElastiCache in private subnets
 - Use VPC endpoints for AWS services to reduce NAT costs
 
-## Step 11: Monitoring and Logging
+## Step 6: Monitoring and Logging
 
 ### 11.1 CloudWatch Dashboards
 
@@ -497,50 +685,28 @@ Set up alarms for:
 - Health check failures
 - Database connection errors
 
-## Step 12: CI/CD Pipeline (Optional)
+## Step 7: CI/CD Pipeline
 
-Set up a CI/CD pipeline using AWS CodePipeline or GitHub Actions:
+The project includes a GitHub Actions workflow (`.github/workflows/cd.yml`) that automates the deployment process:
 
 1. **Build Stage**: Build Docker image on code push
-2. **Test Stage**: Run unit and integration tests
-3. **Push Stage**: Push image to ECR
-4. **Deploy Stage**: Update ECS service with new task definition
+2. **Test Stage**: Run unit and integration tests (triggered by CI workflow)
+3. **Push Stage**: Push image to ECR with both `latest` and commit SHA tags
+4. **Deploy Stage**: Deploy infrastructure with CDK and update ECS services
 
-Example GitHub Actions workflow:
+The workflow automatically:
+- Builds and pushes Docker images to ECR
+- Deploys/updates infrastructure using CDK
+- Forces new ECS service deployments to use the latest images
 
-```yaml
-name: Deploy to ECS
+**Required GitHub Secrets:**
+- `AWS_ACCESS_KEY_ID`: AWS access key with appropriate permissions
+- `AWS_SECRET_ACCESS_KEY`: AWS secret access key
+- `AWS_REGION`: AWS region (defaults to us-east-1 if not set)
 
-on:
-  push:
-    branches: [main]
+The workflow is triggered automatically when the CI workflow completes successfully on the `main` branch.
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-      - name: Build and push image
-        run: |
-          docker build -t farsight-server ./server
-          docker tag farsight-server:latest ${{ steps.login-ecr.outputs.registry }}/farsight-server:latest
-          docker push ${{ steps.login-ecr.outputs.registry }}/farsight-server:latest
-      - name: Update ECS service
-        run: |
-          aws ecs update-service --cluster farsight-cluster --service farsight-api-server --force-new-deployment
-          aws ecs update-service --cluster farsight-cluster --service farsight-worker --force-new-deployment
-```
-
-## Step 13: Deployment Verification
+## Step 8: Deployment Verification
 
 After deployment, verify:
 
@@ -562,28 +728,42 @@ After deployment, verify:
 
 ## Troubleshooting
 
-### Common Issues
+### CDK Deployment Issues
+
+- **CDK bootstrap required**: Run `cdk bootstrap` if you see bootstrap errors
+- **Permission errors**: Ensure your AWS credentials have sufficient permissions for all resources
+- **Stack already exists**: Use `cdk destroy` to remove existing stack before redeploying (be careful!)
+- **CloudFormation errors**: Check the CloudFormation console for detailed error messages
+
+### Common Runtime Issues
 
 1. **Tasks failing to start**: Check CloudWatch logs, verify secrets are accessible
 2. **Health check failures**: Verify security groups allow traffic, check application logs
 3. **Database connection errors**: Verify RDS security group, check credentials in Secrets Manager
-4. **High memory usage**: Increase task memory allocation or optimize application
+4. **High memory usage**: Increase task memory allocation in CDK stack or optimize application
 5. **Worker not processing tasks**: Verify Temporal connection, check worker logs
 
 ### Useful Commands
 
 ```bash
-# View service status
+# CDK Commands
+cdk synth                    # Generate CloudFormation template
+cdk deploy                   # Deploy stack
+cdk destroy                  # Destroy stack (careful!)
+cdk diff                     # Show differences between deployed and current stack
+cdk list                      # List all stacks
+
+# ECS Commands
 aws ecs describe-services --cluster farsight-cluster --services farsight-api-server
-
-# View running tasks
 aws ecs list-tasks --cluster farsight-cluster --service-name farsight-api-server
-
-# View task logs
-aws logs tail /ecs/farsight-api-server --follow
-
-# Force new deployment
 aws ecs update-service --cluster farsight-cluster --service farsight-api-server --force-new-deployment
+
+# View logs
+aws logs tail /ecs/farsight-api-server --follow
+aws logs tail /ecs/farsight-worker --follow
+
+# Get stack outputs
+aws cloudformation describe-stacks --stack-name FarsightStack --query 'Stacks[0].Outputs'
 ```
 
 ## Next Steps
