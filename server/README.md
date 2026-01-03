@@ -54,6 +54,117 @@ Schemas are provided in Excel files – you will need to write your own connecto
   - `POSTGRES_HOST`: Host endpoint for connecting to the postgres database
   - `POSTGRES_PORT`: Port number for connecting to the postgres database
 
+## Code Structure
+
+The following diagram illustrates the architecture and organization of the codebase in the `src/` directory:
+
+```mermaid
+graph TB
+    subgraph "API Layer"
+        API[api/api.py]
+        ROUTERS[api/routers]
+        MIDDLEWARE[api/middleware]
+        ROUTERS --> API
+        MIDDLEWARE --> API
+    end
+
+    subgraph "Agents"
+        AGENT_REGISTRY[agents/registry.py]
+        AGENT_ACQ[agents/acquisition]
+        AGENT_FUND[agents/funding_rounds]
+        AGENT_INV[agents/investor_analysis]
+        AGENT_ORG[agents/orchestration]
+        AGENT_ORGS[agents/organizations]
+        AGENT_SECT[agents/sector_trends]
+        AGENT_WEB[agents/web_search]
+        AGENT_REGISTRY --> AGENT_ACQ
+        AGENT_REGISTRY --> AGENT_FUND
+        AGENT_REGISTRY --> AGENT_INV
+        AGENT_REGISTRY --> AGENT_ORG
+        AGENT_REGISTRY --> AGENT_ORGS
+        AGENT_REGISTRY --> AGENT_SECT
+        AGENT_REGISTRY --> AGENT_WEB
+    end
+
+    subgraph "Core Components"
+        CORE_BASE[core/agent_base.py]
+        CORE_CTX[core/agent_context.py]
+        CORE_RESP[core/agent_response.py]
+    end
+
+    subgraph "Database Clients"
+        DB_PG[db/postgres_client.py]
+        DB_PC[db/pinecone_client.py]
+        DB_REDIS[db/redis_client.py]
+    end
+
+    subgraph "LLM"
+        LLM_CLIENT[llm/openai_client.py]
+    end
+
+    subgraph "Models"
+        MODEL_ACQ[models/acquisitions.py]
+        MODEL_FUND[models/funding_rounds.py]
+        MODEL_ORG[models/organizations.py]
+        MODEL_PC[models/pinecone_organizations.py]
+    end
+
+    subgraph "Tools"
+        TOOLS[tools/]
+    end
+
+    subgraph "Temporal Workflows"
+        TEMP_CLIENT[temporal/client.py]
+        TEMP_WORKER[temporal/worker.py]
+        TEMP_WORKFLOWS[temporal/workflows]
+        TEMP_ACTIVITIES[temporal/activities]
+        TEMP_PIPELINES[temporal/pipelines]
+        TEMP_WORKER --> TEMP_WORKFLOWS
+        TEMP_WORKER --> TEMP_ACTIVITIES
+        TEMP_CLIENT --> TEMP_WORKFLOWS
+    end
+
+    subgraph "Runtime"
+        RUNTIME_EXEC[runtime/executor.py]
+        RUNTIME_ASYNC[runtime/async_manager.py]
+        RUNTIME_TRACE[runtime/tracing.py]
+    end
+
+    subgraph "Configuration"
+        CONFIG[config.py]
+        CONFIGS[configs/agents]
+    end
+
+    subgraph "Contracts"
+        CONTRACT_AGENT[contracts/agent_io.py]
+        CONTRACT_TOOL[contracts/tool_io.py]
+    end
+
+    subgraph "Prompts"
+        PROMPTS[prompts/prompt_manager.py]
+    end
+
+    API --> TEMP_CLIENT
+    API --> AGENT_REGISTRY
+    AGENT_REGISTRY --> CORE_BASE
+    AGENT_REGISTRY --> TOOLS
+    CORE_BASE --> LLM_CLIENT
+    CORE_BASE --> DB_PG
+    CORE_BASE --> DB_PC
+    CORE_BASE --> PROMPTS
+    TOOLS --> DB_PG
+    TOOLS --> DB_PC
+    TOOLS --> MODEL_ACQ
+    TOOLS --> MODEL_FUND
+    TOOLS --> MODEL_ORG
+    TOOLS --> MODEL_PC
+    TEMP_ACTIVITIES --> AGENT_REGISTRY
+    TEMP_ACTIVITIES --> TOOLS
+    RUNTIME_EXEC --> AGENT_REGISTRY
+    CONFIG --> API
+    CONFIG --> TEMP_CLIENT
+```
+
 ## Setup
 
 1. **Create and activate a virtual environment**
