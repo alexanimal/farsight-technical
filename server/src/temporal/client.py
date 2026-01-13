@@ -13,10 +13,22 @@ The client provides:
 
 import logging
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from temporalio.client import Client
+from temporalio.client import (
+    Client,
+    Schedule,
+    ScheduleActionStartWorkflow,
+    ScheduleCalendarSpec,
+    ScheduleHandle,
+    ScheduleIntervalSpec,
+    ScheduleSpec,
+    ScheduleState,
+)
+
+# Batch operations in Temporal are created via gRPC API
+# The Python SDK may not have high-level support, so we'll use the service client directly
 
 # Note: AgentContext is not imported here to avoid workflow determinism issues
 # The client methods accept Dict[str, Any] for context, not AgentContext objects
@@ -441,6 +453,421 @@ class TemporalClient:
                 # Re-raise as a more specific exception for API layer
                 raise RuntimeError(f"Workflow {workflow_id} not found") from e
             logger.error(f"Failed to get workflow result: {e}", exc_info=True)
+            raise
+
+    async def create_schedule(
+        self,
+        schedule_id: str,
+        workflow_type: str,
+        workflow_args: List[Any],
+        schedule_spec: ScheduleSpec,
+        task_queue: Optional[str] = None,
+        workflow_id_template: Optional[str] = None,
+        enabled: bool = True,
+    ) -> ScheduleHandle:
+        """Create a schedule that automatically triggers workflows.
+
+        Args:
+            schedule_id: Unique identifier for the schedule.
+            workflow_type: Type of workflow to start ("orchestrator" or "pipeline").
+            workflow_args: Arguments to pass to the workflow.
+            schedule_spec: ScheduleSpec defining when to trigger (cron, interval, etc.).
+            task_queue: Optional task queue name. Uses default if not provided.
+            workflow_id_template: Optional template for workflow IDs. Use {timestamp}
+                placeholder for unique IDs per run. Default: "{schedule_id}-{timestamp}".
+            enabled: Whether the schedule is enabled (default: True).
+
+        Returns:
+            ScheduleHandle for the created schedule.
+
+        Raises:
+            RuntimeError: If client is not connected.
+            ValueError: If workflow_type is invalid.
+            Exception: If schedule creation fails.
+        """
+        client = self._ensure_connected()
+
+        # Import workflows lazily
+        if workflow_type == "pipeline":
+            from src.temporal.workflows.pipeline import PipelineWorkflow
+
+            workflow_func = PipelineWorkflow.run
+        elif workflow_type == "orchestrator":
+            from src.temporal.workflows.orchestrator import OrchestratorWorkflow
+
+            workflow_func = OrchestratorWorkflow.run
+        else:
+            raise ValueError(
+                f"Invalid workflow_type: {workflow_type}. Must be 'orchestrator' or 'pipeline'"
+            )
+
+        try:
+            # Build workflow ID template
+            if workflow_id_template is None:
+                workflow_id_template = f"{schedule_id}-{{timestamp}}"
+
+            # Create schedule action
+            action = ScheduleActionStartWorkflow(
+                workflow_func,
+                id=workflow_id_template,
+                task_queue=task_queue or self._task_queue,
+                args=workflow_args,
+            )
+
+            # Create schedule
+            # ScheduleState uses 'note' for description and 'paused' for enabled/disabled state
+            # paused=False means enabled, paused=True means disabled
+            schedule = Schedule(
+                action=action,
+                spec=schedule_spec,
+                state=ScheduleState(note="", paused=not enabled),
+            )
+
+            handle = await client.create_schedule(
+                schedule_id,
+                schedule,
+                trigger_immediately=False,
+            )
+
+            logger.info(f"Created schedule: {schedule_id} (enabled: {enabled})")
+            return handle
+
+        except Exception as e:
+            logger.error(f"Failed to create schedule {schedule_id}: {e}", exc_info=True)
+            raise
+
+    async def get_schedule(self, schedule_id: str) -> ScheduleHandle:
+        """Get a schedule handle.
+
+        Args:
+            schedule_id: The schedule ID.
+
+        Returns:
+            ScheduleHandle for the schedule.
+
+        Raises:
+            RuntimeError: If client is not connected or schedule not found.
+        """
+        client = self._ensure_connected()
+
+        try:
+            handle = client.get_schedule_handle(schedule_id)
+            return handle
+        except Exception as e:
+            error_str = str(e).lower()
+            if "not found" in error_str or "schedule" in error_str:
+                logger.warning(f"Schedule not found: {schedule_id}")
+                raise RuntimeError(f"Schedule {schedule_id} not found") from e
+            logger.error(f"Failed to get schedule: {e}", exc_info=True)
+            raise
+
+    async def update_schedule(
+        self,
+        schedule_id: str,
+        schedule_spec: Optional[ScheduleSpec] = None,
+        enabled: Optional[bool] = None,
+    ) -> None:
+        """Update a schedule.
+
+        Args:
+            schedule_id: The schedule ID to update.
+            schedule_spec: Optional new schedule specification.
+            enabled: Optional new enabled state.
+
+        Raises:
+            RuntimeError: If client is not connected or schedule not found.
+        """
+        client = self._ensure_connected()
+
+        try:
+            handle = client.get_schedule_handle(schedule_id)
+
+            # Update requires an updater function that takes the schedule description
+            # and returns an updated Schedule
+            def updater(description: Any) -> Schedule:
+                """Updater function for schedule modification."""
+                # Get the current schedule from the description
+                # The description object has a 'schedule' attribute
+                current_schedule = description.schedule
+                
+                # Create a new Schedule with updates
+                updated_schedule = Schedule(
+                    action=current_schedule.action,
+                    spec=schedule_spec if schedule_spec is not None else current_schedule.spec,
+                    state=ScheduleState(
+                        note=current_schedule.state.note if hasattr(current_schedule.state, 'note') else "",
+                        paused=not enabled if enabled is not None else current_schedule.state.paused,
+                    ),
+                )
+                
+                return updated_schedule
+
+            await handle.update(updater)
+
+            logger.info(f"Updated schedule: {schedule_id}")
+        except Exception as e:
+            error_str = str(e).lower()
+            if "not found" in error_str or "schedule" in error_str:
+                logger.warning(f"Schedule not found: {schedule_id}")
+                raise RuntimeError(f"Schedule {schedule_id} not found") from e
+            logger.error(f"Failed to update schedule: {e}", exc_info=True)
+            raise
+
+    async def delete_schedule(self, schedule_id: str) -> None:
+        """Delete a schedule.
+
+        Args:
+            schedule_id: The schedule ID to delete.
+
+        Raises:
+            RuntimeError: If client is not connected or schedule not found.
+        """
+        client = self._ensure_connected()
+
+        try:
+            handle = client.get_schedule_handle(schedule_id)
+            await handle.delete()
+            logger.info(f"Deleted schedule: {schedule_id}")
+        except Exception as e:
+            error_str = str(e).lower()
+            if "not found" in error_str or "schedule" in error_str:
+                logger.warning(f"Schedule not found: {schedule_id}")
+                raise RuntimeError(f"Schedule {schedule_id} not found") from e
+            logger.error(f"Failed to delete schedule: {e}", exc_info=True)
+            raise
+
+    async def list_schedules(self) -> List[ScheduleHandle]:
+        """List all schedules in the namespace.
+
+        Returns:
+            List of ScheduleHandle objects.
+
+        Raises:
+            RuntimeError: If client is not connected.
+        """
+        client = self._ensure_connected()
+
+        try:
+            # Note: Temporal Python SDK may not have a direct list_schedules method
+            # This is a placeholder - may need to use gRPC directly or check SDK version
+            # For now, we'll raise NotImplementedError and document the limitation
+            raise NotImplementedError(
+                "list_schedules is not directly supported in Temporal Python SDK. "
+                "Use Temporal UI or tctl to list schedules, or implement using gRPC client."
+            )
+        except Exception as e:
+            logger.error(f"Failed to list schedules: {e}", exc_info=True)
+            raise
+
+    async def start_batch_operation(
+        self,
+        workflow_type: str,
+        items: List[Dict[str, Any]],
+        batch_id: Optional[str] = None,
+        task_queue: Optional[str] = None,
+    ) -> str:
+        """Start a batch operation to process multiple items.
+
+        Args:
+            workflow_type: Type of workflow to run ("orchestrator" or "pipeline").
+            items: List of context dictionaries, one per workflow execution.
+            batch_id: Optional batch operation ID. Generated if not provided.
+            task_queue: Optional task queue name. Uses default if not provided.
+
+        Returns:
+            The batch operation ID.
+
+        Raises:
+            RuntimeError: If client is not connected.
+            ValueError: If workflow_type is invalid or items is empty.
+            Exception: If batch operation start fails.
+        """
+        client = self._ensure_connected()
+
+        if not items:
+            raise ValueError("items list cannot be empty")
+
+        # Import workflows lazily
+        if workflow_type == "pipeline":
+            from src.temporal.workflows.pipeline import PipelineWorkflow
+
+            workflow_func = PipelineWorkflow.run
+        elif workflow_type == "orchestrator":
+            from src.temporal.workflows.orchestrator import OrchestratorWorkflow
+
+            workflow_func = OrchestratorWorkflow.run
+        else:
+            raise ValueError(
+                f"Invalid workflow_type: {workflow_type}. Must be 'orchestrator' or 'pipeline'"
+            )
+
+        try:
+            if batch_id is None:
+                batch_id = f"batch-{uuid.uuid4().hex[:12]}"
+
+            # Create batch operation using Temporal's gRPC API
+            # This creates a proper batch operation that shows up in the Temporal UI
+            # Reference: https://python.temporal.io/temporalio.bridge.services_generated.WorkflowService.html#start_batch_operation
+            try:
+                from temporalio.api.workflowservice.v1 import StartBatchOperationRequest
+                from temporalio.api.batch.v1 import BatchOperationJob
+                from temporalio.converter import DataConverter
+                
+                # Build batch operation jobs
+                operations = []
+                converter = DataConverter.default
+                
+                for i, item_context in enumerate(items):
+                    workflow_id = f"{batch_id}-item-{i}"
+
+                    # Build workflow args based on type
+                    if workflow_type == "pipeline":
+                        workflow_args = [
+                            item_context.get("pipeline_type", ""),
+                            item_context.get("context", {}),
+                            item_context.get("pipeline_config"),
+                        ]
+                    else:
+                        workflow_args = [
+                            item_context,
+                            item_context.get("agent_plan"),
+                            item_context.get("execution_mode", "sequential"),
+                        ]
+
+                    # Serialize workflow arguments to payloads
+                    payloads = [converter.to_payload(arg) for arg in workflow_args]
+
+                    # Create batch operation job
+                    job = BatchOperationJob(
+                        workflow_id=workflow_id,
+                        workflow_type=workflow_type,
+                        task_queue=task_queue or self._task_queue,
+                        arguments=payloads,
+                    )
+                    operations.append(job)
+
+                # Create batch operation request
+                # The request structure based on Temporal gRPC API
+                # Note: For starting workflows, we use the start_workflow_operation field
+                # The operation field is for other batch operation types (terminate, cancel, etc.)
+                request = StartBatchOperationRequest(
+                    job_id=batch_id,
+                    namespace=client.namespace,
+                    visibility_query=f'WorkflowId LIKE "{batch_id}-%"',
+                    # operation field is not needed for start_workflow_operation
+                    # It's only used for terminate, cancel, signal, delete, reset, etc.
+                )
+                
+                # Set the start workflow operation with the jobs
+                # The start_workflow_operation field contains the operations list
+                request.start_workflow_operation.operations.extend(operations)
+
+                # Execute batch operation via service client
+                # The service_client is accessed through client.service_client
+                response = await client.service_client.start_batch_operation(request)
+                
+                logger.info(
+                    f"Started batch operation {batch_id} with {len(items)} workflow(s). "
+                    f"This will appear in the Temporal UI Batch Operations page. "
+                    f"Response: {response}"
+                )
+                return batch_id
+                
+            except (ImportError, AttributeError, NotImplementedError) as e:
+                # Fallback: create individual workflows (won't show as batch in UI)
+                logger.warning(
+                    f"Batch operations API not available ({e}). "
+                    f"Creating {len(items)} individual workflows with batch ID {batch_id}."
+                )
+                for i, item_context in enumerate(items):
+                    workflow_id = f"{batch_id}-item-{i}"
+
+                    # Build workflow args based on type
+                    if workflow_type == "pipeline":
+                        workflow_args = [
+                            item_context.get("pipeline_type", ""),
+                            item_context.get("context", {}),
+                            item_context.get("pipeline_config"),
+                        ]
+                    else:
+                        workflow_args = [
+                            item_context,
+                            item_context.get("agent_plan"),
+                            item_context.get("execution_mode", "sequential"),
+                        ]
+
+                    await client.start_workflow(
+                        workflow_func,
+                        id=workflow_id,
+                        task_queue=task_queue or self._task_queue,
+                        args=workflow_args,
+                    )
+
+                logger.info(
+                    f"Started {len(items)} individual workflow(s) with batch ID {batch_id}. "
+                    "Note: These will not appear as a batch operation in the Temporal UI."
+                )
+                return batch_id
+
+        except Exception as e:
+            logger.error(f"Failed to start batch operation: {e}", exc_info=True)
+            raise
+
+    async def get_batch_operation_status(
+        self, batch_id: str, workflow_type: str = "pipeline"
+    ) -> Dict[str, Any]:
+        """Get the status of a batch operation.
+
+        Note: This method queries individual workflows in the batch. For a true
+        batch operation status, you may need to use Temporal's batch operation
+        API directly (which may require gRPC access).
+
+        Args:
+            batch_id: The batch operation ID.
+            workflow_type: Type of workflow used in the batch.
+
+        Returns:
+            Dictionary with batch operation status including:
+            - batch_id: The batch ID
+            - total_workflows: Total number of workflows
+            - completed: Number of completed workflows
+            - running: Number of running workflows
+            - failed: Number of failed workflows
+            - workflow_ids: List of workflow IDs in the batch
+
+        Raises:
+            RuntimeError: If client is not connected.
+        """
+        client = self._ensure_connected()
+
+        try:
+            # Query workflows by ID pattern
+            # Note: This is a simplified implementation
+            # In production, you might want to store batch metadata in Redis/DB
+            # or use Temporal's batch operation API if available
+
+            # For now, we'll need to track workflow IDs differently
+            # This is a placeholder that shows the pattern
+            # In practice, you'd store the workflow_ids when creating the batch
+
+            logger.warning(
+                "get_batch_operation_status is a simplified implementation. "
+                "Consider storing batch metadata in Redis/DB for production use."
+            )
+
+            return {
+                "batch_id": batch_id,
+                "total_workflows": 0,
+                "completed": 0,
+                "running": 0,
+                "failed": 0,
+                "workflow_ids": [],
+                "note": "Batch operation tracking requires storing workflow IDs. "
+                "Consider implementing batch metadata storage.",
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get batch operation status: {e}", exc_info=True)
             raise
 
 

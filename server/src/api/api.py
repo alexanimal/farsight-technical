@@ -11,7 +11,20 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from src.api.middleware import setup_cors, setup_error_handlers
-from src.api.routers import tasks
+
+logger = logging.getLogger(__name__)
+
+# Import routers with error handling
+try:
+    from src.api.routers import batch, tasks
+    logger.info("Successfully imported batch and tasks routers")
+except ImportError as e:
+    logger.error(f"Failed to import routers: {e}", exc_info=True)
+    raise
+
+# Verify batch router is available
+if not hasattr(batch, "router"):
+    raise ImportError("batch.router not found - check batch.py for router definition")
 from src.db import close_redis_client, get_redis_client
 from src.temporal import (
     DEFAULT_TASK_QUEUE,
@@ -20,8 +33,6 @@ from src.temporal import (
     close_client,
     get_client,
 )
-
-logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -103,7 +114,30 @@ setup_cors(app)
 setup_error_handlers(app)
 
 # Include routers
-app.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
+logger.info("Starting router registration...")
+logger.info(f"Batch router object: {batch.router}")
+logger.info(f"Batch router routes before registration: {len(batch.router.routes)}")
+for route in batch.router.routes:
+    logger.info(f"  - {route.methods if hasattr(route, 'methods') else 'N/A'} {route.path if hasattr(route, 'path') else 'N/A'}")
+
+try:
+    app.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
+    logger.info(f"Registered tasks router with {len(tasks.router.routes)} route(s)")
+except Exception as e:
+    logger.error(f"Failed to register tasks router: {e}", exc_info=True)
+    raise
+
+try:
+    app.include_router(batch.router, prefix="/batch", tags=["batch"])
+    logger.info(f"Registered batch router with {len(batch.router.routes)} route(s)")
+    # Log all registered routes in the app
+    logger.info(f"Total app routes after batch registration: {len(app.routes)}")
+    for route in app.routes:
+        if hasattr(route, 'path') and '/batch' in route.path:
+            logger.info(f"  Batch route: {route.methods if hasattr(route, 'methods') else 'N/A'} {route.path}")
+except Exception as e:
+    logger.error(f"Failed to register batch router: {e}", exc_info=True)
+    raise
 
 
 @app.get("/")
